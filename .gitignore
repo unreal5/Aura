@@ -19,4 +19,4 @@ Build
 *.vsconfig
 *.xcodeproj
 *.xcworkspace
-*.DotSettings.user
+*.uproject.DotSettings.user
