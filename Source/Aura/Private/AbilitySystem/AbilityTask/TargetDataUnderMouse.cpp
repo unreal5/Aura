@@ -23,20 +23,35 @@ void UTargetDataUnderMouse::Activate()
 	{
 		auto SpecHandle = GetAbilitySpecHandle();
 		FPredictionKey PredictionKey = GetActivationPredictionKey();
-		
-		auto&& TargetDataSetDelegate = AbilitySystemComponent.Get()->AbilityTargetDataSetDelegate(SpecHandle, PredictionKey);
-		TargetDataSetDelegate.AddLambda([this](const FGameplayAbilityTargetDataHandle& DataHandle, FGameplayTag GameplayTag)
-        {
-            ValidData.Broadcast(DataHandle);
-        });
-		AbilitySystemComponent.Get()->CallReplicatedTargetDataDelegatesIfSet(SpecHandle, PredictionKey);
-	}
 
+		auto&& TargetDataSetDelegate = AbilitySystemComponent.Get()->AbilityTargetDataSetDelegate(
+			SpecHandle, PredictionKey);
+		TargetDataSetDelegate.AddLambda(
+			[this, PredictionKey](const FGameplayAbilityTargetDataHandle& DataHandle, FGameplayTag GameplayTag)
+			{
+				// 不用再保存DataHandle
+				AbilitySystemComponent->ConsumeClientReplicatedTargetData(GetAbilitySpecHandle(), PredictionKey);
+				if (ShouldBroadcastAbilityTaskDelegates())
+				{
+					ValidData.Broadcast(DataHandle);
+				}
+
+				// bool bHasAuthority = AbilitySystemComponent->GetAvatarActor()->HasAuthority();
+				// FString Msg =bHasAuthority?TEXT("Server"):TEXT("Client");
+				// UE_LOG(LogTemp, Warning,TEXT("%s"), *Msg );
+			});
+		const bool bCalledDelegate = AbilitySystemComponent.Get()->CallReplicatedTargetDataDelegatesIfSet(
+			SpecHandle, PredictionKey);
+		// 如果Target Data没有到达，那么我们就等待
+		if (!bCalledDelegate)
+		{
+			SetWaitingOnRemotePlayerData();
+		}
+	}
 }
 
 void UTargetDataUnderMouse::SendMouseCursorData()
 {
-	
 	auto PC = Ability->GetCurrentActorInfo()->PlayerController.Get();
 	if (!PC) return;
 
@@ -50,7 +65,6 @@ void UTargetDataUnderMouse::SendMouseCursorData()
 	                                                      DataHandle, FGameplayTag{},
 	                                                      AbilitySystemComponent->ScopedPredictionKey);
 
-	//
 	if (ShouldBroadcastAbilityTaskDelegates())
 	{
 		ValidData.Broadcast(DataHandle);
