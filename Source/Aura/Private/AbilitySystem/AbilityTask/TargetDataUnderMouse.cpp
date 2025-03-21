@@ -3,6 +3,8 @@
 
 #include "AbilitySystem/AbilityTask/TargetDataUnderMouse.h"
 #include "AbilitySystemComponent.h"
+#include "Kismet/GameplayStatics.h"
+#include "Kismet/KismetMathLibrary.h"
 
 UTargetDataUnderMouse* UTargetDataUnderMouse::CreateTargetDataUnderMouseProxy(UGameplayAbility* OwningAbility)
 {
@@ -13,7 +15,10 @@ UTargetDataUnderMouse* UTargetDataUnderMouse::CreateTargetDataUnderMouseProxy(UG
 void UTargetDataUnderMouse::Activate()
 {
 	// Super::Activate();
-
+	// 测试，启动TickTask
+	// bTickingTask = true;
+	
+	
 	const bool bIsLocallyControlled = Ability->GetCurrentActorInfo()->IsLocallyControlled();
 	if (bIsLocallyControlled)
 	{
@@ -33,6 +38,7 @@ void UTargetDataUnderMouse::Activate()
 				AbilitySystemComponent->ConsumeClientReplicatedTargetData(GetAbilitySpecHandle(), PredictionKey);
 				if (ShouldBroadcastAbilityTaskDelegates())
 				{
+					UE_LOG(LogTemp, Warning, TEXT("没有移除消除会不会重复？"));
 					ValidData.Broadcast(DataHandle);
 				}
 
@@ -69,4 +75,11 @@ void UTargetDataUnderMouse::SendMouseCursorData()
 	{
 		ValidData.Broadcast(DataHandle);
 	}
+}
+
+void UTargetDataUnderMouse::TickTask(float DeltaTime)
+{
+	float Delta = GetWorld()->GetTimeSeconds();
+	int64 CurrentFrame = UKismetSystemLibrary::GetFrameCount();
+	UE_LOG(LogTemp, Warning, TEXT("Current Frame: %ld, time = %f"), CurrentFrame, Delta);
 }
