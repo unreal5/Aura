@@ -3,8 +3,6 @@
 
 #include "AbilitySystem/AbilityTask/TargetDataUnderMouse.h"
 #include "AbilitySystemComponent.h"
-#include "Kismet/GameplayStatics.h"
-#include "Kismet/KismetMathLibrary.h"
 
 UTargetDataUnderMouse* UTargetDataUnderMouse::CreateTargetDataUnderMouseProxy(UGameplayAbility* OwningAbility)
 {
@@ -14,42 +12,28 @@ UTargetDataUnderMouse* UTargetDataUnderMouse::CreateTargetDataUnderMouseProxy(UG
 
 void UTargetDataUnderMouse::Activate()
 {
-	// Super::Activate();
-	// 测试，启动TickTask
-	// bTickingTask = true;
-	
-	
-	const bool bIsLocallyControlled = Ability->GetCurrentActorInfo()->IsLocallyControlled();
-	if (bIsLocallyControlled)
+	// 如果本机控制，说明是由我们主动激活，在本机运行。
+	if (IsLocallyControlled())
 	{
 		SendMouseCursorData();
 	}
 	else
 	{
+		// Ability Task 只能在Owner 客户端和服务器运行。如果不是本机激活，则只可能是服务器。当然本机激活也可能存在是服务器的情况。
+		// 综上，非本机控制激活，一定位于服务器。
+		check(Ability->GetCurrentActorInfo()->IsNetAuthority());
+
 		auto SpecHandle = GetAbilitySpecHandle();
-		FPredictionKey PredictionKey = GetActivationPredictionKey();
+		auto ActivationPKey = GetActivationPredictionKey();
 
-		auto&& TargetDataSetDelegate = AbilitySystemComponent.Get()->AbilityTargetDataSetDelegate(
-			SpecHandle, PredictionKey);
-		TargetDataSetDelegate.AddLambda(
-			[this, PredictionKey](const FGameplayAbilityTargetDataHandle& DataHandle, FGameplayTag GameplayTag)
-			{
-				// 不用再保存DataHandle
-				AbilitySystemComponent->ConsumeClientReplicatedTargetData(GetAbilitySpecHandle(), PredictionKey);
-				if (ShouldBroadcastAbilityTaskDelegates())
-				{
-					UE_LOG(LogTemp, Warning, TEXT("没有移除消除会不会重复？"));
-					ValidData.Broadcast(DataHandle);
-				}
+		UAbilitySystemComponent* ASC = AbilitySystemComponent.Get();
+		auto&& tdsDelegate = ASC->AbilityTargetDataSetDelegate(SpecHandle, ActivationPKey);
+		tdsDelegate.AddUObject(this, &UTargetDataUnderMouse::OnTargetDataReplicatedCallback);
 
-				// bool bHasAuthority = AbilitySystemComponent->GetAvatarActor()->HasAuthority();
-				// FString Msg =bHasAuthority?TEXT("Server"):TEXT("Client");
-				// UE_LOG(LogTemp, Warning,TEXT("%s"), *Msg );
-			});
-		const bool bCalledDelegate = AbilitySystemComponent.Get()->CallReplicatedTargetDataDelegatesIfSet(
-			SpecHandle, PredictionKey);
-		// 如果Target Data没有到达，那么我们就等待
-		if (!bCalledDelegate)
+		// 如果Target Data已经到达，那么我们就直接调用委托。
+		const bool bCalledDelegate = ASC->CallReplicatedTargetDataDelegatesIfSet(SpecHandle, ActivationPKey);
+
+		if (!bCalledDelegate) // 如果Target Data没有到达，那么我们就等待
 		{
 			SetWaitingOnRemotePlayerData();
 		}
@@ -58,28 +42,44 @@ void UTargetDataUnderMouse::Activate()
 
 void UTargetDataUnderMouse::SendMouseCursorData()
 {
+	UAbilitySystemComponent* ASC = AbilitySystemComponent.Get();
+	if (!ASC) return;
+
 	auto PC = Ability->GetCurrentActorInfo()->PlayerController.Get();
 	if (!PC) return;
 
-	FScopedPredictionWindow PredictionWindow{AbilitySystemComponent.Get()};
+	FScopedPredictionWindow PredictionWindow{ASC};
+
 
 	auto Data = new FGameplayAbilityTargetData_SingleTargetHit();
 	PC->GetHitResultUnderCursor(ECC_Visibility, false, Data->HitResult);
 	FGameplayAbilityTargetDataHandle DataHandle;
 	DataHandle.Add(Data);
-	AbilitySystemComponent->ServerSetReplicatedTargetData(GetAbilitySpecHandle(), GetActivationPredictionKey(),
-	                                                      DataHandle, FGameplayTag{},
-	                                                      AbilitySystemComponent->ScopedPredictionKey);
 
+	// 对于客户端，需要向服务器发送TargetData
+	// 测试目的：退出Task，看看是否会导致TargetData丢失。
+	if (!Ability->GetCurrentActorInfo()->IsNetAuthority())
+	{
+		ASC->ServerSetReplicatedTargetData(GetAbilitySpecHandle(), GetActivationPredictionKey(), DataHandle,
+		                                   FGameplayTag{}, ASC->ScopedPredictionKey
+		);
+	}
+
+	// 如果Ability 没有位于激活状态，会阻止广播。因此需要以下检测。
 	if (ShouldBroadcastAbilityTaskDelegates())
 	{
 		ValidData.Broadcast(DataHandle);
 	}
+	
 }
 
-void UTargetDataUnderMouse::TickTask(float DeltaTime)
+void UTargetDataUnderMouse::OnTargetDataReplicatedCallback(const FGameplayAbilityTargetDataHandle& DataHandle,
+                                                           FGameplayTag GameplayTag)
 {
-	float Delta = GetWorld()->GetTimeSeconds();
-	int64 CurrentFrame = UKismetSystemLibrary::GetFrameCount();
-	UE_LOG(LogTemp, Warning, TEXT("Current Frame: %ld, time = %f"), CurrentFrame, Delta);
+	if (ShouldBroadcastAbilityTaskDelegates())
+	{
+		ValidData.Broadcast(DataHandle);
+	}
+	AbilitySystemComponent.Get()->ConsumeClientReplicatedTargetData(GetAbilitySpecHandle(),
+	                                                                GetActivationPredictionKey());
 }
