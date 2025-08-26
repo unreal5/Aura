@@ -16,6 +16,7 @@ class AURA_API AAuraPlayerController : public APlayerController
 
 public:
 	AAuraPlayerController();
+	virtual void PlayerTick(float DeltaTime) override;
 
 protected:
 	virtual void BeginPlay() override;
@@ -24,7 +25,13 @@ protected:
 private:
 	UPROPERTY(EditDefaultsOnly, Category="输入")
 	TObjectPtr<class UInputMappingContext> AuraContext;
-	
+
 	UPROPERTY(EditDefaultsOnly, Category="输入")
 	TObjectPtr<class UInputAction> MoveAction;
+
+	void CursorTrace();
+	UPROPERTY()
+	AActor* LastActor = nullptr;
+	UPROPERTY()
+	AActor* ThisActor = nullptr;
 };

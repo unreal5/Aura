@@ -5,10 +5,18 @@
 
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
+#include "InterAction/EnemyInterface.h"
 
 AAuraPlayerController::AAuraPlayerController()
 {
 	bReplicates = true;
+}
+
+void AAuraPlayerController::PlayerTick(float DeltaTime)
+{
+	Super::PlayerTick(DeltaTime);
+
+	CursorTrace();
 }
 
 void AAuraPlayerController::BeginPlay()
@@ -53,4 +61,28 @@ void AAuraPlayerController::SetupInputComponent()
 		}
 	};
 	EnhancedInputComponent->BindActionValueLambda(MoveAction, ETriggerEvent::Triggered, MoveFunctor);
+}
+
+void AAuraPlayerController::CursorTrace()
+{
+	FHitResult CursorHitResult;
+	GetHitResultUnderCursor(ECC_Visibility, false, CursorHitResult);
+
+	if (!CursorHitResult.bBlockingHit) return;
+
+	// 基本算法是记录当前高亮和前一帧高亮的敌人，如果不同则取消前一帧的高亮，如果相同则不操作
+	// 对于相同的情况，如果都是空则不操作（一个有趣的设计原则：假设前面做的都是正确的，那么就不需要再做一次）
+	LastActor = ThisActor;
+	ThisActor = CursorHitResult.GetActor();
+	if (ThisActor == LastActor) return;
+
+	// 不相等的情况，取消前一帧的高亮，高亮当前帧。
+	if (LastActor && LastActor->Implements<UEnemyInterface>())
+	{
+		IEnemyInterface::Execute_UnHighlightActor(LastActor);
+	}
+	if (ThisActor && ThisActor->Implements<UEnemyInterface>())
+	{
+		IEnemyInterface::Execute_HighlightActor(ThisActor);
+	}
 }
