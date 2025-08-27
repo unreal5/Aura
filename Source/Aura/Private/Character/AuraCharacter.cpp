@@ -3,9 +3,11 @@
 
 #include "Character/AuraCharacter.h"
 
+#include "AbilitySystemComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "Player/AuraPlayerState.h"
 
 AAuraCharacter::AAuraCharacter()
 {
@@ -21,7 +23,7 @@ AAuraCharacter::AAuraCharacter()
 	SpringArm->bInheritPitch = false;
 	SpringArm->bInheritRoll = false;
 	SpringArm->bInheritYaw = false;
-	
+
 	ViewCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("ViewCamera"));
 	ViewCamera->SetupAttachment(SpringArm, USpringArmComponent::SocketName);
 
@@ -37,5 +39,34 @@ AAuraCharacter::AAuraCharacter()
 	// 强制在平面移动
 	GetCharacterMovement()->bConstrainToPlane = true;
 	GetCharacterMovement()->bSnapToPlaneAtStart = true;
-	
+}
+
+// 客户端调用
+void AAuraCharacter::OnRep_PlayerState()
+{
+	Super::OnRep_PlayerState();
+
+	InitAbilityActorInfo();
+}
+
+// 服务器端调用
+void AAuraCharacter::PossessedBy(AController* NewController)
+{
+	Super::PossessedBy(NewController);
+
+	InitAbilityActorInfo();
+}
+
+void AAuraCharacter::InitAbilityActorInfo()
+{
+	auto AuraPlayerState = GetPlayerState<AAuraPlayerState>();
+	check(AuraPlayerState);
+
+	AbilitySystemComponent = AuraPlayerState->GetAbilitySystemComponent();
+	check(AbilitySystemComponent);
+
+	AbilitySystemComponent->InitAbilityActorInfo(AuraPlayerState, this);
+
+	AttributeSet = AuraPlayerState->GetAttributeSet();
+	check(AttributeSet);
 }

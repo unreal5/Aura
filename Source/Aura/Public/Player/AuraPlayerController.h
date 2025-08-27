@@ -21,7 +21,6 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	virtual void SetupInputComponent() override;
-
 private:
 	UPROPERTY(EditDefaultsOnly, Category="输入")
 	TObjectPtr<class UInputMappingContext> AuraContext;
@@ -30,6 +29,8 @@ private:
 	TObjectPtr<class UInputAction> MoveAction;
 
 	void CursorTrace();
+
+private:
 	UPROPERTY()
 	AActor* LastActor = nullptr;
 	UPROPERTY()
