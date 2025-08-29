@@ -8,6 +8,7 @@
 #include "Components/OverlaySlot.h"
 #include "Components/ProgressBar.h"
 #include "Components/SizeBox.h"
+#include "Components/TextBlock.h"
 
 void UGlobeProgressBar::NativePreConstruct()
 {
@@ -18,6 +19,18 @@ void UGlobeProgressBar::NativePreConstruct()
 	UpdateGlobePadding();
 	UpdateGlassBrush();
 	UpdateGlassPadding();
+}
+
+void UGlobeProgressBar::SetProgressBarPercent(float InPercent)
+{
+	if (ProgressBar_Globe)
+	{
+		ProgressBar_Globe->SetPercent(InPercent);
+	}
+	if (Text_Info)
+	{
+		Text_Info->SetText(FText::FromString(FString::Printf(TEXT("%.0f%%"), InPercent * 100.f)));
+	}
 }
 
 void UGlobeProgressBar::UpdateSizeBox() const

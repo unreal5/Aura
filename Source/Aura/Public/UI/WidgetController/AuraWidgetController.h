@@ -43,6 +43,8 @@ class AURA_API UAuraWidgetController : public UObject
 public:
 	UFUNCTION(BlueprintCallable)
 	void SetWidgetControllerParameters(const FWidgetControllerParameters& InParameters);
+
+	virtual void BroadcastInitialValues() {}
 protected:
 	// 从以下依赖中收集数据
 	UPROPERTY(BlueprintReadOnly, Category="WidgetController")

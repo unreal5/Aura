@@ -6,6 +6,7 @@
 #include "UI/Widget/AuraUserWidget.h"
 #include "GlobeProgressBar.generated.h"
 
+class UTextBlock;
 class UProgressBar;
 class UImage;
 class USizeBox;
@@ -53,6 +54,12 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Globe属性")
 	FSlateBrush GlassBrush;
 
+	// info
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, meta=(BindWidget))
+	TObjectPtr<UTextBlock> Text_Info;
+protected:
+	UFUNCTION(BlueprintCallable)
+	void SetProgressBarPercent(float InPercent);
 private:
 	void UpdateSizeBox() const;
 	void UpdateBackground() const;
