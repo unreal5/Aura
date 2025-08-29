@@ -8,10 +8,7 @@
 
 class UAttributeSet;
 class UAbilitySystemComponent;
-/**
- * Controller 负责处理逻辑，目前关注以下类型
- * ASC,AttributeSet,PlayerState及PlayerController
- */
+
 USTRUCT(BlueprintType)
 struct FWidgetControllerParameters
 {
@@ -35,7 +32,10 @@ struct FWidgetControllerParameters
 	UPROPERTY(BlueprintReadOnly, Category="WidgetController")
 	TObjectPtr<UAttributeSet> AttributeSet = nullptr;
 };
-
+/**
+ * Controller 负责处理逻辑，目前关注以下类型
+ * ASC,AttributeSet,PlayerState及PlayerController
+ */
 UCLASS()
 class AURA_API UAuraWidgetController : public UObject
 {

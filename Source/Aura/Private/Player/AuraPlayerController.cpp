@@ -24,6 +24,8 @@ void AAuraPlayerController::PlayerTick(float DeltaTime)
 void AAuraPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
+	if (!IsLocalController()) return;
+	// 输入和UI交互方式只与本地玩家相关
 	if (AuraContext)
 	{
 		if (auto Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))

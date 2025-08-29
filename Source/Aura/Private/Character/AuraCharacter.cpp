@@ -8,6 +8,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Player/AuraPlayerState.h"
+#include "UI/HUD/AuraHUD.h"
 
 AAuraCharacter::AAuraCharacter()
 {
@@ -69,4 +70,17 @@ void AAuraCharacter::InitAbilityActorInfo()
 
 	AttributeSet = AuraPlayerState->GetAttributeSet();
 	check(AttributeSet);
+
+	// 初始化HUD。InitAbilityActorInfo会被客户端OnRep_PlayerState()调用多次（每个玩家状态都会复制）
+	// 而HUD只有本机玩家（local player)才能看到，所以只在本机玩家调用
+	if (IsLocallyControlled())
+	{
+		APlayerController* PC = GetController<APlayerController>();
+		check(PC);
+
+		if (auto AuraHUD = PC->GetHUD<AAuraHUD>())
+		{
+			AuraHUD->InitOverlay(PC, AuraPlayerState, AbilitySystemComponent, AttributeSet);
+		}
+	}
 }
