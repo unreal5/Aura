@@ -45,6 +45,7 @@ public:
 	void SetWidgetControllerParameters(const FWidgetControllerParameters& InParameters);
 
 	virtual void BroadcastInitialValues() {}
+	virtual void BindCallbacksToDependencies() {}
 protected:
 	// 从以下依赖中收集数据
 	UPROPERTY(BlueprintReadOnly, Category="WidgetController")
