@@ -57,9 +57,21 @@ protected:
 	// info
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, meta=(BindWidget))
 	TObjectPtr<UTextBlock> Text_Info;
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, meta=(BindWidget))
+	TObjectPtr<UTextBlock> Text_CurrentValue;
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, meta=(BindWidget))
+	TObjectPtr<UTextBlock> Text_MaxValue;
+
+	// helper
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadWrite, Category="Globe属性")
+	float CurrentValue = 0.f;
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadWrite, Category="Globe属性")
+	float MaxValue = 0.f;
 protected:
 	UFUNCTION(BlueprintCallable)
 	void SetProgressBarPercent(float InPercent);
+	UFUNCTION(BlueprintCallable)
+	void UpdateProgressBarPercent();
 private:
 	void UpdateSizeBox() const;
 	void UpdateBackground() const;

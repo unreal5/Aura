@@ -9,6 +9,7 @@
 #include "Components/ProgressBar.h"
 #include "Components/SizeBox.h"
 #include "Components/TextBlock.h"
+#include "Kismet/KismetMathLibrary.h"
 
 void UGlobeProgressBar::NativePreConstruct()
 {
@@ -30,6 +31,20 @@ void UGlobeProgressBar::SetProgressBarPercent(float InPercent)
 	if (Text_Info)
 	{
 		Text_Info->SetText(FText::FromString(FString::Printf(TEXT("%.0f%%"), InPercent * 100.f)));
+	}
+}
+
+void UGlobeProgressBar::UpdateProgressBarPercent()
+{
+	float NewPercent = UKismetMathLibrary::SafeDivide(CurrentValue, MaxValue);
+	SetProgressBarPercent(NewPercent);
+	if (Text_CurrentValue)
+	{
+		Text_CurrentValue->SetText(FText::FromString(FString::Printf(TEXT("%.0f"), CurrentValue)));
+	}
+	if (Text_MaxValue)
+	{
+		Text_MaxValue->SetText(FText::FromString(FString::Printf(TEXT("%.0f"), MaxValue)));
 	}
 }
 
