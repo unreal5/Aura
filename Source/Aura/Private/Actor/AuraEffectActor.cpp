@@ -17,16 +17,21 @@ void AAuraEffectActor::ApplyEffectToTarget(AActor* TargetActor, const TSubclassO
 {
 	check(GameplayEffectClass);
 
-	const auto Asc = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(TargetActor);
-	if (!Asc) return;
+	const auto TargetAsc = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(TargetActor);
+	if (!TargetAsc) return;
 
-	FGameplayEffectContextHandle ContextHandle = Asc->MakeEffectContext();
+	FGameplayEffectContextHandle ContextHandle = TargetAsc->MakeEffectContext();
 	//ContextHandle.AddSourceObject(this);
 	ContextHandle.AddInstigator(this, this);
-	const FGameplayEffectSpecHandle SpecHandle = Asc->MakeOutgoingSpec(GameplayEffectClass, 1, ContextHandle);
+	const FGameplayEffectSpecHandle SpecHandle = TargetAsc->MakeOutgoingSpec(GameplayEffectClass, 1, ContextHandle);
 	if (SpecHandle.IsValid())
 	{
-		Asc->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data);
+		auto ActiveEffectHandle = TargetAsc->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data);
+		const bool bIsInfinite = SpecHandle.Data->Def->DurationPolicy == EGameplayEffectDurationType::Infinite;
+		if (bIsInfinite && InfiniteEffectRemovalPolicy == EEffectRemovalPolicy::RemoveOnEndOverlap)
+		{
+			ActiveEffectHandles.Add(ActiveEffectHandle, TargetAsc);
+		}
 	}
 }
 
@@ -63,5 +68,29 @@ void AAuraEffectActor::OnEndOverlap(AActor* TargetActor)
 	}
 
 	// Remove infinite effects
-	
+	if (InfiniteEffectRemovalPolicy == EEffectRemovalPolicy::RemoveOnEndOverlap)
+	{
+		auto TargetAsc = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(TargetActor);
+
+		if (!IsValid(TargetAsc)) return;
+		TArray<FActiveGameplayEffectHandle> HandlesToRemove;
+		// Find all active effect handles that belong to the TargetAsc
+		// and remove them
+		// We cannot remove them directly in the loop as we are iterating over the map
+		// So we store them in a temporary array and remove them after the loop
+		// This is to avoid modifying the map while iterating over it
+		// which can lead to undefined behavior
+		for (const auto[ActiveEffectHandle, Asc] : ActiveEffectHandles)
+		{
+			if (TargetAsc == Asc)
+			{
+				TargetAsc->RemoveActiveGameplayEffect(ActiveEffectHandle, 1);
+				HandlesToRemove.Add(ActiveEffectHandle);
+			}
+		}
+		for (auto& Handle : HandlesToRemove)
+		{
+			ActiveEffectHandles.FindAndRemoveChecked(Handle);
+		}
+	}
 }
