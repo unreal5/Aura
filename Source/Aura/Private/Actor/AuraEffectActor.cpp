@@ -21,8 +21,8 @@ void AAuraEffectActor::ApplyEffectToTarget(AActor* TargetActor, const TSubclassO
 	if (!TargetAsc) return;
 
 	FGameplayEffectContextHandle ContextHandle = TargetAsc->MakeEffectContext();
-	//ContextHandle.AddSourceObject(this);
-	ContextHandle.AddInstigator(this, this);
+	ContextHandle.AddSourceObject(this);
+	//ContextHandle.AddInstigator(this, this);
 	const FGameplayEffectSpecHandle SpecHandle = TargetAsc->MakeOutgoingSpec(GameplayEffectClass, 1, ContextHandle);
 	if (SpecHandle.IsValid())
 	{
