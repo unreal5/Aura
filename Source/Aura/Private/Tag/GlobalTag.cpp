@@ -6,8 +6,14 @@
 
 namespace GlobalTag
 {
-	UE_DEFINE_GAMEPLAY_TAG(Vital_Health, "Vital.Health");
-	UE_DEFINE_GAMEPLAY_TAG(Vital_MaxHealth, "Vital.MaxHealth");
-	UE_DEFINE_GAMEPLAY_TAG(Vital_Mana, "Vital.Mana");
-	UE_DEFINE_GAMEPLAY_TAG(Vital_MaxMana, "Vital.MaxMana");
+	//define primary attributes
+	UE_DEFINE_GAMEPLAY_TAG(Attributes_Primary_Intelligence, "Attributes.Primary.Intelligence");
+	UE_DEFINE_GAMEPLAY_TAG(Attributes_Primary_Resilience, "Attributes.Primary.Resilience");
+	UE_DEFINE_GAMEPLAY_TAG(Attributes_Primary_Strength, "Attributes.Primary.Strength");
+	UE_DEFINE_GAMEPLAY_TAG(Attributes_Primary_Vigor, "Attributes.Primary.Vigor");
+	// define vital attributes
+	UE_DEFINE_GAMEPLAY_TAG(Attributes_Vital_Health, "Attributes.Vital.Health");
+	UE_DEFINE_GAMEPLAY_TAG(Attributes_Vital_MaxHealth, "Attributes.Vital.MaxHealth");
+	UE_DEFINE_GAMEPLAY_TAG(Attributes_Vital_Mana, "Attributes.Vital.Mana");
+	UE_DEFINE_GAMEPLAY_TAG(Attributes_Vital_MaxMana, "Attributes.Vital.MaxMana");
 }
