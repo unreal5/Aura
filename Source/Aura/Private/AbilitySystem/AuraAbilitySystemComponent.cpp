@@ -6,11 +6,15 @@
 
 void UAuraAbilitySystemComponent::AbilityActorInfoSet()
 {
+	/** Called on server whenever a GE is applied to someone else. This includes instant and duration based GEs. */
 	OnGameplayEffectAppliedDelegateToSelf.AddUObject(this, &UAuraAbilitySystemComponent::EffectApplied);
 }
 
-void UAuraAbilitySystemComponent::EffectApplied(UAbilitySystemComponent* Asc, const FGameplayEffectSpec& SpecApplied,
+void UAuraAbilitySystemComponent::EffectApplied(UAbilitySystemComponent* Asc, const FGameplayEffectSpec& EffectSpec,
                                                 FActiveGameplayEffectHandle ActiveHandle)
 {
-	UE_LOG(LogTemp, Warning, TEXT("Effect Applied: %s"), *SpecApplied.Def.GetName());
+	FGameplayTagContainer TagContainer;
+	EffectSpec.GetAllAssetTags(TagContainer);
+	
+	EffectAssetTags.Broadcast(TagContainer);
 }

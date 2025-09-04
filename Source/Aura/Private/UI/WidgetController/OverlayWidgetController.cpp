@@ -4,6 +4,7 @@
 #include "UI/WidgetController/OverlayWidgetController.h"
 #include "AbilitySystem/AuraAttributeSet.h"
 #include "GameplayEffectTypes.h"
+#include "AbilitySystem/AuraAbilitySystemComponent.h"
 
 void UOverlayWidgetController::BroadcastInitialValues()
 {
@@ -48,5 +49,20 @@ void UOverlayWidgetController::BindCallbacksToDependencies()
 		{
 			OnMaxManaChanged.Broadcast(Data.NewValue);
 		});
+
+		// 监听效果标签变化
+
+		if (auto AuraASC = Cast<UAuraAbilitySystemComponent>(AbilitySystemComponent))
+		{
+			AuraASC->EffectAssetTags.AddLambda([this](const FGameplayTagContainer& AssetTags)
+			{
+				for (const auto& Tag : AssetTags)
+				{
+					GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
+					                                 FString::Printf(TEXT("收到Tag: %s"), *AssetTags.ToString()), true,
+					                                 FVector2D(1.5f, 1.5f));
+				}
+			});
+		}
 	}
 }
