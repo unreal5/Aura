@@ -4,33 +4,13 @@
 #include "AbilitySystem/AuraAbilitySystemComponent.h"
 
 
-// Sets default values for this component's properties
-UAuraAbilitySystemComponent::UAuraAbilitySystemComponent()
+void UAuraAbilitySystemComponent::AbilityActorInfoSet()
 {
-	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
-	// off to improve performance if you don't need them.
-	PrimaryComponentTick.bCanEverTick = true;
-
-	// ...
+	OnGameplayEffectAppliedDelegateToSelf.AddUObject(this, &UAuraAbilitySystemComponent::EffectApplied);
 }
 
-
-// Called when the game starts
-void UAuraAbilitySystemComponent::BeginPlay()
+void UAuraAbilitySystemComponent::EffectApplied(UAbilitySystemComponent* Asc, const FGameplayEffectSpec& SpecApplied,
+                                                FActiveGameplayEffectHandle ActiveHandle)
 {
-	Super::BeginPlay();
-
-	// ...
-	
+	UE_LOG(LogTemp, Warning, TEXT("Effect Applied: %s"), *SpecApplied.Def.GetName());
 }
-
-
-// Called every frame
-void UAuraAbilitySystemComponent::TickComponent(float DeltaTime, ELevelTick TickType,
-                                                FActorComponentTickFunction* ThisTickFunction)
-{
-	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
-	// ...
-}
-

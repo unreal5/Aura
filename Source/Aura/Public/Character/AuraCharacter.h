@@ -23,5 +23,5 @@ private:
 	UPROPERTY(VisibleDefaultsOnly, Category = "View")
 	TObjectPtr<class UCameraComponent> ViewCamera;
 
-	void InitAbilityActorInfo();
+	virtual void InitAbilityActorInfo() override;
 };

@@ -19,4 +19,5 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void HighlightActor_Implementation() override;
 	virtual void UnHighlightActor_Implementation() override;
+	virtual void InitAbilityActorInfo() override;
 };

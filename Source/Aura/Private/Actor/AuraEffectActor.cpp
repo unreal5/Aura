@@ -23,7 +23,7 @@ void AAuraEffectActor::ApplyEffectToTarget(AActor* TargetActor, const TSubclassO
 	FGameplayEffectContextHandle ContextHandle = TargetAsc->MakeEffectContext();
 	ContextHandle.AddSourceObject(this);
 	//ContextHandle.AddInstigator(this, this);
-	const FGameplayEffectSpecHandle SpecHandle = TargetAsc->MakeOutgoingSpec(GameplayEffectClass, 1, ContextHandle);
+	const FGameplayEffectSpecHandle SpecHandle = TargetAsc->MakeOutgoingSpec(GameplayEffectClass, ActorLevel, ContextHandle);
 	if (SpecHandle.IsValid())
 	{
 		auto ActiveEffectHandle = TargetAsc->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data);

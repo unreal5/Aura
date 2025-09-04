@@ -4,6 +4,7 @@
 #include "Character/AuraCharacter.h"
 
 #include "AbilitySystemComponent.h"
+#include "AbilitySystem/AuraAbilitySystemComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -67,6 +68,14 @@ void AAuraCharacter::InitAbilityActorInfo()
 	check(AbilitySystemComponent);
 
 	AbilitySystemComponent->InitAbilityActorInfo(AuraPlayerState, this);
+	if (auto AuraAsc = Cast<UAuraAbilitySystemComponent>(AbilitySystemComponent))
+	{
+		AuraAsc->AbilityActorInfoSet();
+	}
+	else
+	{
+		checkf(false, TEXT("AAuraCharacter::InitAbilityActorInfo() AbilitySystemComponent is not AuraAbilitySystemComponent"));
+	}
 
 	AttributeSet = AuraPlayerState->GetAttributeSet();
 	check(AttributeSet);
