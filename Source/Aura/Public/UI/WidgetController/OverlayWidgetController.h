@@ -15,7 +15,7 @@ struct FUIWidgetRow : public FTableRowBase
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta=(Categories = "Message"))
 	FGameplayTag MessageTag;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
@@ -46,5 +46,7 @@ public:
 	FOnDataChangedDelegate OnManaChanged;
 	UPROPERTY(BlueprintAssignable, Category = "GAS | Attributes")
 	FOnDataChangedDelegate OnMaxManaChanged;
-	
+protected:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Widget Data")
+	TObjectPtr<UDataTable> MessageWidgetDataTable;
 };
