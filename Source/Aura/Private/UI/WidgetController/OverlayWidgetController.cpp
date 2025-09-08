@@ -56,11 +56,13 @@ void UOverlayWidgetController::BindCallbacksToDependencies()
 		{
 			AuraASC->EffectAssetTags.AddLambda([this](const FGameplayTagContainer& AssetTags)
 			{
+				const auto ParentTag = FGameplayTag::RequestGameplayTag(FName("Message"));
 				for (const auto& Tag : AssetTags)
 				{
-					GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-					                                 FString::Printf(TEXT("收到Tag: %s"), *AssetTags.ToString()), true,
-					                                 FVector2D(1.5f, 1.5f));
+					if (!Tag.MatchesTag(ParentTag)) continue;
+
+					auto UIWidgetRow = GetDataTableRowByTag<FUIWidgetRow>(MessageWidgetDataTable, Tag);
+					MessageWidgetRowDelegate.Broadcast(*UIWidgetRow);
 				}
 			});
 		}

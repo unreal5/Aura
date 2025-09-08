@@ -27,6 +27,8 @@ struct FUIWidgetRow : public FTableRowBase
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TObjectPtr<UTexture2D> Image;
 };
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FMessageWidgetRowSignature, FUIWidgetRow, MessageRow);
+
 /*
  * Overlay Widget 的控制器
  */
@@ -46,7 +48,21 @@ public:
 	FOnDataChangedDelegate OnManaChanged;
 	UPROPERTY(BlueprintAssignable, Category = "GAS | Attributes")
 	FOnDataChangedDelegate OnMaxManaChanged;
+
+	UPROPERTY(BlueprintAssignable, Category = "GAS | 消息")
+	FMessageWidgetRowSignature MessageWidgetRowDelegate;
 protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Widget Data")
 	TObjectPtr<UDataTable> MessageWidgetDataTable;
+
+	template<typename RowType>
+	RowType* GetDataTableRowByTag(UDataTable* InDataTable, const FGameplayTag& InTag) const;
 };
+
+template <typename RowType>
+RowType* UOverlayWidgetController::GetDataTableRowByTag(UDataTable* InDataTable, const FGameplayTag& InTag) const
+{
+	if (!InDataTable) return nullptr;
+
+	return InDataTable->FindRow<RowType>(InTag.GetTagName(), "");
+}
