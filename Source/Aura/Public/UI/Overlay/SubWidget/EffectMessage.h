@@ -25,10 +25,15 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	FVector2D ImageSize = FVector2D(64, 64);
+
+	UFUNCTION(BlueprintCallable)
+	void SetImageAndText(UTexture2D* InIcon, const FText& InText);
 	
 	UFUNCTION(BlueprintCallable)
 	void SetMessageText(const FText& InText);
 	UFUNCTION(BlueprintCallable)
 	void SetMessageIcon(UTexture2D* InIcon);
 
+	UFUNCTION(BlueprintImplementableEvent)
+	void PlayAllAnimation();
 };

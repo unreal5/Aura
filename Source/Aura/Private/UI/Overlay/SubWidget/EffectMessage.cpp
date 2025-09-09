@@ -12,6 +12,13 @@ void UEffectMessage::NativePreConstruct()
 	
 }
 
+void UEffectMessage::SetImageAndText(UTexture2D* InIcon, const FText& InText)
+{
+	SetMessageText(InText);
+	SetMessageIcon(InIcon);
+	PlayAllAnimation();
+}
+
 void UEffectMessage::SetMessageText(const FText& InText)
 {
 	if (Text_Message)
