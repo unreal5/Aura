@@ -57,6 +57,9 @@ void AAuraCharacter::PossessedBy(AController* NewController)
 	Super::PossessedBy(NewController);
 
 	InitAbilityActorInfo();
+
+	// 服务器端初始化PrimaryAttributes
+	InitializePrimaryAttributes();
 }
 
 void AAuraCharacter::InitAbilityActorInfo()
