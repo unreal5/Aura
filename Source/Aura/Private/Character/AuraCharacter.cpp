@@ -58,8 +58,8 @@ void AAuraCharacter::PossessedBy(AController* NewController)
 
 	InitAbilityActorInfo();
 
-	// 服务器端初始化PrimaryAttributes
-	InitializePrimaryAttributes();
+	// 服务器端初始化Primary&Secondary Attributes
+	InitializeDefaultAttributes();
 }
 
 void AAuraCharacter::InitAbilityActorInfo()
