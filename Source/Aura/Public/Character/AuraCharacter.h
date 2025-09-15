@@ -15,7 +15,8 @@ public:
 	AAuraCharacter();
 	virtual void OnRep_PlayerState() override;
 	virtual void PossessedBy(AController* NewController) override;
-
+	/* Combat Interface */
+	virtual int32 GetPlayerLevel_Implementation() const override;
 private:
 	UPROPERTY(VisibleDefaultsOnly, Category = "View")
 	TObjectPtr<class USpringArmComponent> SpringArm;

@@ -30,7 +30,7 @@ void UGlobeProgressBar::SetProgressBarPercent(float InPercent)
 	}
 	if (Text_Info)
 	{
-		Text_Info->SetText(FText::FromString(FString::Printf(TEXT("%.0f%%"), InPercent * 100.f)));
+		Text_Info->SetText(FText::FromString(FString::Printf(TEXT("%.1f%%"), InPercent * 100.f)));
 	}
 }
 
@@ -40,11 +40,11 @@ void UGlobeProgressBar::UpdateProgressBarPercent()
 	SetProgressBarPercent(NewPercent);
 	if (Text_CurrentValue)
 	{
-		Text_CurrentValue->SetText(FText::FromString(FString::Printf(TEXT("%.0f"), CurrentValue)));
+		Text_CurrentValue->SetText(FText::FromString(FString::Printf(TEXT("当前：%.1f"), CurrentValue)));
 	}
 	if (Text_MaxValue)
 	{
-		Text_MaxValue->SetText(FText::FromString(FString::Printf(TEXT("%.0f"), MaxValue)));
+		Text_MaxValue->SetText(FText::FromString(FString::Printf(TEXT("最大：%.1f"), MaxValue)));
 	}
 }
 

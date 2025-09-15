@@ -62,6 +62,16 @@ void AAuraCharacter::PossessedBy(AController* NewController)
 	InitializeDefaultAttributes();
 }
 
+int32 AAuraCharacter::GetPlayerLevel_Implementation() const
+{
+	if (const auto AuraPlayerState = GetPlayerState<AAuraPlayerState>())
+	{
+		return AuraPlayerState->GetPlayerLevel();
+	}
+	checkf(false, TEXT("AAuraCharacter::GetPlayerLevel() PlayerState is not AuraPlayerState"));
+	return Super::GetPlayerLevel_Implementation();
+}
+
 void AAuraCharacter::InitAbilityActorInfo()
 {
 	auto AuraPlayerState = GetPlayerState<AAuraPlayerState>();
@@ -77,7 +87,8 @@ void AAuraCharacter::InitAbilityActorInfo()
 	}
 	else
 	{
-		checkf(false, TEXT("AAuraCharacter::InitAbilityActorInfo() AbilitySystemComponent is not AuraAbilitySystemComponent"));
+		checkf(false,
+		       TEXT("AAuraCharacter::InitAbilityActorInfo() AbilitySystemComponent is not AuraAbilitySystemComponent"));
 	}
 
 	AttributeSet = AuraPlayerState->GetAttributeSet();

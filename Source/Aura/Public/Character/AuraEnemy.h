@@ -20,4 +20,9 @@ protected:
 	virtual void HighlightActor_Implementation() override;
 	virtual void UnHighlightActor_Implementation() override;
 	virtual void InitAbilityActorInfo() override;
+	/* Combat Interface */
+	virtual int32 GetPlayerLevel_Implementation() const override { return Level; }
+private:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Character Class Default", meta=(AllowPrivateAccess=true))
+	int32 Level = 1;
 };
