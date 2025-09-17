@@ -23,6 +23,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FramedProperties")
 	float BoxHeight = 45.f;
 
+	void SetValueText(const FText& NewText);
 protected:
 	virtual void NativePreConstruct() override;
 

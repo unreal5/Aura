@@ -5,6 +5,15 @@
 
 #include "Components/Image.h"
 #include "Components/SizeBox.h"
+#include "Components/TextBlock.h"
+
+void UFramedValue::SetValueText(const FText& NewText)
+{
+	if (TextBlock_Value)
+	{
+		TextBlock_Value->SetText(NewText);
+	}
+}
 
 void UFramedValue::NativePreConstruct()
 {
