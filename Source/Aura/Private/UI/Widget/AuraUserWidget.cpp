@@ -9,3 +9,8 @@ void UAuraUserWidget::SetWidgetController(UObject* InWidgetController)
 	WidgetController = InWidgetController;
 	WidgetControllerSet();
 }
+
+void UAuraUserWidget::WidgetControllerSet_Implementation()
+{
+	// 留给子类实现
+}

@@ -15,7 +15,10 @@ UCLASS()
 class AURA_API UAttributeMenu : public UAuraUserWidget
 {
 	GENERATED_BODY()
+
 public:
+	virtual void WidgetControllerSet_Implementation() override;
+
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly, Category = "AttributeMenu", meta=(BindWidget))
 	TObjectPtr<UTextValueRow> ArmorRow;
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly, Category = "AttributeMenu", meta=(BindWidget))
