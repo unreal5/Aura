@@ -7,6 +7,7 @@
 #include "AttributeMenu.generated.h"
 
 class UTextValueRow;
+class UAuraButton;
 /**
  * 
  */
@@ -35,4 +36,8 @@ public:
 	TObjectPtr<UTextValueRow> MaxHealthRow;
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly, Category = "AttributeMenu", meta=(BindWidget))
 	TObjectPtr<UTextValueRow> MaxManaRow;
+
+	// close button
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly, Category = "AttributeMenu", meta=(BindWidget))
+	TObjectPtr<UAuraButton> CloseButton;
 };
