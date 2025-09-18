@@ -10,10 +10,12 @@
 
 UAuraAttributeSet::UAuraAttributeSet()
 {
+	// primary
 	TagsToAttributesMap.Add(GlobalTag::Attributes_Primary_Strength, GetStrengthAttribute);
 	TagsToAttributesMap.Add(GlobalTag::Attributes_Primary_Intelligence, GetIntelligenceAttribute);
 	TagsToAttributesMap.Add(GlobalTag::Attributes_Primary_Resilience, GetResilienceAttribute);
 	TagsToAttributesMap.Add(GlobalTag::Attributes_Primary_Vigor, GetVigorAttribute);
+	// secondary
 	TagsToAttributesMap.Add(GlobalTag::Attributes_Secondary_Armor, GetArmorAttribute);
 	TagsToAttributesMap.Add(GlobalTag::Attributes_Secondary_ArmorPenetration, GetArmorPenetrationAttribute);
 	TagsToAttributesMap.Add(GlobalTag::Attributes_Secondary_BlockChance, GetBlockChanceAttribute);
