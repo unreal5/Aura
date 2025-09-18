@@ -60,6 +60,8 @@ void AAuraCharacter::PossessedBy(AController* NewController)
 
 	// 服务器端初始化Primary&Secondary Attributes
 	InitializeDefaultAttributes();
+	// 服务器端添加角色能力
+	AddCharacterAbilities();
 }
 
 int32 AAuraCharacter::GetPlayerLevel_Implementation() const

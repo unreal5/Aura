@@ -17,6 +17,8 @@ public:
 	void AbilityActorInfoSet();
 
 	FEffectAssetTags EffectAssetTags;
+
+	void AddCharacterAbilities(const TArray<TSubclassOf<UGameplayAbility>>& InStartupAbilities);
 protected:
 	UFUNCTION()
 	void EffectApplied(UAbilitySystemComponent* Asc, const FGameplayEffectSpec& EffectSpec, FActiveGameplayEffectHandle ActiveHandle);
