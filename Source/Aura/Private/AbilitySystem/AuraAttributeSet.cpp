@@ -6,9 +6,24 @@
 #include "GameplayEffectExtension.h"
 #include "Net/UnrealNetwork.h"
 #include "GameFramework/Character.h"
+#include "Tag/GlobalTag.h"
 
 UAuraAttributeSet::UAuraAttributeSet()
 {
+	TagsToAttributesMap.Add(GlobalTag::Attributes_Primary_Strength, GetStrengthAttribute);
+	TagsToAttributesMap.Add(GlobalTag::Attributes_Primary_Intelligence, GetIntelligenceAttribute);
+	TagsToAttributesMap.Add(GlobalTag::Attributes_Primary_Resilience, GetResilienceAttribute);
+	TagsToAttributesMap.Add(GlobalTag::Attributes_Primary_Vigor, GetVigorAttribute);
+	TagsToAttributesMap.Add(GlobalTag::Attributes_Secondary_Armor, GetArmorAttribute);
+	TagsToAttributesMap.Add(GlobalTag::Attributes_Secondary_ArmorPenetration, GetArmorPenetrationAttribute);
+	TagsToAttributesMap.Add(GlobalTag::Attributes_Secondary_BlockChance, GetBlockChanceAttribute);
+	TagsToAttributesMap.Add(GlobalTag::Attributes_Secondary_CriticalHitChance, GetCriticalHitChanceAttribute);
+	TagsToAttributesMap.Add(GlobalTag::Attributes_Secondary_CriticalHitDamage, GetCriticalHitDamageAttribute);
+	TagsToAttributesMap.Add(GlobalTag::Attributes_Secondary_CriticalHitResistance, GetCriticalHitResistanceAttribute);
+	TagsToAttributesMap.Add(GlobalTag::Attributes_Secondary_HealthRegeneration, GetHealthRegenerationAttribute);
+	TagsToAttributesMap.Add(GlobalTag::Attributes_Secondary_ManaRegeneration, GetManaRegenerationAttribute);
+	TagsToAttributesMap.Add(GlobalTag::Attributes_Secondary_MaxHealth, GetMaxHealthAttribute);
+	TagsToAttributesMap.Add(GlobalTag::Attributes_Secondary_MaxMana, GetMaxManaAttribute);
 }
 
 void UAuraAttributeSet::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

@@ -18,66 +18,10 @@ void UAttributeMenuWidgetController::BroadcastInitialValues()
 
 	check(AttributeInfo);
 
-	// Intelligence
-	auto IntelligenceAttrInfo = AttributeInfo->FindAttributeInfoByTag(GlobalTag::Attributes_Primary_Intelligence);
-	IntelligenceAttrInfo.AttributeValue = AS->GetIntelligence();
-	AttributeInfoDelegate.Broadcast(IntelligenceAttrInfo);
-	// Resilience
-	auto ResilienceAttrInfo = AttributeInfo->FindAttributeInfoByTag(GlobalTag::Attributes_Primary_Resilience);
-	ResilienceAttrInfo.AttributeValue = AS->GetResilience();
-	AttributeInfoDelegate.Broadcast(ResilienceAttrInfo);
-	// Strength
-	auto StrengthAttrInfo = AttributeInfo->FindAttributeInfoByTag(GlobalTag::Attributes_Primary_Strength);
-	StrengthAttrInfo.AttributeValue = AS->GetStrength();
-	AttributeInfoDelegate.Broadcast(StrengthAttrInfo);
-	// Vigor
-	auto VigorAttrInfo = AttributeInfo->FindAttributeInfoByTag(GlobalTag::Attributes_Primary_Vigor);
-	VigorAttrInfo.AttributeValue = AS->GetVigor();
-	AttributeInfoDelegate.Broadcast(VigorAttrInfo);
-	// Armor
-	auto ArmorAttrInfo = AttributeInfo->FindAttributeInfoByTag(GlobalTag::Attributes_Secondary_Armor);
-	ArmorAttrInfo.AttributeValue = AS->GetArmor();
-	AttributeInfoDelegate.Broadcast(ArmorAttrInfo);
-	// Armor Penetration
-	auto ArmorPenetrationAttrInfo = AttributeInfo->FindAttributeInfoByTag(
-		GlobalTag::Attributes_Secondary_ArmorPenetration);
-	ArmorPenetrationAttrInfo.AttributeValue = AS->GetArmorPenetration();
-	AttributeInfoDelegate.Broadcast(ArmorPenetrationAttrInfo);
-	// Block Chance
-	auto BlockChanceAttrInfo = AttributeInfo->FindAttributeInfoByTag(GlobalTag::Attributes_Secondary_BlockChance);
-	BlockChanceAttrInfo.AttributeValue = AS->GetBlockChance();
-	AttributeInfoDelegate.Broadcast(BlockChanceAttrInfo);
-	// Critical Hit Chance
-	auto CriticalHitChanceAttrInfo = AttributeInfo->FindAttributeInfoByTag(
-		GlobalTag::Attributes_Secondary_CriticalHitChance);
-	CriticalHitChanceAttrInfo.AttributeValue = AS->GetCriticalHitChance();
-	AttributeInfoDelegate.Broadcast(CriticalHitChanceAttrInfo);
-	// Critical Hit Damage
-	auto CriticalHitDamageAttrInfo = AttributeInfo->FindAttributeInfoByTag(
-		GlobalTag::Attributes_Secondary_CriticalHitDamage);
-	CriticalHitDamageAttrInfo.AttributeValue = AS->GetCriticalHitDamage();
-	AttributeInfoDelegate.Broadcast(CriticalHitDamageAttrInfo);
-	// Critical Hit Resistance
-	auto CriticalHitResistanceAttrInfo = AttributeInfo->FindAttributeInfoByTag(
-		GlobalTag::Attributes_Secondary_CriticalHitResistance);
-	CriticalHitResistanceAttrInfo.AttributeValue = AS->GetCriticalHitResistance();
-	AttributeInfoDelegate.Broadcast(CriticalHitResistanceAttrInfo);
-	// Health Regeneration
-	auto HealthRegenerationAttrInfo = AttributeInfo->FindAttributeInfoByTag(
-		GlobalTag::Attributes_Secondary_HealthRegeneration);
-	HealthRegenerationAttrInfo.AttributeValue = AS->GetHealthRegeneration();
-	AttributeInfoDelegate.Broadcast(HealthRegenerationAttrInfo);
-	// Mana Regeneration
-	auto ManaRegenerationAttrInfo = AttributeInfo->FindAttributeInfoByTag(
-		GlobalTag::Attributes_Secondary_ManaRegeneration);
-	ManaRegenerationAttrInfo.AttributeValue = AS->GetManaRegeneration();
-	AttributeInfoDelegate.Broadcast(ManaRegenerationAttrInfo);
-	// Max Health
-	auto MaxHealthAttrInfo = AttributeInfo->FindAttributeInfoByTag(GlobalTag::Attributes_Secondary_MaxHealth);
-	MaxHealthAttrInfo.AttributeValue = AS->GetMaxHealth();
-	AttributeInfoDelegate.Broadcast(MaxHealthAttrInfo);
-	// Max Mana
-	auto MaxManaAttrInfo = AttributeInfo->FindAttributeInfoByTag(GlobalTag::Attributes_Secondary_MaxMana);
-	MaxManaAttrInfo.AttributeValue = AS->GetMaxMana();
-	AttributeInfoDelegate.Broadcast(MaxManaAttrInfo);
+	for (auto& [Tag, GetAttributeFunc] : AS->TagsToAttributesMap)
+	{
+		auto AttrInfo = AttributeInfo->FindAttributeInfoByTag(Tag);
+		AttrInfo.AttributeValue = GetAttributeFunc().GetNumericValue(AS);
+		AttributeInfoDelegate.Broadcast(AttrInfo);
+	}
 }
