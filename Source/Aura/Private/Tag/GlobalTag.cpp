@@ -30,4 +30,12 @@ namespace GlobalTag
 	UE_DEFINE_GAMEPLAY_TAG(Message_ManaPotion, "Message.ManaPotion");
 	UE_DEFINE_GAMEPLAY_TAG(Message_HealthCrystal, "Message.HealthCrystal");
 	UE_DEFINE_GAMEPLAY_TAG(Message_ManaCrystal, "Message.ManaCrystal");
+	// define input tags
+	UE_DEFINE_GAMEPLAY_TAG(InputTag_LMB, "Input.LMB");
+	UE_DEFINE_GAMEPLAY_TAG(InputTag_RMB, "Input.RMB");
+	UE_DEFINE_GAMEPLAY_TAG(InputTag_MMB, "Input.MMB");
+	UE_DEFINE_GAMEPLAY_TAG(InputTag_1, "Input.1");
+	UE_DEFINE_GAMEPLAY_TAG(InputTag_2, "Input.2");
+	UE_DEFINE_GAMEPLAY_TAG(InputTag_3, "Input.3");
+	UE_DEFINE_GAMEPLAY_TAG(InputTag_4, "Input.4");
 }

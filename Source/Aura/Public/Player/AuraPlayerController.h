@@ -3,9 +3,12 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "GameplayTagContainer.h"
 #include "GameFramework/PlayerController.h"
 #include "AuraPlayerController.generated.h"
 
+struct FInputActionValue;
+class UAuraInputConfig;
 /**
  * 
  */
@@ -21,6 +24,7 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	virtual void SetupInputComponent() override;
+
 private:
 	UPROPERTY(EditDefaultsOnly, Category="输入")
 	TObjectPtr<class UInputMappingContext> AuraContext;
@@ -28,11 +32,19 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category="输入")
 	TObjectPtr<class UInputAction> MoveAction;
 
+
 	void CursorTrace();
 
-private:
 	UPROPERTY()
 	AActor* LastActor = nullptr;
 	UPROPERTY()
 	AActor* ThisActor = nullptr;
+
+	// 输入回调函数
+	void AbilityInputTagPressed(const FInputActionValue& Value, FGameplayTag InputTag);
+	void AbilityInputTagReleased(const FInputActionValue& Value, FGameplayTag InputTag);
+	void AbilityInputTagHeld(const FInputActionValue& Value, FGameplayTag InputTag);
+	// 输入配置
+	UPROPERTY(EditDefaultsOnly, Category="输入")
+	TObjectPtr<UAuraInputConfig> InputConfig;
 };
