@@ -7,6 +7,7 @@
 #include "GameFramework/PlayerController.h"
 #include "AuraPlayerController.generated.h"
 
+class UAuraAbilitySystemComponent;
 struct FInputActionValue;
 class UAuraInputConfig;
 /**
@@ -41,10 +42,15 @@ private:
 	AActor* ThisActor = nullptr;
 
 	// 输入回调函数
-	void AbilityInputTagPressed(const FInputActionValue& Value, FGameplayTag InputTag);
-	void AbilityInputTagReleased(const FInputActionValue& Value, FGameplayTag InputTag);
-	void AbilityInputTagHeld(const FInputActionValue& Value, FGameplayTag InputTag);
+	void AbilityInputTagPressed(FGameplayTag InputTag);
+	void AbilityInputTagReleased(FGameplayTag InputTag);
+	void AbilityInputTagHeld(FGameplayTag InputTag);
 	// 输入配置
 	UPROPERTY(EditDefaultsOnly, Category="输入")
 	TObjectPtr<UAuraInputConfig> InputConfig;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UAuraAbilitySystemComponent> AuraASC = nullptr;
+
+	UAuraAbilitySystemComponent* GetASC();
 };

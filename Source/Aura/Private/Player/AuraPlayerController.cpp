@@ -3,8 +3,11 @@
 
 #include "Player/AuraPlayerController.h"
 
+#include "AbilitySystemBlueprintLibrary.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
+#include "GameplayAbilityBlueprint.h"
+#include "AbilitySystem/AuraAbilitySystemComponent.h"
 #include "Input/AuraInputComponent.h"
 #include "InterAction/EnemyInterface.h"
 
@@ -67,9 +70,10 @@ void AAuraPlayerController::SetupInputComponent()
 
 	// 绑定能力输入
 	AuraInputComp->BindAbilityActions(InputConfig, this,
-	                                          &ThisClass::AbilityInputTagPressed,
-	                                          &ThisClass::AbilityInputTagReleased,
-	                                          &ThisClass::AbilityInputTagHeld);
+	                                  &ThisClass::AbilityInputTagPressed,
+	                                  &ThisClass::AbilityInputTagReleased,
+	                                  &ThisClass::AbilityInputTagHeld);
+	//AuraInputComp->BindAction(InputConfig->AbilityInputActions[0].InputAction, ETriggerEvent::Started, this, &ThisClass::AbilityInputTagPressed, InputConfig->AbilityInputActions[0].InputTag);
 }
 
 void AAuraPlayerController::CursorTrace()
@@ -96,11 +100,33 @@ void AAuraPlayerController::CursorTrace()
 	}
 }
 
-void AAuraPlayerController::AbilityInputTagPressed(const FInputActionValue& Value, FGameplayTag InputTag) {
+void AAuraPlayerController::AbilityInputTagPressed(FGameplayTag InputTag)
+{
+	// do nothing
 }
 
-void AAuraPlayerController::AbilityInputTagReleased(const FInputActionValue& Value, FGameplayTag InputTag) {
+void AAuraPlayerController::AbilityInputTagReleased(FGameplayTag InputTag)
+{
+	if (auto ASC = GetASC())
+	{
+		ASC->AbilityInputTagReleased(InputTag);
+	}
 }
 
-void AAuraPlayerController::AbilityInputTagHeld(const FInputActionValue& Value, FGameplayTag InputTag) {
+void AAuraPlayerController::AbilityInputTagHeld(FGameplayTag InputTag)
+{
+	if (auto ASC = GetASC())
+	{
+		ASC->AbilityInputTagHeld(InputTag);
+	}
+}
+
+UAuraAbilitySystemComponent* AAuraPlayerController::GetASC()
+{
+	if (nullptr == AuraASC)
+	{
+		AuraASC = Cast<UAuraAbilitySystemComponent>(
+			UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(GetPawn()));
+	}
+	return AuraASC;
 }
