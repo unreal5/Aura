@@ -24,4 +24,7 @@ class AURA_API ICombatInterface
 public:
 	UFUNCTION(BlueprintNativeEvent)
 	int32 GetPlayerLevel() const;
+
+	UFUNCTION(BlueprintNativeEvent)
+	FVector GetCombatSocketLocation() const;
 };
