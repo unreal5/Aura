@@ -7,6 +7,7 @@
 #include "GameFramework/PlayerController.h"
 #include "AuraPlayerController.generated.h"
 
+class IEnemyInterface;
 class USplineComponent;
 class UAuraAbilitySystemComponent;
 struct FInputActionValue;
@@ -34,13 +35,13 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category="输入")
 	TObjectPtr<class UInputAction> MoveAction;
 
-
+	FHitResult CursorHitResult;
 	void CursorTrace();
 
-	UPROPERTY()
-	AActor* LastActor = nullptr;
-	UPROPERTY()
-	AActor* ThisActor = nullptr;
+	//AActor* LastActor = nullptr;
+	IEnemyInterface* LastFrameHitEnemy = nullptr; // last frame hit result
+	//UPROPERTY()
+	//AActor* ThisActor = nullptr;
 
 	// 输入回调函数
 	void AbilityInputTagPressed(FGameplayTag InputTag);
@@ -64,4 +65,6 @@ private:
 	float AutoRunAcceptanceRadius = 50.f;
 	UPROPERTY(EditDefaultsOnly)
 	TObjectPtr<USplineComponent> PathSpline;
+
+	void AutoRun();
 };

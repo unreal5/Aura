@@ -30,13 +30,13 @@ void AAuraEnemy::BeginPlay()
 	InitAbilityActorInfo();
 }
 
-void AAuraEnemy::HighlightActor_Implementation()
+void AAuraEnemy::HighlightActor()
 {
 	GetMesh()->SetRenderCustomDepth(true);
 	Weapon->SetRenderCustomDepth(true);
 }
 
-void AAuraEnemy::UnHighlightActor_Implementation()
+void AAuraEnemy::UnHighlightActor()
 {
 	GetMesh()->SetRenderCustomDepth(false);
 	Weapon->SetRenderCustomDepth(false);

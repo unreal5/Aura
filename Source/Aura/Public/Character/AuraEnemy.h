@@ -17,8 +17,8 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
-	virtual void HighlightActor_Implementation() override;
-	virtual void UnHighlightActor_Implementation() override;
+	virtual void HighlightActor() override;
+	virtual void UnHighlightActor() override;
 	virtual void InitAbilityActorInfo() override;
 	/* Combat Interface */
 	virtual int32 GetPlayerLevel_Implementation() const override { return Level; }

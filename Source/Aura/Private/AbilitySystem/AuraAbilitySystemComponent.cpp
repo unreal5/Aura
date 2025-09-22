@@ -9,7 +9,7 @@
 void UAuraAbilitySystemComponent::AbilityActorInfoSet()
 {
 	/** Called on server whenever a GE is applied to someone else. This includes instant and duration based GEs. */
-	OnGameplayEffectAppliedDelegateToSelf.AddUObject(this, &UAuraAbilitySystemComponent::EffectApplied);
+	OnGameplayEffectAppliedDelegateToSelf.AddUObject(this, &UAuraAbilitySystemComponent::Client_EffectApplied);
 }
 
 void UAuraAbilitySystemComponent::AddCharacterAbilities(const TArray<TSubclassOf<UGameplayAbility>>& InStartupAbilities)
@@ -58,7 +58,7 @@ void UAuraAbilitySystemComponent::AbilityInputTagReleased(const FGameplayTag& In
 	}
 }
 
-void UAuraAbilitySystemComponent::EffectApplied(UAbilitySystemComponent* Asc, const FGameplayEffectSpec& EffectSpec,
+void UAuraAbilitySystemComponent::Client_EffectApplied_Implementation(UAbilitySystemComponent* Asc, const FGameplayEffectSpec& EffectSpec,
                                                 FActiveGameplayEffectHandle ActiveHandle) const
 {
 	FGameplayTagContainer TagContainer;
