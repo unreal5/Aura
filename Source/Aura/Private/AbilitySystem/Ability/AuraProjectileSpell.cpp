@@ -13,11 +13,15 @@ void UAuraProjectileSpell::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
-	// Only the server should spawn the projectile
-	if (!HasAuthority(&ActivationInfo)) return;
 	
-	AActor* AvatarActor = GetAvatarActorFromActorInfo();
+}
+
+void UAuraProjectileSpell::SpawnProjectile() {
+	// Only the server should spawn the projectile
+	const auto AvatarActor = GetAvatarActorFromActorInfo();
+	if (!AvatarActor) return;
 	if (!AvatarActor->Implements<UCombatInterface>()) return;
+	if (!AvatarActor->HasAuthority()) return;
 
 	FTransform ProjectileTransform = FTransform::Identity;
 	ProjectileTransform.SetLocation(ICombatInterface::Execute_GetCombatSocketLocation(AvatarActor));
@@ -25,7 +29,7 @@ void UAuraProjectileSpell::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 	
 	AAuraProjectile* Projectile = GetWorld()->SpawnActorDeferred<AAuraProjectile>(
 		ProjectileClass, ProjectileTransform, GetOwningActorFromActorInfo(),
-		Cast<APawn>(ActorInfo->AvatarActor.Get()),
+		Cast<APawn>(AvatarActor),
 		ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
 	if (Projectile)
 	{
