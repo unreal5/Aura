@@ -16,7 +16,7 @@ void UAuraProjectileSpell::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 	
 }
 
-void UAuraProjectileSpell::SpawnProjectile() {
+void UAuraProjectileSpell::SpawnProjectile(const FVector& ProjectileTargetLocation) {
 	// Only the server should spawn the projectile
 	const auto AvatarActor = GetAvatarActorFromActorInfo();
 	if (!AvatarActor) return;
