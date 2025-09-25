@@ -12,11 +12,10 @@ void UAuraProjectileSpell::ActivateAbility(const FGameplayAbilitySpecHandle Hand
                                            const FGameplayEventData* TriggerEventData)
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
-
-	
 }
 
-void UAuraProjectileSpell::SpawnProjectile(const FVector& ProjectileTargetLocation) {
+void UAuraProjectileSpell::SpawnProjectile(const FVector& ProjectileTargetLocation)
+{
 	// Only the server should spawn the projectile
 	const auto AvatarActor = GetAvatarActorFromActorInfo();
 	if (!AvatarActor) return;
@@ -24,9 +23,12 @@ void UAuraProjectileSpell::SpawnProjectile(const FVector& ProjectileTargetLocati
 	if (!AvatarActor->HasAuthority()) return;
 
 	FTransform ProjectileTransform = FTransform::Identity;
-	ProjectileTransform.SetLocation(ICombatInterface::Execute_GetCombatSocketLocation(AvatarActor));
-	//TODO: set rotation based on aiming direction
-	
+	FVector SocketLocation = ICombatInterface::Execute_GetCombatSocketLocation(AvatarActor);
+	FRotator ProjectileRotation = (ProjectileTargetLocation - SocketLocation).Rotation();
+
+	ProjectileTransform.SetLocation(SocketLocation);
+	ProjectileTransform.SetRotation(ProjectileRotation.Quaternion());
+
 	AAuraProjectile* Projectile = GetWorld()->SpawnActorDeferred<AAuraProjectile>(
 		ProjectileClass, ProjectileTransform, GetOwningActorFromActorInfo(),
 		Cast<APawn>(AvatarActor),

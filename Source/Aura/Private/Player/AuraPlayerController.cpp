@@ -105,6 +105,11 @@ void AAuraPlayerController::SetupInputComponent()
 	};
 	AuraInputComp->BindActionValueLambda(MoveAction, ETriggerEvent::Triggered, MoveFunctor);
 
+	// Shift 按下
+	AuraInputComp->BindActionValueLambda(ShiftAction, ETriggerEvent::Started, [this](auto/* Make UE happy! */) { bShiftKeyDown = true; });
+	// Shift 松开
+	AuraInputComp->BindActionValueLambda(ShiftAction, ETriggerEvent::Completed, [this](auto/* Make UE happy! */) { bShiftKeyDown = false; });
+
 	// 绑定能力输入
 	AuraInputComp->BindAbilityActions(InputConfig, this,
 	                                  &ThisClass::AbilityInputTagPressed,
@@ -151,11 +156,13 @@ void AAuraPlayerController::AbilityInputTagReleased(FGameplayTag InputTag)
 	auto ASC = GetASC();
 	if (nullptr == ASC) return;
 
-	if (!InputTag.MatchesTagExact(GlobalTag::InputTag_LMB) || bTargeting)
-	{
-		ASC->AbilityInputTagReleased(InputTag);
-	}
-	else
+	ASC->AbilityInputTagReleased(InputTag);
+	
+	if (!InputTag.MatchesTagExact(GlobalTag::InputTag_LMB))
+		return;
+		
+	
+	if (!bTargeting && !bShiftKeyDown)
 	{
 		APawn* ControlledPawn = GetPawn();
 		FollowTime += GetWorld()->GetDeltaSeconds();
@@ -184,20 +191,20 @@ void AAuraPlayerController::AbilityInputTagReleased(FGameplayTag InputTag)
 
 void AAuraPlayerController::AbilityInputTagHeld(FGameplayTag InputTag)
 {
+	auto ASC = GetASC();
+	if (nullptr == ASC) return;
+
+
+	// 非左键，直接传递
 	if (!InputTag.MatchesTagExact(GlobalTag::InputTag_LMB))
 	{
-		if (auto ASC = GetASC())
-		{
-			ASC->AbilityInputTagHeld(InputTag);
-		}
+		ASC->AbilityInputTagHeld(InputTag);
 		return;
 	}
-	if (bTargeting)
+	// 左键
+	if (bTargeting || bShiftKeyDown)
 	{
-		if (auto ASC = GetASC())
-		{
-			ASC->AbilityInputTagHeld(InputTag);
-		}
+		ASC->AbilityInputTagHeld(InputTag);
 	}
 	else
 	{

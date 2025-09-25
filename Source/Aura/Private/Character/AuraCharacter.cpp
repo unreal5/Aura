@@ -4,8 +4,10 @@
 #include "Character/AuraCharacter.h"
 
 #include "AbilitySystemComponent.h"
+#include "MotionWarpingComponent.h"
 #include "AbilitySystem/AuraAbilitySystemComponent.h"
 #include "Camera/CameraComponent.h"
+#include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Player/AuraPlayerState.h"
@@ -41,6 +43,12 @@ AAuraCharacter::AAuraCharacter()
 	// 强制在平面移动
 	GetCharacterMovement()->bConstrainToPlane = true;
 	GetCharacterMovement()->bSnapToPlaneAtStart = true;
+
+	// 创建MotionWarping组件
+	MotionWarping = CreateDefaultSubobject<UMotionWarpingComponent>(TEXT("MotionWarping"));
+	// 禁止胶囊体和Mesh阻挡Camera
+	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
+	GetMesh()->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
 }
 
 // 客户端调用
@@ -72,6 +80,11 @@ int32 AAuraCharacter::GetPlayerLevel_Implementation() const
 	}
 	checkf(false, TEXT("AAuraCharacter::GetPlayerLevel() PlayerState is not AuraPlayerState"));
 	return Super::GetPlayerLevel_Implementation();
+}
+
+void AAuraCharacter::UpdateFacingTarget_Implementation(const FVector& TargetLocation)
+{
+	MotionWarping->AddOrUpdateWarpTargetFromLocation(FName("FacingTarget"), TargetLocation);
 }
 
 void AAuraCharacter::InitAbilityActorInfo()

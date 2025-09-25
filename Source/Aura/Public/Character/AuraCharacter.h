@@ -6,6 +6,8 @@
 #include "AuraCharacterBase.h"
 #include "AuraCharacter.generated.h"
 
+class UMotionWarpingComponent;
+
 UCLASS()
 class AURA_API AAuraCharacter : public AAuraCharacterBase
 {
@@ -17,6 +19,10 @@ public:
 	virtual void PossessedBy(AController* NewController) override;
 	/* Combat Interface */
 	virtual int32 GetPlayerLevel_Implementation() const override;
+	virtual void UpdateFacingTarget_Implementation(const FVector& TargetLocation) override;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "MotionWarping")
+	TObjectPtr<UMotionWarpingComponent> MotionWarping;
 private:
 	UPROPERTY(VisibleDefaultsOnly, Category = "View")
 	TObjectPtr<class USpringArmComponent> SpringArm;

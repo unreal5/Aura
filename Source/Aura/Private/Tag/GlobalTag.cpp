@@ -38,6 +38,7 @@ namespace GlobalTag
 	UE_DEFINE_GAMEPLAY_TAG(InputTag_2, "Input.2");
 	UE_DEFINE_GAMEPLAY_TAG(InputTag_3, "Input.3");
 	UE_DEFINE_GAMEPLAY_TAG(InputTag_4, "Input.4");
+	UE_DEFINE_GAMEPLAY_TAG(InputTag_Shift, "Input.Shift");
 	// define event tags
 	UE_DEFINE_GAMEPLAY_TAG(Event_Montage_FireBolt, "Event.Montage.FireBolt");
 }

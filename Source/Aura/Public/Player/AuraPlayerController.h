@@ -34,7 +34,11 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category="输入")
 	TObjectPtr<class UInputAction> MoveAction;
+	UPROPERTY(EditDefaultsOnly, Category="输入")
+	TObjectPtr<class UInputAction> ShiftAction;
 
+	bool bShiftKeyDown = false;
+	
 	FHitResult CursorHitResult;
 	void CursorTrace();
 
