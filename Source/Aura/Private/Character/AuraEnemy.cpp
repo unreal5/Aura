@@ -10,6 +10,7 @@
 AAuraEnemy::AAuraEnemy()
 {
 	GetMesh()->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
+
 	GetMesh()->SetCustomDepthStencilValue(CUSTOM_DEPTH_RED);
 	Weapon->SetCustomDepthStencilValue(CUSTOM_DEPTH_RED);
 
@@ -45,12 +46,14 @@ void AAuraEnemy::UnHighlightActor()
 void AAuraEnemy::InitAbilityActorInfo()
 {
 	AbilitySystemComponent->InitAbilityActorInfo(this, this);
-	if (auto AuraAsc = Cast<UAuraAbilitySystemComponent>(AbilitySystemComponent))
+	auto AuraAsc = Cast<UAuraAbilitySystemComponent>(AbilitySystemComponent);
+	if (!AuraAsc)
 	{
-		AuraAsc->AbilityActorInfoSet();
+		checkf(false,
+		       TEXT("AAuraCharacter::InitAbilityActorInfo() AbilitySystemComponent is not AuraAbilitySystemComponent"));
+		return;
 	}
-	else
-	{
-		checkf(false, TEXT("AAuraCharacter::InitAbilityActorInfo() AbilitySystemComponent is not AuraAbilitySystemComponent"));
-	}
+	AuraAsc->AbilityActorInfoSet();
+
+	InitializeDefaultAttributes();
 }
