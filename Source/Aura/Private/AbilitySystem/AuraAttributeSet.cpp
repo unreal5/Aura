@@ -67,7 +67,6 @@ void UAuraAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribute, 
 
 void UAuraAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data)
 {
-	// Super::PostGameplayEffectExecute(Data);
 	// Source == causer of the effect, Target == target of the effect(owner of this AS)
 	FEffectProperties EffectProperties;
 	SetEffectProperties(Data, EffectProperties);
@@ -79,6 +78,20 @@ void UAuraAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallba
 	else if (GetManaAttribute() == Data.EvaluatedData.Attribute)
 	{
 		SetMana(FMath::Clamp(GetMana(), 0.f, GetMaxMana()));
+	}
+	else if (GetInComingDamageAttribute() == Data.EvaluatedData.Attribute)
+	{
+		// IncomingDamage is a meta attribute, it does not get replicated, so we don't need to clamp it
+		const float LocalInComingDamage = GetInComingDamage();
+		// 临时性数据，计算完毕后清零
+		SetInComingDamage(0.f);
+		if (LocalInComingDamage > 0.f)
+		{
+			const float NewHealth = GetHealth() - LocalInComingDamage;
+			SetHealth(FMath::Clamp(NewHealth, 0.f, GetMaxHealth()));
+
+			const bool bFatal = NewHealth <= 0.f;
+		}
 	}
 }
 

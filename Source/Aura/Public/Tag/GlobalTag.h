@@ -44,4 +44,7 @@ namespace GlobalTag
 
 	// Event Tags
 	AURA_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Montage_FireBolt);
+
+	// Damage Tags
+	AURA_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Damage);
 }

@@ -131,6 +131,16 @@ public:
 	FGameplayAttributeData MaxMana;
 	ATTRIBUTE_ACCESSORS_BASIC(ThisClass, MaxMana)
 
+	/* Meta Attributes --- 元属性
+	 * Meta属性不会被直接修改，而是通过修改其他属性间接影响Meta属性的数值
+	 * 例如：攻击力 = 力量 * 2 + 敏捷 * 1.5
+	 * 修改力量和敏捷会间接影响攻击力的数值
+	 * Meta属性通常不会被网络同步，因为它们可以通过其他属性计算得出
+	 * Meta属性在服务器中计算，然后通过其他属性的变化间接反映给客户端
+	 */
+	UPROPERTY(BlueprintReadOnly, Category="Meta Attributes")
+	FGameplayAttributeData InComingDamage;
+	ATTRIBUTE_ACCESSORS_BASIC(ThisClass, InComingDamage)
 private:
 	// RepNotify functions for attributes
 	// Primary RepNotify functions

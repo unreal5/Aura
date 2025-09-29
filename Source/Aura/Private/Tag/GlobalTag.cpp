@@ -41,4 +41,6 @@ namespace GlobalTag
 	UE_DEFINE_GAMEPLAY_TAG(InputTag_Shift, "Input.Shift");
 	// define event tags
 	UE_DEFINE_GAMEPLAY_TAG(Event_Montage_FireBolt, "Event.Montage.FireBolt");
+	// define damage tags
+	UE_DEFINE_GAMEPLAY_TAG(Damage, "Damage");
 }
