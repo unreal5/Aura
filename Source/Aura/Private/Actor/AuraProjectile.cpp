@@ -64,8 +64,17 @@ void AAuraProjectile::OnSphereBeginOverlap(UPrimitiveComponent* OverlappedCompon
                                            UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
                                            const FHitResult& SweepResult)
 {
-	UGameplayStatics::PlaySoundAtLocation(this, ImpactSound, SweepResult.ImpactPoint, FRotator::ZeroRotator);
-	UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, ImpactEffect, SweepResult.ImpactPoint, FRotator::ZeroRotator);
+	FVector ImpactPoint = SweepResult.ImpactPoint;//GetActorLocation();
+	// 经过以下测试，在客户端，SweepResult.ImpactPoint会是(0,0,0)，而在服务端则是正确的碰撞点。
+	// 正确的行为应只在服务端注册OnComponentBeginOverlap事件。
+	// if (SweepResult.ImpactPoint.IsNearlyZero())
+	// {
+	// 	bool bHasAuth = HasAuthority();
+	// 	UE_LOG(LogTemp, Warning, TEXT("ImpactPoint is nearly zero, bHasAuth: %d"), bHasAuth);
+	// }
+	
+	UGameplayStatics::PlaySoundAtLocation(this, ImpactSound, ImpactPoint, FRotator::ZeroRotator);
+	UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, ImpactEffect, ImpactPoint, FRotator::ZeroRotator);
 	if (LoopingAudioComponent)
 	{
 		LoopingAudioComponent->Stop();

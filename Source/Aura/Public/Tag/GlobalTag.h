@@ -47,4 +47,7 @@ namespace GlobalTag
 
 	// Damage Tags
 	AURA_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Damage);
+
+	// Effect Tags
+	AURA_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Effects_HitReact);
 }

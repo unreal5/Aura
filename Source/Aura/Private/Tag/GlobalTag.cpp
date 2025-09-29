@@ -43,4 +43,6 @@ namespace GlobalTag
 	UE_DEFINE_GAMEPLAY_TAG(Event_Montage_FireBolt, "Event.Montage.FireBolt");
 	// define damage tags
 	UE_DEFINE_GAMEPLAY_TAG(Damage, "Damage");
+	// define effect tags
+    UE_DEFINE_GAMEPLAY_TAG(Effects_HitReact, "Effects.HitReact");
 }
