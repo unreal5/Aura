@@ -91,6 +91,13 @@ void UAuraAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallba
 			SetHealth(FMath::Clamp(NewHealth, 0.f, GetMaxHealth()));
 
 			const bool bFatal = NewHealth <= 0.f;
+			if (!bFatal)
+			{
+				// 不是致命伤害，播放受击动画。实现方式是通过Tag
+				FGameplayTagContainer TagContainer;
+				TagContainer.AddTag(GlobalTag::Effects_HitReact);
+				EffectProperties.TargetASC->TryActivateAbilitiesByTag(TagContainer, true);
+			}
 		}
 	}
 }

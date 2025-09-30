@@ -45,6 +45,9 @@ void AAuraEnemy::BeginPlay()
 
 	InitAbilityActorInfo();
 
+	// 给技能
+	UAuraAbilitySystemLibrary::GiveStartupAbilities(this, AbilitySystemComponent);
+	
 	auto AuraAs = Cast<UAuraAttributeSet>(AttributeSet);
 	check(AuraAs);
 

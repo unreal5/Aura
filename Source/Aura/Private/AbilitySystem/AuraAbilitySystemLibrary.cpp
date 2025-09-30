@@ -61,12 +61,28 @@ void UAuraAbilitySystemLibrary::InitializeDefaultAttributes(const UObject* World
 	auto ClassDefaultInfo = AuraGM->CharacterClassInfo->GetClassDefaultInfo(CharacterClass);
 	auto ContextHandle = ASC->MakeEffectContext();
 	ContextHandle.AddSourceObject(ASC->GetAvatarActor());
-	
+
 	auto PrimaryAttributesSpecHandle = ASC->MakeOutgoingSpec(ClassDefaultInfo.PrimaryAttributes, Level, ContextHandle);
 	ASC->ApplyGameplayEffectSpecToSelf(*PrimaryAttributesSpecHandle.Data);
 
-	auto SecondaryAttributesSpecHandle = ASC->MakeOutgoingSpec(AuraGM->CharacterClassInfo->SecondaryAttributes, Level, ContextHandle);
+	auto SecondaryAttributesSpecHandle = ASC->MakeOutgoingSpec(AuraGM->CharacterClassInfo->SecondaryAttributes, Level,
+	                                                           ContextHandle);
 	ASC->ApplyGameplayEffectSpecToSelf(*SecondaryAttributesSpecHandle.Data);
-	auto VitalAttributesSpecHandle = ASC->MakeOutgoingSpec(AuraGM->CharacterClassInfo->VitalAttributes, Level, ContextHandle);
+	auto VitalAttributesSpecHandle = ASC->MakeOutgoingSpec(AuraGM->CharacterClassInfo->VitalAttributes, Level,
+	                                                       ContextHandle);
 	ASC->ApplyGameplayEffectSpecToSelf(*VitalAttributesSpecHandle.Data);
+}
+
+void UAuraAbilitySystemLibrary::GiveStartupAbilities(const UObject* WorldContextObject, UAbilitySystemComponent* ASC)
+{
+	auto AuraGM = Cast<AAuraGameModeBase>(UGameplayStatics::GetGameMode(WorldContextObject));
+	if (!AuraGM) return;
+	if (!AuraGM->CharacterClassInfo) return;
+	if (!ASC) return;
+
+	for (auto& CommonAbility : AuraGM->CharacterClassInfo->CommonAbilities)
+	{
+		FGameplayAbilitySpec AbilitySpec(CommonAbility, 1);
+		ASC->GiveAbility(AbilitySpec);
+	}
 }
