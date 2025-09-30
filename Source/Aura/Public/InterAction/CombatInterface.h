@@ -30,4 +30,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 	void UpdateFacingTarget(const FVector& TargetLocation);
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+	UAnimMontage* GetHitReactMontage() const;
 };

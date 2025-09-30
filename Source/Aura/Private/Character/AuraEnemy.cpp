@@ -8,6 +8,8 @@
 #include "AbilitySystem/AuraAbilitySystemLibrary.h"
 #include "AbilitySystem/AuraAttributeSet.h"
 #include "Components/WidgetComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
+#include "Tag/GlobalTag.h"
 #include "UI/Widget/AuraUserWidget.h"
 
 AAuraEnemy::AAuraEnemy()
@@ -30,6 +32,9 @@ AAuraEnemy::AAuraEnemy()
 	HealthBar->SetWidgetSpace(EWidgetSpace::Screen);
 	HealthBar->SetDrawSize(FVector2D(100.0f, 5.0f));
 	HealthBar->SetRelativeLocation(FVector(0.0f, 0.0f, 40.0f));
+
+	// 初始化角色速度
+	GetCharacterMovement()->MaxWalkSpeed = BaskWalklSpeed;
 }
 
 void AAuraEnemy::BeginPlay()
@@ -40,8 +45,10 @@ void AAuraEnemy::BeginPlay()
 
 	InitAbilityActorInfo();
 
-	auto AuraUserWidgetObject = Cast<UAuraUserWidget>(HealthBar->GetUserWidgetObject());
-	if (AuraUserWidgetObject)
+	auto AuraAs = Cast<UAuraAttributeSet>(AttributeSet);
+	check(AuraAs);
+
+	if (const auto AuraUserWidgetObject = Cast<UAuraUserWidget>(HealthBar->GetUserWidgetObject()))
 	{
 		AuraUserWidgetObject->SetWidgetController(this);
 	}
@@ -58,12 +65,16 @@ void AAuraEnemy::BeginPlay()
 		                        OnMaxHealthChanged.Broadcast(Data.NewValue);
 	                        });
 
-	auto AuraAs = Cast<UAuraAttributeSet>(AttributeSet);
-	if (AuraAs)
-	{
-		OnHealthChanged.Broadcast(AuraAs->GetHealth());
-		OnMaxHealthChanged.Broadcast(AuraAs->GetMaxHealth());
-	}
+	// 侦听Tag
+	AbilitySystemComponent->RegisterGameplayTagEvent(GlobalTag::Effects_HitReact, EGameplayTagEventType::NewOrRemoved).
+	                        AddLambda([this](const FGameplayTag InTag, int32 Count)
+	                        {
+		                        bHitReacting = Count > 0;
+	                        	GetCharacterMovement()->MaxWalkSpeed = bHitReacting? 0.0f : BaskWalklSpeed;
+	                        });
+
+	OnHealthChanged.Broadcast(AuraAs->GetHealth());
+	OnMaxHealthChanged.Broadcast(AuraAs->GetMaxHealth());
 }
 
 void AAuraEnemy::HighlightActor()

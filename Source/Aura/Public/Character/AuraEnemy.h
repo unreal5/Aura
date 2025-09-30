@@ -25,6 +25,12 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FOnDataChangedDelegate OnMaxHealthChanged;
 
+	UPROPERTY(BlueprintReadOnly, Category = "Combat")
+	bool bHitReacting = false;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat")
+	float BaskWalklSpeed = 250.f;
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void HighlightActor() override;
