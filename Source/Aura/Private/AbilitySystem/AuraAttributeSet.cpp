@@ -6,6 +6,7 @@
 #include "GameplayEffectExtension.h"
 #include "Net/UnrealNetwork.h"
 #include "GameFramework/Character.h"
+#include "InterAction/CombatInterface.h"
 #include "Tag/GlobalTag.h"
 
 UAuraAttributeSet::UAuraAttributeSet()
@@ -97,6 +98,10 @@ void UAuraAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallba
 				FGameplayTagContainer TagContainer;
 				TagContainer.AddTag(GlobalTag::Effects_HitReact);
 				EffectProperties.TargetASC->TryActivateAbilitiesByTag(TagContainer, true);
+			} // else  致命伤害
+			else
+			{
+				ICombatInterface::Execute_Die(EffectProperties.TargetAvatarActor);
 			}
 		}
 	}

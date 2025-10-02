@@ -31,6 +31,8 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat")
 	float BaskWalklSpeed = 250.f;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat")
+	float LifeSpan = 5.f;
 protected:
 	virtual void BeginPlay() override;
 	virtual void HighlightActor() override;
@@ -39,7 +41,8 @@ protected:
 	virtual void InitializeDefaultAttributes() const override;
 	/* Combat Interface */
 	virtual int32 GetPlayerLevel_Implementation() const override { return Level; }
-
+	virtual void Die_Implementation() override;
+	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	TObjectPtr<UWidgetComponent> HealthBar;
 
