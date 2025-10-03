@@ -7,6 +7,8 @@
 #include "Net/UnrealNetwork.h"
 #include "GameFramework/Character.h"
 #include "InterAction/CombatInterface.h"
+#include "Kismet/GameplayStatics.h"
+#include "Player/AuraPlayerController.h"
 #include "Tag/GlobalTag.h"
 
 UAuraAttributeSet::UAuraAttributeSet()
@@ -91,18 +93,19 @@ void UAuraAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallba
 			const float NewHealth = GetHealth() - LocalInComingDamage;
 			SetHealth(FMath::Clamp(NewHealth, 0.f, GetMaxHealth()));
 
-			const bool bFatal = NewHealth <= 0.f;
-			if (!bFatal)
+			if (const bool bFatal = NewHealth <= 0.f) // 致命伤害
+			{
+				ICombatInterface::Execute_Die(EffectProperties.TargetAvatarActor);
+			}
+			else
 			{
 				// 不是致命伤害，播放受击动画。实现方式是通过Tag
 				FGameplayTagContainer TagContainer;
 				TagContainer.AddTag(GlobalTag::Effects_HitReact);
 				EffectProperties.TargetASC->TryActivateAbilitiesByTag(TagContainer, true);
-			} // else  致命伤害
-			else
-			{
-				ICombatInterface::Execute_Die(EffectProperties.TargetAvatarActor);
 			}
+			// 只要是受到伤害就触发UI
+			ShowFloatingText(EffectProperties, LocalInComingDamage);
 		}
 	}
 }
@@ -221,5 +224,18 @@ void UAuraAttributeSet::SetEffectProperties(const FGameplayEffectModCallbackData
 		EffectProperties.TargetPlayerController = Data.Target.AbilityActorInfo->PlayerController.Get();
 		EffectProperties.TargetCharacter = Cast<ACharacter>(EffectProperties.TargetAvatarActor);
 		EffectProperties.TargetASC = &Data.Target;
+	}
+}
+
+void UAuraAttributeSet::ShowFloatingText(const FEffectProperties& Props, float DamageAmount) const
+{
+	if (Props.SourceCharacter != Props.TargetCharacter)
+	{
+		auto AuraPC = Cast<AAuraPlayerController>(
+			UGameplayStatics::GetPlayerController(Props.SourceCharacter, 0));
+		if (AuraPC)
+		{
+			AuraPC->ShowDamageNumber(DamageAmount, Props.TargetCharacter);
+		}
 	}
 }

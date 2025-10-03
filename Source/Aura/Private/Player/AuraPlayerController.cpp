@@ -10,9 +10,11 @@
 #include "NavigationSystem.h"
 #include "AbilitySystem/AuraAbilitySystemComponent.h"
 #include "Components/SplineComponent.h"
+#include "GameFramework/Character.h"
 #include "Input/AuraInputComponent.h"
 #include "InterAction/EnemyInterface.h"
 #include "Tag/GlobalTag.h"
+#include "UI/Widget/DamageTextComponent.h"
 
 AAuraPlayerController::AAuraPlayerController()
 {
@@ -30,6 +32,33 @@ void AAuraPlayerController::PlayerTick(float DeltaTime)
 
 	if (bAutoRunning)
 		AutoRun();
+}
+
+void AAuraPlayerController::ShowDamageNumber_Implementation(float DamageAmount, ACharacter* TargetCharacter)
+{
+	if (DamagetTextComponentClass && IsValid(TargetCharacter))
+	{
+		auto DamageTextComp = NewObject<UDamageTextComponent>(TargetCharacter, DamagetTextComponentClass);
+		if (DamageTextComp)
+		{
+			DamageTextComp->RegisterComponent();
+			DamageTextComp->AttachToComponent(TargetCharacter->GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
+			DamageTextComp->SetDamagetText(DamageAmount);
+			
+			//DamageTextComp->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
+			// 延迟到下一帧Detach
+			TWeakObjectPtr WeakComp = DamageTextComp;
+			GetWorld()->GetTimerManager().SetTimerForNextTick(
+				FTimerDelegate::CreateLambda([WeakComp]()
+				{
+					if (WeakComp.IsValid())
+					{
+						WeakComp->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
+					}
+				})
+			);
+		}
+	}
 }
 
 void AAuraPlayerController::AutoRun()
