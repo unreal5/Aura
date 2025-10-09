@@ -39,6 +39,9 @@ void UExecCalc_Damage::Execute_Implementation(const FGameplayEffectCustomExecuti
 	auto TargetAvatar = TargetASC ? TargetASC->GetAvatarActor() : nullptr;
 
 	auto&& Spec = ExecutionParams.GetOwningSpec();
+	// get damage set by caller magnitude
+	float Damage = 0.f;
+	Spec.GetSetByCallerMagnitude()
 
 	FAggregatorEvaluateParameters EvalParams;
 	EvalParams.SourceTags = Spec.CapturedSourceTags.GetAggregatedTags();
