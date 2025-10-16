@@ -4,7 +4,9 @@
 #include "AbilitySystem/ExecCalc/ExecCalc_Damage.h"
 
 #include "AbilitySystemComponent.h"
+#include "AbilitySystem/AuraAbilitySystemLibrary.h"
 #include "AbilitySystem/AuraAttributeSet.h"
+#include "InterAction/CombatInterface.h"
 #include "Tag/GlobalTag.h"
 
 // 辅助结构体
@@ -44,7 +46,8 @@ void UExecCalc_Damage::Execute_Implementation(const FGameplayEffectCustomExecuti
 
 	auto SourceAvatar = SourceASC ? SourceASC->GetAvatarActor() : nullptr;
 	auto TargetAvatar = TargetASC ? TargetASC->GetAvatarActor() : nullptr;
-
+	auto PlayerLevel = ICombatInterface::Execute_GetPlayerLevel(SourceAvatar);
+	
 	auto&& Spec = ExecutionParams.GetOwningSpec();
 	// 获取 SetByCaller 伤害数值。SetByCaller是在GameplayEffectSpec上设置的
 	// 回想一下 AuraProjectileSpell 里是如何设置的。
@@ -79,9 +82,18 @@ void UExecCalc_Damage::Execute_Implementation(const FGameplayEffectCustomExecuti
 	ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().ArmorPenetrationDef, EvalParams,
 	                                                           SourceArmorPenetration);
 	SourceArmorPenetration = FMath::Max(SourceArmorPenetration, 0.f);
+
+	auto CharacterClassInfo = UAuraAbilitySystemLibrary::GetCharacterClassInfo(SourceAvatar);
+	check(CharacterClassInfo);
+	auto ArmorPenetrationCurve = CharacterClassInfo->DamageCalculationCoefficients->FindCurve(FName("ArmorPenetration"), FString(""));
+	const float ArmorPenetration =ArmorPenetrationCurve->Eval(PlayerLevel);
 	// 计算有效护甲值：ArmorPenetration值表示忽略目标Armor的百分比。例如穿透是0.3，表示忽略30%的护甲值
-	const float EffectiveArmor = TargetArmor *= (100.f - SourceArmorPenetration * 0.25) / 100.f;
-	Damage *= (100.f - EffectiveArmor * 0.333f) / 100.f;
+	const float EffectiveArmor = TargetArmor * (100.f - SourceArmorPenetration * ArmorPenetration) / 100.f;
+
+	// 护甲忽略incoming damage的百分比。
+	auto EffectiveArmorCurve = CharacterClassInfo->DamageCalculationCoefficients->FindCurve(FName("EffectiveArmor"), FString(""));
+	const float EffectiveArmorPercent = EffectiveArmorCurve->Eval(PlayerLevel);
+	Damage *= (100.f - EffectiveArmor * EffectiveArmorPercent) / 100.f;
 
 	// 目标的Armor（护甲值）会减少伤害
 	FGameplayModifierEvaluatedData ModifierData{
