@@ -21,10 +21,11 @@ class AURA_API AAuraPlayerController : public APlayerController
 public:
 	AAuraPlayerController();
 
-protected:
-	virtual void BeginPlay() override;
+	void PlayerTick(float DeltaTime) override;
 
-	virtual void SetupInputComponent() override;
+protected:
+	void BeginPlay() override;
+	void SetupInputComponent() override;
 
 private:
 	UPROPERTY(EditAnywhere, Category="Input")
@@ -34,4 +35,9 @@ private:
 	UPROPERTY(EditAnywhere, Category="Input")
 	UInputAction* MoveAction;
 	void Move(const FInputActionValue& InputActionValue);
+
+	// 追踪当前光标下面的物体
+	void CursorTrace();
+	AActor* LastActor = nullptr;
+	AActor* CurrentActor = nullptr;
 };

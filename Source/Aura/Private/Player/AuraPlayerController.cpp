@@ -5,12 +5,21 @@
 
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
+#include "Engine/HitResult.h"
 #include "Engine/LocalPlayer.h"
 #include "GameFramework/Pawn.h"
+#include "Interaction/HighlightInterface.h"
 
 AAuraPlayerController::AAuraPlayerController()
 {
 	bReplicates = true;
+}
+
+void AAuraPlayerController::PlayerTick(float DeltaTime)
+{
+	Super::PlayerTick(DeltaTime);
+
+	CursorTrace();
 }
 
 void AAuraPlayerController::BeginPlay()
@@ -63,4 +72,26 @@ void AAuraPlayerController::Move(const FInputActionValue& InputActionValue)
 	FVector ForwardDirection = FVector{MovementVector.Y, MovementVector.X, 0};
 	ForwardDirection = YawRotation.RotateVector(ForwardDirection);
 	ControlledPawn->AddMovementInput(ForwardDirection);
+}
+
+void AAuraPlayerController::CursorTrace()
+{
+	FHitResult HitResult;
+	GetHitResultUnderCursor(ECollisionChannel::ECC_Visibility, false, HitResult);
+	if (!HitResult.bBlockingHit) return;
+
+	CurrentActor = HitResult.GetActor();
+	if (LastActor != CurrentActor)
+	{
+		if (IsValid(LastActor) && LastActor->Implements<UHighlightInterface>())
+		{
+			IHighlightInterface::Execute_UnHighlightActor(LastActor);
+		}
+
+		if (IsValid(CurrentActor) && CurrentActor->Implements<UHighlightInterface>())
+		{
+			IHighlightInterface::Execute_HighlightActor(CurrentActor);
+		}
+	}
+	LastActor = CurrentActor;
 }
