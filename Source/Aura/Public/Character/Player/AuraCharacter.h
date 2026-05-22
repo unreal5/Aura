@@ -6,11 +6,20 @@
 #include "Character/AuraCharacterBase.h"
 #include "AuraCharacter.generated.h"
 
+class UCameraComponent;
+class USpringArmComponent;
+
 UCLASS()
 class AURA_API AAuraCharacter : public AAuraCharacterBase
 {
 	GENERATED_BODY()
+	/** Camera boom positioning the camera behind the character */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
+	USpringArmComponent* CameraBoom;
 
+	/** Follow camera */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
+	UCameraComponent* FollowCamera;
 public:
 	// Sets default values for this character's properties
 	AAuraCharacter();
