@@ -4,6 +4,8 @@
 #include "Character/Enemy/AuraEnemy.h"
 
 #include "Aura/Aura.h"
+#include "AbilitySystem/AuraAbilitySystemComponent.h"
+#include "AbilitySystem/AuraAttributeSet.h"
 #include "Components/SkeletalMeshComponent.h"
 
 
@@ -14,6 +16,11 @@ AAuraEnemy::AAuraEnemy()
 	PrimaryActorTick.bCanEverTick = true;
 
 	GetMesh()->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
+
+	AbilitySystemComponent = CreateDefaultSubobject<UAuraAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
+	AbilitySystemComponent->SetIsReplicated(true);
+	AbilitySystemComponent->SetReplicationMode(EGameplayEffectReplicationMode::Minimal);
+	AttributeSet = CreateDefaultSubobject<UAuraAttributeSet>(TEXT("AttributeSet"));
 }
 
 // Called when the game starts or when spawned
