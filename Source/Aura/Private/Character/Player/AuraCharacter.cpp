@@ -3,9 +3,11 @@
 
 #include "Character/Player/AuraCharacter.h"
 
+#include "AbilitySystemComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "Player/AuraPlayerState.h"
 
 
 // Sets default values
@@ -26,7 +28,7 @@ AAuraCharacter::AAuraCharacter()
 	CameraBoom->bInheritPitch = false;
 	CameraBoom->bInheritRoll = false;
 	CameraBoom->bInheritYaw = false;
-	
+
 	// Create a follow camera
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
@@ -37,27 +39,39 @@ AAuraCharacter::AAuraCharacter()
 	// 限制角色只能在水平面上移动
 	GetCharacterMovement()->bConstrainToPlane = true;
 	GetCharacterMovement()->bSnapToPlaneAtStart = true;
-	
+
 	// 角色自身不旋转，摄像机旋转
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationRoll = false;
 }
 
-// Called when the game starts or when spawned
-void AAuraCharacter::BeginPlay()
+
+// 客户端调用
+void AAuraCharacter::OnRep_PlayerState()
 {
-	Super::BeginPlay();
+	Super::OnRep_PlayerState();
+	
+	InitAbilityActorInfo();
+}
+// 服务器调用
+void AAuraCharacter::PossessedBy(AController* NewController)
+{
+	Super::PossessedBy(NewController);
+
+	InitAbilityActorInfo();
 }
 
-// Called every frame
-void AAuraCharacter::Tick(float DeltaTime)
+void AAuraCharacter::InitAbilityActorInfo()
 {
-	Super::Tick(DeltaTime);
-}
+	if (auto AuraPlayerState = GetPlayerState<AAuraPlayerState>())
+	{
+		AbilitySystemComponent = AuraPlayerState->GetAbilitySystemComponent();
+		AttributeSet = AuraPlayerState->GetAttributeSet();
 
-// Called to bind functionality to input
-void AAuraCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
-{
-	Super::SetupPlayerInputComponent(PlayerInputComponent);
+		if (AbilitySystemComponent)
+		{
+			AbilitySystemComponent->InitAbilityActorInfo(AuraPlayerState, this);
+		}
+	}
 }
