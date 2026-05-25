@@ -1,0 +1,438 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% kaobook
+% LaTeX Class
+% Version 0.9.8 (2021/08/23)
+%
+% This template originates from:
+% https://www.LaTeXTemplates.com
+%
+% For the latest template development version and to make contributions:
+% https://github.com/fmarotta/kaobook
+%
+% Authors:
+% Federico Marotta (federicomarotta@mail.com)
+% Based on the doctoral thesis of Ken Arroyo Ohori (https://3d.bk.tudelft.nl/ken/en)
+% and on the Tufte-LaTeX class.
+% Modified for LaTeX Templates by Vel (vel@latextemplates.com)
+%
+% License:
+% LPPL (see included MANIFEST.md file)
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%----------------------------------------------------------------------------------------
+%	EXAMPLE AND DOCUMENTATION OF THE KAOBOOK CLASS
+%----------------------------------------------------------------------------------------
+
+\documentclass[
+    a4paper, % Page size
+    fontsize=10pt, % Base font size
+    twoside, % Use different layouts for even and odd pages (in particular, if twoside=true, the margin column will be always on the outside)
+	%open=any, % If twoside=true, uncomment this to force new chapters to start on any page, not only on right (odd) pages
+	%chapterentrydots=true, % Uncomment to output dots from the chapter name to the page number in the table of contents
+	numbers=noenddot, % Comment to output dots after chapter numbers; the most common values for this option are: enddot, noenddot and auto (see the KOMAScript documentation for an in-depth explanation)
+	fontmethod=modern, % Can also use "modern" with XeLaTeX or LuaTex; "tex" is the default for PdfLaTex, and "modern" is the default for those two.
+]{kaobook}
+
+%添加中文支持
+\usepackage{xeCJK}
+
+\defaultCJKfontfeatures{Scale=MatchUppercase}
+
+	\setCJKmainfont[
+		Path=fonts/SourceHanSerifSC/,
+		BoldFont=LXGWNeoXiHeiPlus.ttf,
+		ItalicFont=LXGWWenKai-Regular.ttf,
+		%BoldItalicFont=叶根友毛笔行书简体.ttf,
+		%Scale=0.8
+	]{LXGWNeoZhiSongPlus.ttf}%
+
+	\setCJKsansfont[
+		Path=fonts/HarmonyOS_Sans/,
+		BoldFont=HarmonyOS_Sans_Bold.ttf,
+		ItalicFont=HarmonyOS_Sans_Regular_Italic.ttf,
+		BoldItalicFont=HarmonyOS_Sans_Bold_Italic.ttf,
+		%Scale=.8
+	]{HarmonyOS_Sans_Regular.ttf}%
+
+
+
+	\setmainfont[
+		Path=fonts/Alegreya/,
+		BoldFont=Alegreya-Bold.ttf,
+		ItalicFont=Alegreya-Italic.ttf,
+		BoldItalicFont=Alegreya-BoldItalic,ttf,
+		%Scale=.9
+	]{Alegreya-Regular.ttf}
+	
+	\setsansfont[
+		Path=fonts/Alegreya/,
+		BoldFont=AlegreyaSC-Bold.ttf,
+		ItalicFont=AlegreyaSC-Italic.ttf,
+		BoldItalicFont=AlegreyaSC-BoldItalic,ttf,
+		%Scale=.9
+	]{AlegreyaSC-Regular.ttf}
+	
+	\setmonofont[
+		Path=fonts/UbuntuMono/,
+		BoldFont=UbuntuMono-Bold.ttf,
+		ItalicFont=UbuntuMono-Italic.ttf,
+		BoldItalicFont=UbuntuMono-BoldItalic.ttf,
+	%Scale=.9
+	]{UbuntuMono-Regular.ttf}%
+%----------------------------------------------------------------------------------------
+%	PACKAGES AND OTHER DOCUMENT CONFIGURATIONS
+%----------------------------------------------------------------------------------------
+
+% Choose the language
+\ifxetexorluatex
+	\usepackage{polyglossia}
+	\setmainlanguage{english}
+\else
+	\usepackage[english]{babel} % Load characters and hyphenation
+\fi
+\usepackage[english=british]{csquotes}	% English quotes
+
+% Load packages for testing
+\usepackage{blindtext} % Print text without any meaning for testing purposes
+%\usepackage{showframe} % Uncomment to show boxes around the text area, margin, header and footer
+%\usepackage{showlabels} % Uncomment to output the content of \label commands to the document where they are used
+
+% Load the bibliography package
+\usepackage{kaobiblio}
+\addbibresource{main.bib} % Bibliography file
+
+% Load mathematical packages for theorems and related environments
+\usepackage[framed=true]{kaotheorems}
+
+% Load the package for hyperreferences
+\usepackage{kaorefs}
+
+\graphicspath{{examples/documentation/images/}{images/}} % Paths in which to look for images
+
+\makeindex[columns=3, title=Alphabetical Index, intoc] % Make LaTeX produce the files required to compile the index
+
+\makeglossaries % Make LaTeX produce the files required to compile the glossary
+\input{glossary.tex} % Include the glossary definitions
+
+\makenomenclature % Make LaTeX produce the files required to compile the nomenclature
+
+% Reset sidenote counter at chapters
+%\counterwithin*{sidenote}{chapter}
+
+%----------------------------------------------------------------------------------------
+
+\begin{document}
+
+\mainmatter % Denotes the start of the main document content, resets page numbering and uses arabic numbers
+\setchapterstyle{kao} % Choose the default chapter heading style
+\chapter{GAS基础知识}
+
+\section{Gameplay Ability System 概述}
+
+本节主要介绍 Unreal Engine 的 Gameplay Ability System（GAS）是什么，以及为什么课程项目要围绕它展开。
+
+GAS 是一个高度灵活的框架，用来构建游戏中的能力、属性和状态效果，尤其适合 RPG 和 MOBA 这类系统复杂的游戏。它不仅能实现主动技能和被动技能，还能处理属性变化、冷却时间、资源消耗、技能等级成长，以及粒子、音效等表现层内容。
+
+课程用 RPG 作为例子说明问题：一个复杂游戏通常会包含大量彼此关联的系统，例如生命值、伤害、暴击、经验、升级、增益与减益效果等。这些系统之间存在大量数学关系和逻辑联动，例如一个属性会影响另一个属性，攻击会触发动画、伤害计算、死亡判定、经验奖励和升级成长。随着游戏复杂度提升，管理这些关系会越来越困难，而 GAS 的价值就在于为这些要素提供统一、模块化、可扩展的组织方式。
+
+讲解中还强调，视觉和音频反馈同样属于完整 gameplay 设计的一部分。一次攻击不仅是数值变化，也往往伴随粒子、爆炸、击中反馈和声音提示。GAS 不只是处理底层数值，也有助于将这些 gameplay cue 一并纳入系统化框架中。
+
+随后课程介绍了 GAS 的背景。它最初是 Epic 为多人 MOBA 游戏 Paragon 设计的，用来应对多人联机、高复杂角色能力、升级成长、属性交互和效果叠加等技术挑战。虽然 Paragon 最终停运，但 GAS 被证明结构优秀、通用性很强，后来也成为 Fortnite 的重要组成部分。
+
+本节最终给出的核心结论是：不使用 GAS 当然也能做复杂游戏，但 GAS 提供了一套经过验证的工程化方案，使能力系统更易维护、更易扩展、更模块化，并且天然适合网络同步与多人游戏环境。学习 GAS，本质上是在学习一种能支撑严肃复杂游戏开发的软件工程框架，而接下来的课程将逐步把它接入项目，拆解其各项能力与设计思想。
+\section{GAS 的主要组成部分}
+
+本节系统梳理了 Gameplay Ability System（GAS）的核心构成，以及课程项目将如何开始把它接入现有工程。
+
+GAS 中最重要的基础部件之一是 \textbf{ASC}\sidenote{Ability System Component}。它是一个可以挂载到 Actor 上的组件，负责能力的授予、激活，以及处理能力触发和效果应用时的各种通知等关键行为。只要某个角色想\textbf{真正参与 GAS，它通常就需要拥有 ASC}。
+
+与 ASC 同样关键的是 \texttt{Attribute Set}。游戏中的生命值、法力值以及其他各种属性，都会存放在 Attribute Set 中。它不仅负责承载属性数据，也提供了将这些属性与 GAS 其他部分关联起来的机制，因此是角色数值系统的基础载体。
+
+GAS 的核心行为单元是 Gameplay Ability。它本质上是一个类，用来封装角色或对象能够执行的某种行为，例如攻击、施法等。这样一来，与某项能力相关的逻辑就可以集中在对应的 Ability 类内部，形成清晰的职责划分。Gameplay Ability 内部通常还会运行 Ability Tasks。Ability Task 可以理解为能力执行时的异步工作单元，有的任务会立即完成，有的则会持续一段时间，并根据游戏过程中的状态变化执行不同逻辑，因此它们是 Ability 具体落实行为的执行者。
+
+另一个核心部分是 Gameplay Effect。它主要负责修改属性值，包括立即修改、持续一段时间地修改、周期性增减，以及依据其他属性和参数进行复杂计算后的修改。与之配套的是 Gameplay Cue，它负责粒子、音效等表现层的视觉和听觉反馈，并且也能处理这些反馈在网络环境下的同步。除此之外，Gameplay Tags 虽然并不只属于 GAS，但在 GAS 中使用极其广泛。它们是层级化的标记系统，比枚举、布尔值或普通字符串更灵活，适合用来标识能力、状态、效果和各种 gameplay 语义。
+
+在将 GAS 接入项目时，最先必须落地的是 ASC 和 Attribute Set。它们可以直接放在 Pawn/Character 上，也可以放在与 Pawn 关联的 Player State 上\sidenote{通常对于多玩家网络游戏，是否放在\texttt{PlayerController}上\emph{要慎重考虑}，因为在客户端上只有本机玩家才存在控制器。}。两种方案各有适用场景。
+\begin{itemize}
+	\item 如果把 ASC 和 Attribute Set 放在 Pawn 上，那么角色死亡并被销毁时，这两个对象也会一同消失；如果没有额外持久化机制，那么其中保存的数据和能力状态也会丢失，角色重生后只能重新以默认值初始化。
+	\item 相反，如果把它们放在 Player State 上，那么 Pawn 死亡并销毁后，Player State 仍然存在，属性值和已授予的能力也能保留下来，新生成的 Pawn 可以继续复用原有状态。这种做法特别适合多人游戏中需要保留玩家状态的角色。
+\end{itemize}
+不过，把 ASC 和 Attribute Set 直接放在 Pawn 上也并非错误。对于较简单的 AI 敌人来说，它们通常不需要复杂的 Player State，仅仅需要拥有属性、能力并执行自身逻辑，因此将这些组件直接放在角色本体上反而更直接、更简单。
+
+本课程项目将同时展示这两种接入方式：敌人角色会把 ASC 和 Attribute Set 直接放在 Character 上；玩家控制角色则会把它们放在 Player State 上。这样既能保留玩家状态，也能让学习者理解不同架构选择背后的取舍。基于这一设计，接下来的实现重点就是先创建三个基础类：Player State、ASC，以及 Attribute Set，并在此基础上正式开始将 GAS 集成到项目中。
+
+\section{PlayerState}
+
+
+首先以 \texttt{PlayerState} 为基类创建类 \texttt{AuraPlayerState}，并在构造函数里将\texttt{NetUpdateFrequency} 设置为 \texttt{100}\sidenote{它决定服务器尝试向客户端同步 \texttt{PlayerState} 变化的频率。}。由于 \texttt{PlayerState} 默认更新频率较低，如果后续把 \texttt{AbilitySystemComponent} 和 \texttt{AttributeSet} 放在 \texttt{PlayerState} 上，那么同步应该更及时，因此需要提高该值。像 Lyra 和 Fortnite 这类项目中，也会在类似设计下把这个值设得更高，通常就是 \texttt{100}。
+
+接着，编译项目并基于 \texttt{AuraPlayerState} 创建蓝图 \texttt{BP\_AuraPlayerState}。虽然当前这个蓝图还没有额外逻辑，但它已经成为项目中的自定义 \texttt{PlayerState} 资产。然后在 \texttt{BP Aura Game Mode} 中，将游戏使用的 \texttt{PlayerState Class} 指定为 \texttt{BP\_AuraPlayerState}，从而让 Aura 正式使用这个新的 \texttt{PlayerState}。
+
+最后说明了目前运行游戏时不会看到明显变化，因为这个 \texttt{PlayerState} 还没有承载实际功能；不过它已经为后续 GAS 架构打好了基础。对于玩家控制角色 Aura，\texttt{AbilitySystemComponent} 和 \texttt{AttributeSet} 将放在 \texttt{PlayerState} 上；而对敌人，则会直接放在敌人角色类本身上。下一步课程将开始创建这些 Gameplay Ability System 相关类，并进一步讲解两种放置方式在设计上的差异。
+
+
+\section{GAS中的多人游戏基础}
+
+本节主要介绍了虚幻引擎多人游戏的基本概念，以及这些概念和 Gameplay Ability System（GAS）之间的关系。核心前提是：在多人游戏中，\textbf{服务器（Server）是权威端（Authoritative）}，也就是游戏状态的最终正确版本。
+
+\subsection{服务器与客户端}
+
+多人游戏通常由一个服务器和多个客户端组成。服务器是独立运行游戏逻辑的实例，客户端则是每个玩家本地运行的游戏实例。
+
+服务器主要有两种形式：
+
+\begin{itemize}
+	\item \textbf{Dedicated Server（专用服务器）}：没有本地玩家，不负责画面渲染，只负责游戏逻辑模拟。
+	\item \textbf{Listen Server（监听服务器）}：既是服务器，也是一个玩家所在的客户端。作为主机的玩家没有网络延迟带来的输入滞后优势。
+\end{itemize}
+
+\subsection{服务器权威性}
+
+在网络环境下，不同机器上的角色位置、状态等数据可能因为网络延迟而不一致。因此必须指定谁才是“正确”的版本。在 Unreal Engine 中：
+
+\begin{itemize}
+	\item \textbf{服务器始终是正确版本}
+	\item 重要逻辑应当放在服务器执行
+	\item 客户端更多负责表现和接收同步后的结果
+\end{itemize}
+
+这也是 GAS 能稳定支持多人游戏的重要基础。
+
+\subsection{常见类在多人中的存在位置}
+
+本节还区分了几个常见游戏类在服务器和客户端上的分布情况：
+
+\begin{itemize}
+	\item \textbf{GameMode}：只存在于服务器上。客户端访问时会得到空指针，因为它负责游戏规则、玩家生成、重开等关键逻辑。
+	\item \textbf{PlayerController}：服务器上有所有玩家的 PlayerController；每个客户端只拥有自己的本地 PlayerController。
+	\item \textbf{PlayerState}：服务器上有所有玩家的 PlayerState；每个客户端上也都有所有玩家的 PlayerState。
+	\item \textbf{Pawn/Character}：服务器和每个客户端上都会存在所有玩家角色的副本，因为每个人都需要看到所有角色。
+	\item \textbf{HUD 和 Widget}：只存在于本地客户端。Dedicated Server 没有 HUD；Listen Server 只拥有主机玩家自己的 HUD。
+\end{itemize}
+
+\subsection{复制（Replication）的基本概念}
+
+复制是指\textbf{服务器将数据同步到客户端}。例如某个 Pawn 上有一个被标记为 replicated 的变量：
+
+\begin{itemize}
+	\item 如果这个变量在服务器上发生变化
+	\item 那么在下一次网络更新时
+	\item 服务器会把新值同步到所有客户端
+\end{itemize}
+
+因此，复制的方向是：$\text{Server} \rightarrow \text{Client}$
+
+
+而不是双向同步。
+
+\subsection{Net Update Frequency}
+
+\texttt{Net Update Frequency} 表示服务器向客户端发送同步更新的频率。例如设置为 100，表示理论上每秒最多更新 100 次，只要服务器性能允许。
+
+它的意义是：
+
+\begin{itemize}
+	\item 数值越高，客户端状态越及时
+	\item 但也会增加网络和性能开销
+\end{itemize}
+
+\subsection{为什么客户端不能随意修改复制变量}
+
+如果一个 replicated 变量在客户端被本地修改，这个变化\textbf{不会自动上传到服务器}。结果是：
+
+\begin{itemize}
+	\item 只有当前客户端知道这个变化
+	\item 服务器不知道
+	\item 其他客户端也不知道
+	\item 该值会与服务器版本失去同步
+\end{itemize}
+
+由于服务器才是权威端，所以客户端私自修改 replicated 变量通常是错误做法。
+
+\subsection{RPC的作用}
+
+既然复制只能从服务器到客户端，那么客户端如何把输入或请求发送给服务器？答案是使用 \textbf{RPC（Remote Procedure Call，远程过程调用）}。
+
+RPC 用来实现例如：
+
+\begin{itemize}
+	\item 客户端把输入发送给服务器
+	\item 客户端请求服务器执行某个逻辑
+	\item 服务器再把结果同步回各客户端
+\end{itemize}
+
+因此，多人游戏的数据通信通常依赖两种机制：
+
+\begin{itemize}
+	\item \textbf{Replication}：服务器同步数据到客户端
+	\item \textbf{RPC}：客户端或服务器主动调用远程函数
+\end{itemize}
+
+\subsection{这一节与GAS的关系}
+
+本节的重点不是展开讲完整的多人游戏编程，而是建立 GAS 所需的最小多人基础认知。课程强调：
+
+\begin{itemize}
+	\item GAS 已经在底层帮开发者处理了很多多人同步细节
+	\item 学习者只需要理解服务器权威、类的分布、复制和 RPC 的基本方向
+	\item 后续实现的 Gameplay Mechanics 会同时兼容单机和多人模式
+\end{itemize}
+
+
+\subsection{本节核心结论}
+
+本节最重要的结论可以概括为以下几点：
+
+\begin{itemize}
+	\item Unreal 多人游戏以服务器为权威端
+	\item 不是所有类都同时存在于服务器和客户端
+	\item 复制只会从服务器流向客户端
+	\item 客户端到服务器的通信依赖 RPC
+	\item GAS 在多人环境下已经封装了大量底层同步工作
+\end{itemize}
+
+
+\section{AbilitySystemComponent 与 AttributeSet 的构造与接口接入}
+
+本节主要完成了 GAS 中两个核心对象的初步接入：\textbf{AbilitySystemComponent（ASC）} 与 \textbf{AttributeSet（AS）}。课程的目标是先把这两个对象放到合适的类中创建出来，并为后续角色与能力系统之间的连接做好准备。
+
+\subsection{在角色基类中预留指针}
+
+首先，在 \texttt{AuraCharacterBase} 中增加了两个成员指针：
+
+\begin{itemize}
+	\item \texttt{AbilitySystemComponent}
+	\item \texttt{AttributeSet}
+\end{itemize}
+
+这样做的目的不是在基类中直接构造它们，而是让所有角色都继承这两个引用入口。因为后续无论是敌人还是玩家控制角色，都会需要访问 ASC 和 AS，只是它们的\textbf{实际拥有者}不完全相同。
+
+\subsection{敌人角色中直接构造 ASC 与 AS}
+
+对于 \texttt{AuraEnemy}，本节选择在敌人自己的构造函数中直接创建：
+
+\begin{itemize}
+	\item 使用 \texttt{CreateDefaultSubobject} 创建 \texttt{UAuraAbilitySystemComponent}
+	\item 使用 \texttt{CreateDefaultSubobject} 创建 \texttt{UAuraAttributeSet}
+\end{itemize}
+
+这说明敌人角色本身就是 ASC 和 AS 的拥有者，因此它们可以直接挂在角色对象上。
+
+此外，还对敌人的 AbilitySystemComponent 调用了复制设置：
+
+\begin{itemize}
+	\item \texttt{SetIsReplicated(true)}
+\end{itemize}
+
+这表示 ASC 需要支持网络复制，以便在多人游戏环境下同步能力系统相关状态。不过课程也指出，仅仅设置复制还不够，后续还会继续补充相关配置。
+
+\subsection{玩家角色的 ASC 与 AS 放在 PlayerState 中}
+
+对于玩家控制角色，课程没有把 ASC 和 AS 直接放进 \texttt{AuraCharacter}，而是放在 \texttt{AuraPlayerState} 中进行构造。这是 GAS 在多人游戏中常见的设计方式，因为：
+
+\begin{itemize}
+	\item \texttt{PlayerState} 在网络环境下更适合作为玩家持久状态的承载者
+	\item 玩家角色可能会重生、切换 Pawn，但玩家状态需要更稳定地保留
+	\item ASC 放在 \texttt{PlayerState} 中更符合多人同步场景下的设计需求
+\end{itemize}
+
+因此，本节在 \texttt{AuraPlayerState} 中同样添加了：
+
+\begin{itemize}
+	\item \texttt{AbilitySystemComponent} 指针
+	\item \texttt{AttributeSet} 指针
+\end{itemize}
+
+并在 \texttt{AuraPlayerState} 的构造函数中创建了对应对象。
+
+\subsection{角色基类中的指针与 PlayerState 中的对象尚未自动关联}
+
+虽然 \texttt{AuraCharacterBase} 已经拥有 ASC 和 AS 的指针成员，但对于玩家角色来说，这两个指针此时仍然可能是空的。原因是：
+
+\begin{itemize}
+	\item 真正的 ASC 和 AS 是在 \texttt{AuraPlayerState} 中构造的
+	\item \texttt{AuraCharacter} 自身只是从基类继承了两个指针，但目前还没有把它们指向 \texttt{PlayerState} 中已经创建好的对象
+\end{itemize}
+
+也就是说，本节只是完成了“对象已被创建”，但还没有完成“角色与这些对象之间的正式连接”。这一点会在下一节继续处理。
+
+\subsection{通过 IAbilitySystemInterface 暴露 ASC}
+
+为了让 GAS 框架能够统一地访问某个对象上的 AbilitySystemComponent，本节还引入了 \texttt{IAbilitySystemInterface}。
+
+该接口的核心作用是要求类实现一个函数：
+
+\begin{itemize}
+	\item \texttt{GetAbilitySystemComponent()}
+\end{itemize}
+
+实现这个接口之后，系统就可以方便地判断某个 Actor 是否接入了 GAS，并安全地获取其 ASC。
+
+本节分别在以下类中实现了该接口：
+
+\begin{itemize}
+	\item \texttt{AuraCharacterBase}
+	\item \texttt{AuraPlayerState}
+\end{itemize}
+
+这样做的意义在于：
+
+\begin{itemize}
+	\item 对敌人来说，可以直接从角色身上拿到 ASC
+	\item 对玩家来说，也可以从 \texttt{PlayerState} 身上拿到 ASC
+\end{itemize}
+
+这是 GAS 中一种非常常见的样板式接入方式。
+
+\subsection{顺便提供 AttributeSet 的 Getter}
+
+除了实现 \texttt{GetAbilitySystemComponent()} 之外，课程还额外写了一个 \texttt{GetAttributeSet()} 的 getter。虽然这不是 GAS 接口强制要求的内容，但它有两个实际好处：
+
+\begin{itemize}
+	\item 便于后续代码统一访问 AttributeSet
+	\item 让角色类和状态类对外暴露的数据入口更一致
+\end{itemize}
+
+因此，这属于一种方便开发的辅助封装。
+
+\subsection{编译层面的补充处理}
+
+在编码过程中，本节还处理了两个典型的 C++ 工程问题：
+
+\begin{itemize}
+	\item 使用前向声明解决头文件中的不完整类型问题
+	\item 在 Build.cs 中加入 \texttt{GameplayAbilities} 模块依赖，以便使用 \texttt{IAbilitySystemInterface}
+\end{itemize}
+
+这说明 GAS 的接入不仅是逻辑层面的工作，还需要模块依赖和头文件组织正确，否则项目将无法编译。
+
+\subsection{本节的核心成果}
+
+到本节结束时，已经完成了以下几件关键事情：
+
+\begin{itemize}
+	\item 在角色基类中预留了 ASC 与 AS 的访问指针
+	\item 在敌人类中成功构造了 ASC 和 AS
+	\item 在玩家的 \texttt{PlayerState} 中成功构造了 ASC 和 AS
+	\item 为角色基类和 \texttt{PlayerState} 实现了 \texttt{IAbilitySystemInterface}
+	\item 提供了访问 ASC 与 AS 的基础 getter
+\end{itemize}
+
+\subsection{本节仍未完成的部分}
+
+虽然基础结构已经搭好，但还有两个关键问题尚未完成：
+
+\begin{itemize}
+	\item 还没有把玩家角色中的指针正确指向 \texttt{PlayerState} 中构造好的 ASC 和 AS
+	\item 还没有正式告诉 AbilitySystemComponent 它的 Owner 和 Avatar 是谁
+\end{itemize}
+
+这两件事非常重要，因为它们决定了 GAS 是否真正知道“能力系统属于谁、驱动谁”。
+
+\subsection{一句话总结}
+
+这一节的本质是：\textbf{先把 ASC 和 AS 在正确的位置构造出来，并通过接口把访问入口搭好，为下一步完成角色与 GAS 的正式绑定做准备。}
+\chapter{属性}
+控制台命令：“\texttt{AbilitySystem.DebugAttribute + 空格分开的属性名}”可以调试属性。
+\end{document}

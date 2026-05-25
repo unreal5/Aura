@@ -19,3 +19,16 @@ CourseAssets
 *.suo
 *.vsconfig
 *.uproject.DotSettings.user
+*.aux
+*.bbl
+*.bcf
+*.glo
+*.idx
+*.log
+*.mw
+*.nlo
+*.pdf
+*.run.xml
+*.synctex.gz
+*.toc
+*.xdy
