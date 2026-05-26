@@ -5,17 +5,36 @@
 
 #include "Blueprint/UserWidget.h"
 #include "UI/Widget/AuraUserWidget.h"
+#include "UI/WidgetController/OverlayWidgetController.h"
 
-void AAuraHUD::BeginPlay()
+UOverlayWidgetController* AAuraHUD::GetOverlayWidgetController(const FWidgetControllerParams& WCParams)
 {
-	Super::BeginPlay();
-	
-	if (OverlayWidgetClass)
+	if (!IsValid(OverlayWidgetController))
 	{
-		OverlayWidget = CreateWidget<UAuraUserWidget>(GetWorld(), OverlayWidgetClass);
-		if (OverlayWidget)
-		{
-			OverlayWidget->AddToViewport();
-		}
+		OverlayWidgetController = NewObject<UOverlayWidgetController>(this, OverlayWidgetControllerClass);
+		OverlayWidgetController->SetWidgetControllerParams(WCParams);
 	}
+
+	return OverlayWidgetController;
+}
+
+void AAuraHUD::InitOverlay(APlayerController* PC, APlayerState* PS, UAbilitySystemComponent* ASC, UAttributeSet* AS)
+{
+	checkf(OverlayWidgetClass, TEXT("请在%s中设置OverlayWidgetClass"), *GetClass()->GetName());
+	checkf(OverlayWidgetControllerClass, TEXT("请在%s中设置OverlayWidgetControllerClass"), *GetClass()->GetName());
+
+	OverlayWidget = CreateWidget<UAuraUserWidget>(GetWorld(), OverlayWidgetClass);
+	if (!OverlayWidget)
+	{
+		checkf(false, TEXT("无法创建OverlayWidget，请确保%s设置的OverlayWidgetClass正确"), *GetClass()->GetName());
+		return;
+	}
+
+	FWidgetControllerParams WCParams{PC, PS, ASC, AS};
+	GetOverlayWidgetController(WCParams);
+	checkf(IsValid(OverlayWidgetController), TEXT("无法创建OverlayWidgetController，请确保%s设置的OverlayWidgetControllerClass正确"),
+	       *GetClass()->GetName());
+	
+	OverlayWidget->SetWidgetController(OverlayWidgetController);
+	OverlayWidget->AddToViewport();
 }

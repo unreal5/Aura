@@ -8,6 +8,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Player/AuraPlayerState.h"
+#include "UI/HUD/AuraHUD.h"
 
 
 // Sets default values
@@ -51,9 +52,10 @@ AAuraCharacter::AAuraCharacter()
 void AAuraCharacter::OnRep_PlayerState()
 {
 	Super::OnRep_PlayerState();
-	
+
 	InitAbilityActorInfo();
 }
+
 // 服务器调用
 void AAuraCharacter::PossessedBy(AController* NewController)
 {
@@ -74,4 +76,15 @@ void AAuraCharacter::InitAbilityActorInfo()
 			AbilitySystemComponent->InitAbilityActorInfo(AuraPlayerState, this);
 		}
 	}
+
+	// 初始化HUD
+	APlayerController* PC = GetController<APlayerController>();
+	if (!PC || ) return;
+
+	// 对于Listen Server，拥有所有角色的PlayerController都是本地的,
+	// 但只有拥有角色的PlayerController才有HUD
+	auto AuraHUD = Cast<AAuraHUD>(PC->GetHUD());
+	if (!AuraHUD) return;
+	
+	AuraHUD->InitOverlay(PC, GetPlayerState(), AbilitySystemComponent, AttributeSet);
 }

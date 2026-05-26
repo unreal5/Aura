@@ -816,17 +816,17 @@ RPC 用来实现例如：
 
 这一节的重点在于职责归位。它把 UI 顶层容器的创建位置从“测试脚本”转移到“正式 HUD 系统”，为后面接入 Widget Controller 提供了稳定且合理的创建入口。换句话说，从这里开始，UI 的生命周期已经不再是临时拼出来的，而是开始被纳入项目结构之中。
 
-\section{0033. Overlay Widget Controller}
+\section{Overlay Widget Controller}
 
 这一节是整个 UI 架构第一次真正把 Widget 与 Widget Controller 接起来。前面虽然已经有了 \texttt{AuraUserWidget} 和 \texttt{AuraWidgetController}，但此时还缺少一个具体可用的控制器，以及一个合理的初始化入口来同时构造 Widget 和 Controller。
 
 课程首先在 \texttt{AuraWidgetController} 里引入了一个参数结构体 \texttt{FWidgetControllerParams}。它的作用是把控制器初始化所需的四个关键对象统一打包起来：
-\begin{itemize}
+\begin{enumerate}
 	\item \texttt{PlayerController}
 	\item \texttt{PlayerState}
 	\item \texttt{AbilitySystemComponent}
 	\item \texttt{AttributeSet}
-\end{itemize}
+\end{enumerate}
 
 这个结构体不仅有默认构造函数，还有一个接受上述四项的构造函数，并把所有成员都声明成 Blueprint 可读写。这样做的意义在于，今后每个具体 Widget Controller 初始化时，都不需要重复地一个一个传和设，而是统一接收一份参数包即可。
 

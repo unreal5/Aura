@@ -76,7 +76,7 @@ void UGlobeProgressBar::UpdateGlobeImage() const
 	ProgressBar_Globe->SetWidgetStyle(BarStyle);
 
 	// 设置填充颜色为白色，这样才能正确显示 FillImage 的颜色。
-	ProgressBar_Globe->FillColorAndOpacity = FLinearColor::White;
+	ProgressBar_Globe->SetFillColorAndOpacity(FLinearColor::White);
 
 	ProgressBar_Globe->SetBarFillType(EProgressBarFillType::BottomToTop);
 }
