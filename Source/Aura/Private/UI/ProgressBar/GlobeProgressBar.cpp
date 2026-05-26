@@ -23,6 +23,14 @@ void UGlobeProgressBar::NativePreConstruct()
 	UpdateGlassImage();
 }
 
+void UGlobeProgressBar::SetProgressBarPercent(float Percent) const
+{
+	if (ProgressBar_Globe)
+	{
+		ProgressBar_Globe->SetPercent(Percent);
+	}
+}
+
 void UGlobeProgressBar::UpdateBoxSize() const
 {
 	if (SizeBox_Root)
@@ -90,6 +98,6 @@ void UGlobeProgressBar::UpdateGlassImage() const
 	OverlaySlot->SetHorizontalAlignment(HAlign_Fill);
 	OverlaySlot->SetVerticalAlignment(VAlign_Fill);
 	OverlaySlot->SetPadding(FMargin{GlassPadding});
-	
+
 	Image_Glass->SetBrush(GlassBrush);
 }

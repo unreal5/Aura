@@ -41,6 +41,7 @@ class AURA_API UAuraWidgetController : public UObject
 public:
 	UFUNCTION(BlueprintCallable, Category = "Aura | WidgetController")
 	void SetWidgetControllerParams(const FWidgetControllerParams& WCParams);
+	virtual void BroadcastInitialValues() {}
 protected:
 	// WidgetController需要知道PlayerController，PlayerState，AbilitySystemComponent，AttributeSet等信息来更新UI。
 	UPROPERTY(BlueprintReadOnly, Category = "Aura | WidgetController")

@@ -17,13 +17,13 @@ class AURA_API UAuraUserWidget : public UUserWidget
 {
 	GENERATED_BODY()
 public:
-	UFUNCTION(BlueprintCallable, Category = "Widget")
+	UFUNCTION(BlueprintCallable, Category = "Aura | Setter")
 	void SetWidgetController(UObject* InWidgetController);
 	
-	UPROPERTY(BlueprintReadOnly, Category = "Widget")
+	UPROPERTY(BlueprintReadOnly, Category = "Aura | Controller")
 	TObjectPtr<UObject> WidgetController;
 protected:
 	// 设置WidgetController时会调用这个函数
-	UFUNCTION(BlueprintImplementableEvent, Category = "Widget")
+	UFUNCTION(BlueprintImplementableEvent, Category = "Aura | Callback Event")
 	void WidgetControllerSet();
 };

@@ -79,12 +79,13 @@ void AAuraCharacter::InitAbilityActorInfo()
 
 	// 初始化HUD
 	APlayerController* PC = GetController<APlayerController>();
-	if (!PC || ) return;
-
-	// 对于Listen Server，拥有所有角色的PlayerController都是本地的,
-	// 但只有拥有角色的PlayerController才有HUD
-	auto AuraHUD = Cast<AAuraHUD>(PC->GetHUD());
-	if (!AuraHUD) return;
-	
-	AuraHUD->InitOverlay(PC, GetPlayerState(), AbilitySystemComponent, AttributeSet);
+	// 客户端：只有本地玩家才有控制器
+	// 服务商：只有本地玩家控制器才有HUD
+	if (PC && PC->IsLocalPlayerController())
+	{
+		if (auto AuraHUD = Cast<AAuraHUD>(PC->GetHUD()))
+		{
+			AuraHUD->InitOverlay(PC, GetPlayerState(), AbilitySystemComponent, AttributeSet);
+		}
+	}
 }

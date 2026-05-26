@@ -864,14 +864,11 @@ RPC 用来实现例如：
 
 因此，这一节完成的是真正意义上的“UI 对象构造链路”：控制器的参数如何打包、控制器如何实例化、Widget 如何获得控制器，以及这些步骤应该在什么时机发生。
 
-\section{0034. Broadcasting Initial Values}
+\section{Broadcasting Initial Values}
 
 这一节开始解决一个常见但容易忽略的问题：即使 UI 已经成功拿到了 Widget Controller，如果没有人主动把当前属性值广播出去，生命球和法力球在第一次显示时仍然不会有正确数据。因此，控制器不仅要能“以后响应变化”，还必须能“在初始化完成时立刻广播当前值”。
 
-课程首先在 \texttt{AuraWidgetController} 基类中新增一个虚函数：
-\[
-\texttt{BroadcastInitialValues()}
-\]
+首先在 \texttt{AuraWidgetController} 基类中新增一个虚函数：\texttt{BroadcastInitialValues()}。
 它在基类中是空实现，但作为统一接口存在，意味着任何具体 Widget Controller 都可以定义自己的初始广播逻辑。
 
 然后在 \texttt{OverlayWidgetController} 中重写这个函数。为了把数据传给蓝图，课程没有让 Widget 主动去查询，而是采用动态多播委托的方式，让控制器广播，Widget 监听。为此新增了两类委托：
@@ -897,14 +894,14 @@ RPC 用来实现例如：
 然后再调用委托的 \texttt{Broadcast} 把它们发出去。这样做的核心原则是：UI 显示的值必须来自真实的游戏状态，而不能来自想当然的常量。
 
 这一节更重要的是时序。课程明确说明，\texttt{BroadcastInitialValues()} 绝不能太早调用。正确流程是：
-\begin{itemize}
+\begin{enumerate}
 	\item HUD 先创建 Overlay Widget 和 OverlayWidgetController。
 	\item HUD 给 Overlay Widget 调用 \texttt{SetWidgetController}。
 	\item 这会触发 Overlay 的 \texttt{WidgetControllerSet} 蓝图事件。
 	\item Overlay 在事件里再把同一个控制器分配给内部的 Health Globe 和 Mana Globe。
 	\item 这两个子 Widget 的 \texttt{WidgetControllerSet} 也会被依次触发。
 	\item 只有在这一串绑定链都完成之后，才调用 \texttt{BroadcastInitialValues()}。
-\end{itemize}
+\end{enumerate}
 
 这样一来，广播发生时，所有 Widget 都已经订阅好了委托，不会漏掉第一帧的重要数值。
 

@@ -26,17 +26,18 @@ void AAuraPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 
+	// 非本地控制器不需要设置输入映射和鼠标光标
+	if (!IsLocalController())
+		return;
+
 	auto LocalPlayer = GetLocalPlayer();
 	if (!IsValid(LocalPlayer))
-	{
 		return;
-	}
-	auto InputSubSystem = LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>();
-	if (!IsValid(InputSubSystem))
+
+	if (auto InputSubSystem = LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
 	{
-		return;
+		InputSubSystem->AddMappingContext(AuraMappingContext, 0);
 	}
-	InputSubSystem->AddMappingContext(AuraMappingContext, 0);
 
 	bShowMouseCursor = true;
 	DefaultMouseCursor = EMouseCursor::Default;

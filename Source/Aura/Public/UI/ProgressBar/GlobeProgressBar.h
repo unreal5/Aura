@@ -40,6 +40,9 @@ public:
 	float GlassPadding = 6.f;
 	UPROPERTY(BlueprintReadWrite, Category = "Globe属性", meta=(ToolTip="进度条图片"))
 	FSlateBrush GlassBrush;
+	
+	UFUNCTION(BlueprintCallable, Category = "Aura | GlobeProgressBar")
+	void SetProgressBarPercent(float Percent) const;
 protected:
 	UPROPERTY(meta=(BindWidget))
 	TObjectPtr<USizeBox> SizeBox_Root;
