@@ -522,6 +522,8 @@
 	}%
 }
 
+
+
 %----------------------------------------------------------------------------------------
 %	FIGURES, TABLES, LISTINGS AND CAPTIONS
 %----------------------------------------------------------------------------------------
@@ -1157,6 +1159,7 @@
 	}
 }}
 
+
 % When using the Palatino (newpxtext) font, it is better to use a 
 % slightly larger stretch.
 %\setstretch{1.10}
@@ -1260,15 +1263,26 @@
 
 %----------------------------------------------------------------------------------------
 %	ITEMS
-%----------------------------------------------------------------------------------------
+%--------------------------------------------------------------------------------------
+%%设置新字体
+%%定义带圈数字命令
+\newfontfamily{\nm@font}
+[%
+Extension=.otf,
+Path=./fonts/]{circlenumber}
 
-\renewcommand{\labelitemi}{\small$\blacktriangleright$} % Use a black triangle for the first level of \item's
-\renewcommand{\labelitemii}{\textbullet} % Use a bullet for the second level of \item's
+\newcommand{\quan}[1]{{\nm@font \symbol{#1}}}
+\newcommand{\kk}[1]{\quan{\numexpr32+#1}}%\kk{<参数范围1-95>}96、97、98、99分别用\quan{196} \quan{197} \quan{199} \quan{201}
+
+\RequirePackage{fontawesome5}
+\renewcommand{\labelitemi}{\small\faToggleOn}%\faUnity 圆点一级\CIRCLE\newmoon\faLevelUp*\faStar\faVenus\faVenusDouble
+\renewcommand{\labelitemii}{\small\faVenusDouble}%{\small$\blacktriangleright$} % 黑三角形二级
+
 \RequirePackage[inline]{enumitem} % Used to customise lists (in particular, we don't want to put whitespace between items)
 \setlist[itemize]{noitemsep}
 \setlist[enumerate]{noitemsep}
 \setlist[description]{noitemsep}
-
+\setlist[enumerate, 1]{label=\protect\kk{\arabic*},itemsep=0.5ex}
 %----------------------------------------------------------------------------------------
 %	SIMPLE BOXED ENVIRONMENT
 %----------------------------------------------------------------------------------------
@@ -1405,3 +1419,9 @@
 \newcommand{\monthyear}{\ifcase\month\or January\or February\or March\or 
 April\or May\or June\or July\or August\or September\or October\or 
 November\or December\fi\space\number\year}
+
+
+%边注用圈
+\newcommand*\kkctr[1]{%
+	\protect\kk{\number\numexpr\value{#1}\relax}}
+\renewcommand*\thesidenote{\textcolor{blue}{\kkctr{sidenote}}}

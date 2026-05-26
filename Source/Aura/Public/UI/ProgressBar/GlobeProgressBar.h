@@ -22,22 +22,22 @@ protected:
 	void NativePreConstruct() override;
 
 public:
-	UPROPERTY(BlueprintReadWrite, Category = "Globe属性", meta=(ToolTip="Widget宽度"))
-	float BoxWidth = 250.f;
-	UPROPERTY(BlueprintReadWrite, Category = "Globe属性", meta=(ToolTip="Widget高度"))
-	float BoxHeight = 250.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Globe属性", meta=(ToolTip="Widget宽度"))
+	float BoxWidth = 128.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Globe属性", meta=(ToolTip="Widget高度"))
+	float BoxHeight = 128.f;
 	
-	UPROPERTY(BlueprintReadWrite, Category = "Globe属性", meta=(ToolTip="Widget背景图片"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Globe属性", meta=(ToolTip="Widget背景图片"))
 	FSlateBrush BackgroundBrush;
 	
-	UPROPERTY(BlueprintReadWrite, Category = "Globe属性", meta=(ToolTip="Globe Padding"))
-	float GlobePadding = 10.f;
-	UPROPERTY(BlueprintReadWrite, Category = "Globe属性", meta=(ToolTip="进度条图片"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Globe属性", meta=(ToolTip="Globe Padding"))
+	float GlobePadding = 6.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Globe属性", meta=(ToolTip="进度条图片"))
 	FSlateBrush ProgressBarFillImage;
 	
 	// Glass
 	UPROPERTY(BlueprintReadWrite, Category = "Globe属性", meta=(ToolTip="Glass Padding"))
-	float GlassPadding = 10.f;
+	float GlassPadding = 6.f;
 	UPROPERTY(BlueprintReadWrite, Category = "Globe属性", meta=(ToolTip="进度条图片"))
 	FSlateBrush GlassBrush;
 protected:

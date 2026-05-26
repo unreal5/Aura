@@ -131,11 +131,11 @@
 \renewcommand*{\lstlistingname}{代码}
 \renewcommand*{\lstlistingnamestyle}{\bfseries}
 % Configure the listings
-\definecolor{listingkeywords}{rgb}{0.0, 0.0, 1.0}
-\definecolor{listingidentifiers}{rgb}{0, 0, 0}
-\definecolor{listingcomments}{rgb}{0.25, 0.5, 0.5}
-\definecolor{listingstrings}{rgb}{0.73, 0.13, 0.13}
-\definecolor{listingnumbers}{rgb}{0.25, 0.25, 0.25}
+%\definecolor{listingkeywords}{rgb}{0.0, 0.0, 1.0}
+%\definecolor{listingidentifiers}{rgb}{0, 0, 0}
+%\definecolor{listingcomments}{rgb}{0.25, 0.5, 0.5}
+%\definecolor{listingstrings}{rgb}{0.73, 0.13, 0.13}
+%\definecolor{listingnumbers}{rgb}{0.25, 0.25, 0.25}
 % Define a fancy style
 \lstnewenvironment{code}[1][]
 {
@@ -785,7 +785,7 @@ RPC 用来实现例如：
 
 因此，这一节的价值并不只是做出一个红色生命球，而是验证了前面设计的 Widget 基类确实已经具备复用能力，并顺带建立起了顶层 Overlay 的概念。
 
-\section{0032. Aura HUD}
+\section{Aura HUD}
 
 这一节把临时测试用的 Level Blueprint 方案移除，转而使用真正合适的系统位置来负责 HUD 的创建，也就是 Unreal 的 \texttt{HUD} 类。目标很明确：把 Overlay 的创建、显示以及未来的控制器分配，都放到专门的 HUD 类中。
 
@@ -794,7 +794,7 @@ RPC 用来实现例如：
 于是课程创建了一个 C++ 的 \texttt{AuraHUD} 类，继承自 \texttt{AHUD}。这个类的职责是统一管理 HUD 上的顶层 Widget。为了实现这一点，它内部加入了两类关键成员：
 \begin{itemize}
 	\item 一个 \texttt{OverlayWidget} 指针，用来保存已创建的 Overlay 实例。
-	\item 一个 \texttt{OverlayWidgetClass}，类型是 \texttt{TSubclassOf<UUserWidget>}，允许在蓝图中指定实际要创建的 Overlay 蓝图类。
+	\item 一个 \texttt{OverlayWidgetClass}，类型是 \ci{TSubclassOf<UUserWidget>}，允许在蓝图中指定实际要创建的 Overlay 蓝图类。
 \end{itemize}
 
 接下来，课程在 \texttt{AuraHUD} 中重写了 \texttt{BeginPlay}。在最初版本中，这里的逻辑很简单：
@@ -835,11 +835,11 @@ RPC 用来实现例如：
 下一步是创建真正的具体控制器 \texttt{OverlayWidgetController}，它继承自 \texttt{AuraWidgetController}，专门负责驱动 Overlay 及其内部的 Health Globe、Mana Globe。
 
 然后课程把注意力转回 \texttt{AuraHUD}，因为 HUD 是当前最合适的对象，它既负责创建顶层 Overlay，也最适合负责创建对应的 Widget Controller。为此，HUD 做了几项重要扩展：
-\begin{itemize}
+\begin{enumerate}
 	\item 增加 \texttt{OverlayWidgetControllerClass}，让蓝图可以指定要创建的控制器类。
 	\item 增加 \texttt{OverlayWidgetController} 成员，用来缓存已经创建好的控制器实例。
 	\item 实现 \texttt{GetOverlayWidgetController(const FWidgetControllerParams\&)}，如果控制器不存在则创建，否则直接返回已有对象。
-\end{itemize}
+\end{enumerate}
 
 这个 Getter 的设计类似“延迟初始化的单例”，即整个 Overlay 只保留一个控制器实例，不会每次都新建一个。创建时，它会调用 \texttt{NewObject} 构造控制器对象，并立刻用前面打包好的参数结构体初始化它。
 
@@ -858,7 +858,7 @@ RPC 用来实现例如：
 	\item 最后再把 Overlay 添加到视口。
 \end{itemize}
 
-这一节的最后重点是：\texttt{InitOverlay} 不应该在 \texttt{BeginPlay} 中被盲目调用，因为那个时机还拿不到完整且有效的四个关键对象。课程最终选择把它放到角色的 \texttt{InitAbilityActorInfo} 一类初始化流程中，因为那里正好能同时获得 PlayerController、PlayerState、ASC 和 AttributeSet，并且通过 \texttt{PossessedBy} 和 \texttt{OnRep\_PlayerState} 可以兼顾服务器与客户端。
+这一节的最后重点是：\texttt{InitOverlay} 不应该在 \texttt{BeginPlay} 中被盲目调用，因为那个时机还拿不到完整且有效的四个关键对象。课程最终选择把它放到角色的 \texttt{InitAbilityActorInfo} 一类初始化流程中，因为那里正好能同时获得 PlayerController、PlayerState、ASC 和 AttributeSet，并且通过 \texttt{PossessedBy} 和 \texttt{OnRep\_PlayerState} \sidenote{可以兼顾服务器与客户端}。
 
 课程还顺带讲清楚了一个多人游戏中的工程细节：并不是所有情况下 \texttt{PlayerController} 或 HUD 都一定存在。在客户端上，只有本地控制角色才有有效的 PlayerController 和 HUD，因此这里必须用空指针判断，而不是盲目断言崩溃。这一部分其实是在教如何把 UI 初始化逻辑写得兼容网络环境，而不只是能在单机下跑通。
 
