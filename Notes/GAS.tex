@@ -38,15 +38,14 @@
 \usepackage{xeCJK}
 
 \defaultCJKfontfeatures{Scale=MatchUppercase}
-
+	%使用方正字体
 	\setCJKmainfont[
-		Path=fonts/SourceHanSerifSC/,
-		BoldFont=LXGWNeoXiHeiPlus.ttf,
-		ItalicFont=LXGWWenKai-Regular.ttf,
-		%BoldItalicFont=叶根友毛笔行书简体.ttf,
+		Path=fonts/FZZT/,
+		BoldFont=FZHTK.ttf,
+		ItalicFont=FZKTK.ttf,
+		BoldItalicFont=FZLSK.ttf,
 		%Scale=0.8
-	]{LXGWNeoZhiSongPlus.ttf}%
-
+	]{FZSSK.ttf}
 	\setCJKsansfont[
 		Path=fonts/HarmonyOS_Sans/,
 		BoldFont=HarmonyOS_Sans_Bold.ttf,
@@ -108,7 +107,6 @@
 % Load the package for hyperreferences
 \usepackage{kaorefs}
 
-\graphicspath{{examples/documentation/images/}{images/}} % Paths in which to look for images
 
 \makeindex[columns=3, title=Alphabetical Index, intoc] % Make LaTeX produce the files required to compile the index
 
@@ -118,16 +116,81 @@
 \makenomenclature % Make LaTeX produce the files required to compile the nomenclature
 
 % Reset sidenote counter at chapters
-%\counterwithin*{sidenote}{chapter}
+\counterwithin*{sidenote}{chapter}
 
-%----------------------------------------------------------------------------------------
 
+\tcbuselibrary{skins,breakable}
+%参考tcolorbox P21
+\NewTotalTCBox{\commandbox}{ s v }
+{verbatim,colupper=white,colback=black!75!white,colframe=black,sharp corners,boxrule=0pt,left=0mm,right=0mm,top=0mm,bottom=0mm}
+{\IfBooleanT{#1}{\textcolor{red}{\ttfamily\bfseries > }}%
+	\lstinline[language=c++,basicstyle=\ttfamily\small,keywordstyle=\color{white}\bfseries]^#2^}
+	
+	
+	
+\renewcommand*{\lstlistingname}{代码}
+\renewcommand*{\lstlistingnamestyle}{\bfseries}
+% Configure the listings
+\definecolor{listingkeywords}{rgb}{0.0, 0.0, 1.0}
+\definecolor{listingidentifiers}{rgb}{0, 0, 0}
+\definecolor{listingcomments}{rgb}{0.25, 0.5, 0.5}
+\definecolor{listingstrings}{rgb}{0.73, 0.13, 0.13}
+\definecolor{listingnumbers}{rgb}{0.25, 0.25, 0.25}
+% Define a fancy style
+\lstnewenvironment{code}[1][]
+{
+	\lstset{
+		language=[11]C++,
+		columns=fullflexible,%fixed
+		aboveskip=0.7\topskip,
+		belowskip=0.7\topskip,
+		basicstyle=\ttfamily\small,
+		commentstyle=\color{listingcomments}\itshape,
+		keywordstyle=\color{listingkeywords}\bfseries,
+		numberstyle=\scriptsize\color{listingnumbers}\ttfamily,
+		stringstyle=\color{listingstrings},
+		identifierstyle=\color{listingidentifiers},
+		backgroundcolor=\color{white},
+		breakatwhitespace=false,
+		breaklines=true,
+		captionpos=t,
+		keepspaces=true,
+		showspaces=false,
+		showstringspaces=false,
+		showtabs=false,
+		%numbers=left,
+		%numbersep=1em,
+		%frame=lines,
+		%frame=l,   
+		frame=none,
+		framerule=.7pt,
+		emph=[2]{override,final,constexpr},
+		emphstyle=[2]{\color{blue}\bfseries},       
+		emph=[3]{UPROPERTY,UFUNCTION,UENUM,UCLASS,USTRUCT},
+		emphstyle=[3]{\color{orange!70!black}\bfseries},
+		emph=[4]{BlueprintType,EditDefaultsOnly,BlueprintReadOnly},
+		emphstyle=[4]{\color{cyan!70!blue}},
+		tabsize=2,
+		numbers=none,
+		escapeinside=``,
+		backgroundcolor=\color{gray!10},
+		captionpos=b,%标题的位置
+		#1
+	}
+}{}
+
+\newcommand{\ci}[1]{
+	\lstinline[language=C++,breakatwhitespace=false,breaklines,basicstyle=\ttfamily,identifierstyle=\color{cyan},keywordstyle=\color{blue}\bfseries]{#1}%
+}
+
+\newcommand{\cppsign}{$C^{++}$}
+\newcommand{\cpp}[1][11]{$C^{++ \mathbf{#1}}$}
+\newcommand{\cssign}{$C{\#}$}
+	
 \begin{document}
 
-\mainmatter % Denotes the start of the main document content, resets page numbering and uses arabic numbers
 \setchapterstyle{kao} % Choose the default chapter heading style
 \chapter{GAS基础知识}
-
 \section{Gameplay Ability System 概述}
 
 本节主要介绍 Unreal Engine 的 Gameplay Ability System（GAS）是什么，以及为什么课程项目要围绕它展开。
@@ -295,7 +358,7 @@ RPC 用来实现例如：
 
 \section{AbilitySystemComponent 与 AttributeSet 的构造与接口接入}
 
-本节主要完成了 GAS 中两个核心对象的初步接入：\textbf{AbilitySystemComponent（ASC）} 与 \textbf{AttributeSet（AS）}。课程的目标是先把这两个对象放到合适的类中创建出来，并为后续角色与能力系统之间的连接做好准备。
+本节主要完成了 GAS 中两个核心对象的初步接入：\textbf{\itshape AbilitySystemComponent（ASC）} 与 \textbf{AttributeSet（AS）}。课程的目标是先把这两个对象放到合适的类中创建出来，并为后续角色与能力系统之间的连接做好准备。
 
 \subsection{在角色基类中预留指针}
 
@@ -435,4 +498,543 @@ RPC 用来实现例如：
 这一节的本质是：\textbf{先把 ASC 和 AS 在正确的位置构造出来，并通过接口把访问入口搭好，为下一步完成角色与 GAS 的正式绑定做准备。}
 \chapter{属性}
 控制台命令：“\texttt{AbilitySystem.DebugAttribute + 空格分开的属性名}”可以调试属性。
+
+
+\chapter{UI}
+显示在屏幕上的元素称\texttt{Widget}。
+\section{Game UI Architecture}
+
+这一节主要讨论整个游戏 UI 系统应该如何设计，核心问题是：游戏里有大量数据，例如生命值、法力值、等级、经验、技能图标、技能绑定键位等，而 Widget 作为屏幕上的显示对象，必须知道这些数据，才能正确地把它们表现出来。
+
+一种“直接但\textbf{不优雅}”的做法：让 Widget 自己深入游戏代码，主动去拿角色、控制器、玩家状态、能力系统组件、属性集等对象的引用，再直接读取需要的数据。这样短期看似可行，但随着项目规模扩大，UI 会和底层逻辑紧密耦合，最终难以维护、难以扩展，也不符合大型项目的工程习惯。
+
+因此这里引入了一个更清晰的 UI 架构，也就是 MVC 风格的分层思想：
+\begin{itemize}
+	\item \textbf{View}：负责显示效果，也就是玩家真正看到的各种 Widget，例如血条、法力条、技能图标。
+	\item \textbf{Model}：负责保存真实游戏数据，例如 AttributeSet 中的各类属性、PlayerState 中的状态信息、技能系统中的数值与规则。
+	\item \textbf{Controller}：负责从 Model 获取数据，并把数据传递给 View；必要时还可以接收 UI 交互，再把操作反馈给 Model。
+\end{itemize}
+
+这里说的 Controller 不是 Unreal 里的 \texttt{AController} 或 \texttt{APlayerController}，而是一个专门服务于 UI 的中间层类，因此被命名为 \textbf{Widget Controller}。它的职责就是站在 View 和 Model 之间，充当桥梁。
+
+\texttt{Widget Controller} 的价值主要体现在以下几个方面：
+\begin{itemize}
+	\item 它负责从 Model 中收集 UI 所需的数据，而不是让 Widget 自己到处找引用。
+	\item 它可以在传递数据之前做一些处理、计算或转换。
+	\item 它可以把数据广播给多个 Widget，而不必让自己知道具体有哪些 Widget 在监听。
+	\item 当玩家点击按钮、触发 UI 交互时，它也可以作为中介把这些操作传回 Model。
+\end{itemize}
+
+这种设计更适合大型项目：因为在这个架构里，依赖关系是单向的：
+\begin{itemize}
+	\item Model 不需要知道有哪些 Controller 或 Widget 在使用自己的数据。
+	\item Controller 依赖 Model，但不需要知道具体有哪些 Widget 在接收它广播的数据。
+	\item Widget 依赖 Controller，而不是直接依赖整个底层系统。
+\end{itemize}
+
+这种单向依赖带来的好处是系统更模块化。以后如果要替换某个 Widget Controller，不需要修改 Model；如果要重做整套 Widget 外观，也不需要改动 Controller。代码结构因此更灵活，也更容易随着项目增长而扩展。
+
+后续实现方向：
+\begin{itemize}
+	\item 创建自定义的 \texttt{UAuraUserWidget}，作为项目里所有 UI Widget 的统一基类。
+	\item 创建自定义的 \texttt{UAuraWidgetController}，作为 UI 控制器体系的统一基类。
+	\item 之后还会扩展 HUD，让这些 Widget 和 Controller 有一个合适的创建与初始化位置。
+\end{itemize}
+
+总结来说，这一节并没有直接制作具体 UI，而是在搭建整个 GAS UI 系统的设计原则。它解决的不是“怎么画一个血条”，而是“血条、法力条、技能图标这些 UI，未来应该通过什么结构稳定地接收和更新数据”。这也是后续所有 HUD、进度条和属性同步逻辑的基础。
+\section{Aura User Widget and Widget Controller}
+
+这一节开始把上一节提出的 UI 架构正式落到代码中。课程的目标是先建立两块基础设施：一个统一的 Widget 基类，以及一个统一的 Widget Controller 基类。这样后续所有具体的 HUD 元素，例如生命球、法力球、经验条、技能栏，都可以复用这一套机制。
+
+首先创建的是自定义的 \texttt{AuraUserWidget}。它继承自 Unreal 的 \texttt{UUserWidget}，作用是成为项目里所有 Widget Blueprint 的共同父类。这样做的原因不是为了马上添加复杂功能，而是为了从一开始就让所有 UI 组件遵守同一套接口规范。
+
+\texttt{AuraUserWidget} 最核心的设计是加入一个 \texttt{WidgetController} 成员变量。这里课程故意把它设计成 \texttt{UObject} 类型的指针，而不是直接写死成某个具体的控制器类。这种做法更通用，因为任何具体的 Widget Controller 本质上都可以是 \texttt{UObject} 的子类，基类 Widget 因此不会和某一个具体 Controller 强耦合。
+
+围绕这个成员变量，课程实现了两个关键接口：
+\begin{itemize}
+	\item 一个 \texttt{SetWidgetController} 函数，用于给 Widget 设置控制器。
+	\item 一个 \texttt{WidgetControllerSet} 事件，用于在控制器设置完成后触发 Blueprint 层的初始化逻辑。
+\end{itemize}
+
+这里的设计很重要。\texttt{SetWidgetController} 不只是简单赋值，而是在赋值之后立刻触发 \texttt{WidgetControllerSet}。这样一来，任何基于 \texttt{AuraUserWidget} 的 Widget Blueprint，都可以在这个事件里安全地假设“控制器已经可用”，然后开始绑定委托、读取初始数据、初始化视觉表现。它等价于为 UI 提供了一个专门面向 Controller 初始化的生命周期入口。
+
+接下来创建的是 \texttt{AuraWidgetController}。这个类继承自 \texttt{UObject}，它不是屏幕上的显示对象，而是专门负责站在 UI 和游戏逻辑之间传递数据的中间层。课程在这个类里先加入了四个最核心的依赖对象：
+\begin{itemize}
+	\item \texttt{PlayerController}
+	\item \texttt{PlayerState}
+	\item \texttt{AbilitySystemComponent}
+	\item \texttt{AttributeSet}
+\end{itemize}
+
+这四个对象几乎构成了后续 HUD 所需信息的主要来源。比如：
+\begin{itemize}
+	\item \texttt{AttributeSet} 里有生命值、法力值等属性。
+	\item \texttt{AbilitySystemComponent} 里有 GAS 相关能力与属性变化的机制。
+	\item \texttt{PlayerState} 里通常保存等级、经验等玩家状态数据。
+	\item \texttt{PlayerController} 则作为 HUD、输入与本地玩家上下文的重要入口。
+\end{itemize}
+
+把这四项统一放到 \texttt{AuraWidgetController} 基类里，有两个直接好处。第一，所有后续具体的控制器子类都能直接复用这些依赖，不需要每个类重新声明。第二，控制器的职责从一开始就被明确限定为“从这些核心游戏对象中取数据，再广播给 UI”。
+
+这一节也再次强调了依赖方向。依赖关系应该是：
+\begin{itemize}
+	\item Widget 知道自己的 Widget Controller。
+	\item Widget Controller 知道从哪些 Model 对象中取数据。
+	\item Widget Controller 不需要知道具体有哪些 Widget 在使用它。
+\end{itemize}
+
+这保证了后面无论增加多少 Widget，Controller 层都不需要因显示层变化而改动。相反，Widget 只要拿到控制器，就能通过统一入口开始工作。
+
+从工程角度看，这一节其实完成的是 UI 系统最关键的抽象层搭建：
+\begin{itemize}
+	\item \texttt{AuraUserWidget} 统一了所有 UI Widget 的控制器接入方式。
+	\item \texttt{AuraWidgetController} 统一了所有 UI 控制器的数据依赖来源。
+	\item \texttt{SetWidgetController + WidgetControllerSet} 建立了 C++ 基类与 Blueprint 初始化逻辑之间的桥梁。
+\end{itemize}
+
+因此，这节课虽然表面上只创建了两个基础类，但实际上已经把后面整套 HUD 系统的骨架搭好了。之后无论是生命球、法力球，还是更复杂的 Overlay、属性面板、技能栏，都会建立在这一套抽象之上。
+
+\section{Globe Progress Bar}
+
+这一节开始从抽象架构进入具体 UI 制作，目标是实现一个可复用的球形进度条基类，用来承载生命球和法力球。课程没有直接先做 Health Globe，而是先搭一个足够通用的 \texttt{WBP\_GlobeProgressBar}，这样后续不同属性球体都可以继承它，避免重复搭蓝图。
+
+首先，课程在内容目录里新建 \texttt{UI/ProgressBar} 文件夹，并创建一个继承自 \texttt{AuraUserWidget} 的 Widget Blueprint。这样这个进度条基类天然拥有 \texttt{WidgetController} 机制，可以和后续的 Widget Controller 架构兼容。
+
+在视觉结构上，这个球形进度条并不是直接把一张图片扔到画布上，而是明确分成几层：
+\begin{itemize}
+	\item 用 \commandbox{SizeBox} 作为根节点，用来统一控制整体尺寸。
+	\item 用 \texttt{Overlay} 作为内容容器，用来叠放背景环、进度条本体和后续可能增加的视觉层。
+	\item 背景层使用一张球体外环图片。
+	\item 进度表现层使用 \texttt{ProgressBar}，但它的填充图像不是普通贴图，而是材质实例。
+\end{itemize}
+
+这一节的核心思想是“把所有关键视觉参数都变量化”，从而支持子类覆写。课程具体做了几件事：
+\begin{itemize}
+	\item 定义 \texttt{BoxWidth} 和 \texttt{BoxHeight} 两个浮点变量，作为尺寸参数。
+	\item 在 \texttt{PreConstruct} 中调用 \texttt{SetWidthOverride} 和 \texttt{SetHeightOverride}，把这两个变量设置到 \texttt{SizeBox} 上。
+	\item 定义 \texttt{BackgroundBrush}，用 \texttt{Slate Brush} 控制背景图，使背景外环可以在子类中替换。
+	\item 把这些可覆写参数归类到 \texttt{Globe Properties} 中，便于蓝图侧管理。
+\end{itemize}
+
+课程还特意强调，\texttt{PreConstruct} 的作用类似 Actor Blueprint 里的 Construction Script。也就是说，只要变量发生变化，就能在设计器里立刻看到尺寸和视觉更新，这对于做继承式 Widget 非常方便。
+
+在进度条本体的实现上，有几个容易踩坑的细节被明确处理：
+\begin{itemize}
+	\item \texttt{Fill Color and Opacity} 必须设成白色，否则材质实例会发黑。
+	\item 进度条样式中的 \texttt{Draw As} 必须从 \texttt{Box} 改成 \texttt{Image}，否则球体材质不会按预期显示。
+	\item 进度条的背景图层被设成透明，因为真正的背景已经由外部的球形环图提供。
+	\item 填充方向改为 \texttt{Bottom To Top}，这样生命或法力减少时，液面会从上往下掉，更符合球形液体容器的直觉表现。
+\end{itemize}
+
+此外，这一节也开始为后续扩展铺路。课程意识到法力球只是生命球的另一个视觉变体，因此进度条填充图像、内边距等都应该可以被子类覆写，而不是在基类中写死。这使得 \texttt{WBP\_GlobeProgressBar} 不是一个“血球 Widget”，而是一个真正的“球形进度条模板”。
+
+总结来说，这一节完成的不是某个具体 HUD 元素，而是一个高度可配置的 UI 基类。它把尺寸、背景、填充材质、视觉样式和布局方式都封装好了，后续 Health Globe 与 Mana Globe 只需要继承并替换少数参数即可。
+
+\subsection{补充：\texttt{UProgressBar} 在 C++ 中设置 Style 的示例}
+
+在 UMG 中，编辑器里对 \texttt{ProgressBar} 调用 \textit{Set Style}，在 C++ 中对应的是设置
+\ci{FProgressBarStyle}，然后调用：
+
+\begin{code}
+	ProgressBar->SetWidgetStyle(MyStyle);
+\end{code}
+
+如果只修改某一部分样式，通常做法是先取得当前样式，再修改其中的
+\ci{BackgroundImage}、\ci{FillImage} 或 \ci{MarqueeImage}，最后再重新设置回去。
+
+\paragraph{头文件示例}
+
+\begin{code}
+	#include "Blueprint/UserWidget.h"
+	#include "Components/ProgressBar.h"
+	#include "Styling/SlateBrush.h"
+	#include "Styling/SlateTypes.h"
+	#include "MyUserWidget.generated.h"
+\end{code}
+
+\paragraph{头文件中的控件与资源声明}
+
+\begin{code}
+	UCLASS()
+	class AURA_API UMyUserWidget : public UUserWidget
+	{
+		GENERATED_BODY()
+		
+		protected:
+		virtual void NativeConstruct() override;
+		
+		UPROPERTY(meta = (BindWidget))
+		TObjectPtr<UProgressBar> HealthProgressBar;
+		
+		UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
+		TObjectPtr<UTexture2D> BackgroundTexture;
+		
+		UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
+		TObjectPtr<UTexture2D> FillTexture;
+	};
+\end{code}
+
+\paragraph{在 \ci{NativeConstruct()} 中设置 Style}
+
+\begin{code}
+	#include "MyUserWidget.h"
+	
+	void UMyUserWidget::NativeConstruct()
+	{
+		Super::NativeConstruct();
+		
+		if (!IsValid(HealthProgressBar))
+		{
+			return;
+		}
+		
+		FSlateBrush BackgroundBrush;
+		BackgroundBrush.SetResourceObject(BackgroundTexture);
+		BackgroundBrush.ImageSize = FVector2D(256.f, 32.f);
+		
+		FSlateBrush FillBrush;
+		FillBrush.SetResourceObject(FillTexture);
+		FillBrush.ImageSize = FVector2D(256.f, 32.f);
+		
+		FProgressBarStyle NewStyle = HealthProgressBar->GetWidgetStyle();
+		NewStyle.SetBackgroundImage(BackgroundBrush);
+		NewStyle.SetFillImage(FillBrush);
+		
+		HealthProgressBar->SetWidgetStyle(NewStyle);
+		HealthProgressBar->SetPercent(0.6f);
+		HealthProgressBar->SetFillColorAndOpacity(FLinearColor::Red);
+	}
+\end{code}
+
+\paragraph{只修改填充图片的简化写法}
+
+如果只想修改填充图片，可以只改 \ci{FillImage}：
+
+\begin{code}
+	FProgressBarStyle Style = HealthProgressBar->GetWidgetStyle();
+	Style.SetFillImage(FillBrush);
+	HealthProgressBar->SetWidgetStyle(Style);
+\end{code}
+
+\paragraph{整体替换 Style 的写法}
+
+如果已经有一个现成的 \ci{FProgressBarStyle} 变量，也可以直接整体替换：
+
+\begin{code}
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI")
+	FProgressBarStyle HealthBarStyle;
+\end{code}
+
+然后在代码中：
+
+\begin{code}
+	HealthProgressBar->SetWidgetStyle(HealthBarStyle);
+\end{code}
+
+\paragraph{说明}
+
+\begin{itemize}
+	\item \ci{SetWidgetStyle(...)} 用于替换整套 \ci{ProgressBar} 样式；
+	\item \ci{SetFillColorAndOpacity(...)} 只是修改填充颜色，不等同于修改 Style；
+	\item 常见的 Style 内容包括：
+	\begin{itemize}
+		\item \ci{BackgroundImage}
+		\item \ci{FillImage}
+		\item \ci{MarqueeImage}
+	\end{itemize}
+\end{itemize}
+
+\paragraph{一句话总结}
+
+编辑器中的 \textit{Set Style}，在 C++ 中最核心的对应写法就是：
+
+\begin{code}
+	FProgressBarStyle Style = ProgressBar->GetWidgetStyle();
+	Style.SetFillImage(MyBrush);
+	ProgressBar->SetWidgetStyle(Style);
+\end{code}
+\section{Health Globe}
+
+这一节在上一节的球形进度条基类之上，正式实现生命球，并引入顶层 Overlay 作为整个 HUD 的容器。课程的重点在于验证前面做的基类设计是否真的可复用。
+
+首先，课程从 \texttt{WBP\_GlobeProgressBar} 派生出 \texttt{WBP\_HealthGlobe}。由于父类已经把尺寸、背景和进度条结构都准备好了，子类需要改动的其实很少，主要只是把继承下来的进度条填充材质改成红色生命球材质即可。这里再一次说明了前面参数化设计的价值：真正的“血球”和“蓝球”差异只是少量视觉参数差异，而不是蓝图结构差异。
+
+在子类中查看继承变量时，课程特意打开了 \texttt{Show Inherited Variables}。这是因为父类已经把可配置参数集中归类到 \texttt{Globe Properties} 下了，所以子类只需要修改这些参数，而不需要改父类图结构本身。
+
+接着课程开始搭建顶层 UI 容器 \texttt{WBP\_Overlay}。它同样继承自 \texttt{AuraUserWidget}，因此以后也可以拥有 Widget Controller。这个 Overlay 代表整个屏幕上最终显示的 HUD，而 Health Globe 只是它的一个子组件。
+
+在 Overlay 中，课程采用了 \texttt{Canvas Panel} 作为顶层布局容器，并说明了一个重要经验：
+\begin{itemize}
+	\item 单个控件内部应尽量避免使用 \texttt{Canvas Panel}，因为它更重、更自由，也更容易失控。
+	\item 但对于整个屏幕级的总控 HUD，需要通过拖拽明确放置子控件位置，这时 \texttt{Canvas Panel} 是合理的。
+\end{itemize}
+
+随后课程把 \texttt{WBP\_HealthGlobe} 拖入 Overlay 中，并把它锚定在屏幕底部中央附近。为了快速验证效果，先在 Level Blueprint 里临时使用 \texttt{CreateWidget + AddToViewport} 显示 \texttt{WBP\_Overlay}，只为了测试视觉大小和摆放是否合适。
+
+在调试过程中，课程也说明了参数化布局的实际好处：
+\begin{itemize}
+	\item 如果球体看起来太大或太小，可以直接调父类中暴露出来的宽高和内边距参数，而不是粗暴拖拽缩放。
+	\item 如果通过拖拽把控件缩小，内部填充与边框的关系可能会失衡，还需要重新调整 Padding。
+	\item 因此“通过参数控制尺寸”比“靠人工拉伸控件”更适合做可维护的 UI 系统。
+\end{itemize}
+
+在这一节后半段，课程把 Mana Globe 作为练习，让学习者用同一个父类再派生一个 \texttt{WBP\_ManaGlobe}。其实现几乎完全一致，只需换成蓝色材质，并摆到 Health Globe 对称的位置即可。这一步再次证明：
+\[
+\text{子类球体} = \text{同一套结构} + \text{不同的可配置视觉参数}
+\]
+
+因此，这一节的价值并不只是做出一个红色生命球，而是验证了前面设计的 Widget 基类确实已经具备复用能力，并顺带建立起了顶层 Overlay 的概念。
+
+\section{0032. Aura HUD}
+
+这一节把临时测试用的 Level Blueprint 方案移除，转而使用真正合适的系统位置来负责 HUD 的创建，也就是 Unreal 的 \texttt{HUD} 类。目标很明确：把 Overlay 的创建、显示以及未来的控制器分配，都放到专门的 HUD 类中。
+
+课程首先指出，当前 Health Globe 和 Mana Globe 是通过 Level Blueprint 添加到屏幕上的，这显然只是测试手段，而不是正式工程结构。因为 Level Blueprint 不应该承担项目 UI 系统的生命周期管理职责，它和某个特定关卡耦合太深。
+
+于是课程创建了一个 C++ 的 \texttt{AuraHUD} 类，继承自 \texttt{AHUD}。这个类的职责是统一管理 HUD 上的顶层 Widget。为了实现这一点，它内部加入了两类关键成员：
+\begin{itemize}
+	\item 一个 \texttt{OverlayWidget} 指针，用来保存已创建的 Overlay 实例。
+	\item 一个 \texttt{OverlayWidgetClass}，类型是 \texttt{TSubclassOf<UUserWidget>}，允许在蓝图中指定实际要创建的 Overlay 蓝图类。
+\end{itemize}
+
+接下来，课程在 \texttt{AuraHUD} 中重写了 \texttt{BeginPlay}。在最初版本中，这里的逻辑很简单：
+\begin{itemize}
+	\item 调用 \texttt{CreateWidget} 创建 Overlay。
+	\item 调用 \texttt{AddToViewport} 把 Overlay 显示出来。
+\end{itemize}
+
+这一步的目的不是完成最终版本，而是先把“由 HUD 创建顶层 UI”这件事走通，后续再把 Widget Controller 分配逻辑接进来。
+
+在蓝图层，课程继续做了标准配置：
+\begin{itemize}
+	\item 创建 \texttt{BPAuraHUD}，作为 \texttt{AuraHUD} 的蓝图子类。
+	\item 在其默认属性中把 \texttt{OverlayWidgetClass} 指向 \texttt{WBP\_Overlay}。
+	\item 再到 \texttt{BPAuraGameMode} 中，把默认 HUD 类切换为 \texttt{BPAuraHUD}。
+\end{itemize}
+
+经过这一步后，按下 Play 时，Overlay 就不再依赖 Level Blueprint，而是由 HUD 正式创建并添加到屏幕上。课程还顺手修复了一个角色待机动画未循环的小问题，但那只是独立的小修补，不属于 UI 架构主线。
+
+这一节的重点在于职责归位。它把 UI 顶层容器的创建位置从“测试脚本”转移到“正式 HUD 系统”，为后面接入 Widget Controller 提供了稳定且合理的创建入口。换句话说，从这里开始，UI 的生命周期已经不再是临时拼出来的，而是开始被纳入项目结构之中。
+
+\section{0033. Overlay Widget Controller}
+
+这一节是整个 UI 架构第一次真正把 Widget 与 Widget Controller 接起来。前面虽然已经有了 \texttt{AuraUserWidget} 和 \texttt{AuraWidgetController}，但此时还缺少一个具体可用的控制器，以及一个合理的初始化入口来同时构造 Widget 和 Controller。
+
+课程首先在 \texttt{AuraWidgetController} 里引入了一个参数结构体 \texttt{FWidgetControllerParams}。它的作用是把控制器初始化所需的四个关键对象统一打包起来：
+\begin{itemize}
+	\item \texttt{PlayerController}
+	\item \texttt{PlayerState}
+	\item \texttt{AbilitySystemComponent}
+	\item \texttt{AttributeSet}
+\end{itemize}
+
+这个结构体不仅有默认构造函数，还有一个接受上述四项的构造函数，并把所有成员都声明成 Blueprint 可读写。这样做的意义在于，今后每个具体 Widget Controller 初始化时，都不需要重复地一个一个传和设，而是统一接收一份参数包即可。
+
+随后，课程在 \texttt{AuraWidgetController} 中加入 \texttt{SetWidgetControllerParams} 函数，用来把这份参数结构体里的内容写回控制器的成员变量。至此，基础控制器已经拥有了统一初始化接口。
+
+下一步是创建真正的具体控制器 \texttt{OverlayWidgetController}，它继承自 \texttt{AuraWidgetController}，专门负责驱动 Overlay 及其内部的 Health Globe、Mana Globe。
+
+然后课程把注意力转回 \texttt{AuraHUD}，因为 HUD 是当前最合适的对象，它既负责创建顶层 Overlay，也最适合负责创建对应的 Widget Controller。为此，HUD 做了几项重要扩展：
+\begin{itemize}
+	\item 增加 \texttt{OverlayWidgetControllerClass}，让蓝图可以指定要创建的控制器类。
+	\item 增加 \texttt{OverlayWidgetController} 成员，用来缓存已经创建好的控制器实例。
+	\item 实现 \texttt{GetOverlayWidgetController(const FWidgetControllerParams\&)}，如果控制器不存在则创建，否则直接返回已有对象。
+\end{itemize}
+
+这个 Getter 的设计类似“延迟初始化的单例”，即整个 Overlay 只保留一个控制器实例，不会每次都新建一个。创建时，它会调用 \texttt{NewObject} 构造控制器对象，并立刻用前面打包好的参数结构体初始化它。
+
+随后，课程把 HUD 之前写在 \texttt{BeginPlay} 中的逻辑整体提升成一个新的函数：
+\[
+\texttt{InitOverlay(PC, PS, ASC, AS)}
+\]
+
+这个函数接收四个关键依赖，并统一完成整个初始化过程：
+\begin{itemize}
+	\item 检查 \texttt{OverlayWidgetClass} 和 \texttt{OverlayWidgetControllerClass} 是否已经在蓝图中配置，若缺失则用 \texttt{checkf} 给出清晰报错。
+	\item 创建 Overlay Widget。
+	\item 构造 \texttt{FWidgetControllerParams}。
+	\item 获取 OverlayWidgetController。
+	\item 给 Overlay Widget 调用 \texttt{SetWidgetController}。
+	\item 最后再把 Overlay 添加到视口。
+\end{itemize}
+
+这一节的最后重点是：\texttt{InitOverlay} 不应该在 \texttt{BeginPlay} 中被盲目调用，因为那个时机还拿不到完整且有效的四个关键对象。课程最终选择把它放到角色的 \texttt{InitAbilityActorInfo} 一类初始化流程中，因为那里正好能同时获得 PlayerController、PlayerState、ASC 和 AttributeSet，并且通过 \texttt{PossessedBy} 和 \texttt{OnRep\_PlayerState} 可以兼顾服务器与客户端。
+
+课程还顺带讲清楚了一个多人游戏中的工程细节：并不是所有情况下 \texttt{PlayerController} 或 HUD 都一定存在。在客户端上，只有本地控制角色才有有效的 PlayerController 和 HUD，因此这里必须用空指针判断，而不是盲目断言崩溃。这一部分其实是在教如何把 UI 初始化逻辑写得兼容网络环境，而不只是能在单机下跑通。
+
+因此，这一节完成的是真正意义上的“UI 对象构造链路”：控制器的参数如何打包、控制器如何实例化、Widget 如何获得控制器，以及这些步骤应该在什么时机发生。
+
+\section{0034. Broadcasting Initial Values}
+
+这一节开始解决一个常见但容易忽略的问题：即使 UI 已经成功拿到了 Widget Controller，如果没有人主动把当前属性值广播出去，生命球和法力球在第一次显示时仍然不会有正确数据。因此，控制器不仅要能“以后响应变化”，还必须能“在初始化完成时立刻广播当前值”。
+
+课程首先在 \texttt{AuraWidgetController} 基类中新增一个虚函数：
+\[
+\texttt{BroadcastInitialValues()}
+\]
+它在基类中是空实现，但作为统一接口存在，意味着任何具体 Widget Controller 都可以定义自己的初始广播逻辑。
+
+然后在 \texttt{OverlayWidgetController} 中重写这个函数。为了把数据传给蓝图，课程没有让 Widget 主动去查询，而是采用动态多播委托的方式，让控制器广播，Widget 监听。为此新增了两类委托：
+\begin{itemize}
+	\item \texttt{OnHealthChanged}
+	\item \texttt{OnMaxHealthChanged}
+\end{itemize}
+
+它们的类型通过 \texttt{DECLARE\_DYNAMIC\_MULTICAST\_DELEGATE\_OneParam} 声明，每个委托都能广播一个 \texttt{float} 值。之所以选“动态多播”，是因为：
+\begin{itemize}
+	\item 需要在 Blueprint 中绑定事件。
+	\item 同一个 Widget Controller 可能被多个 Widget 同时监听。
+\end{itemize}
+
+这些委托变量被声明成 \texttt{BlueprintAssignable}，这样 Widget Blueprint 就能直接在图中绑定它们。
+
+在 \texttt{BroadcastInitialValues()} 的具体实现中，课程没有硬编码初始值，而是把控制器里的 \texttt{AttributeSet} 转型为 \texttt{AuraAttributeSet}，然后调用属性访问器获取真实值，例如：
+\begin{itemize}
+	\item \texttt{GetHealth()}
+	\item \texttt{GetMaxHealth()}
+\end{itemize}
+
+然后再调用委托的 \texttt{Broadcast} 把它们发出去。这样做的核心原则是：UI 显示的值必须来自真实的游戏状态，而不能来自想当然的常量。
+
+这一节更重要的是时序。课程明确说明，\texttt{BroadcastInitialValues()} 绝不能太早调用。正确流程是：
+\begin{itemize}
+	\item HUD 先创建 Overlay Widget 和 OverlayWidgetController。
+	\item HUD 给 Overlay Widget 调用 \texttt{SetWidgetController}。
+	\item 这会触发 Overlay 的 \texttt{WidgetControllerSet} 蓝图事件。
+	\item Overlay 在事件里再把同一个控制器分配给内部的 Health Globe 和 Mana Globe。
+	\item 这两个子 Widget 的 \texttt{WidgetControllerSet} 也会被依次触发。
+	\item 只有在这一串绑定链都完成之后，才调用 \texttt{BroadcastInitialValues()}。
+\end{itemize}
+
+这样一来，广播发生时，所有 Widget 都已经订阅好了委托，不会漏掉第一帧的重要数值。
+
+为了让 Blueprint 真正参与进来，课程还做了几项蓝图层配置：
+\begin{itemize}
+	\item 在 \texttt{WBP\_Overlay} 中把 Health Globe 和 Mana Globe 设成变量。
+	\item 在 Overlay 的 \texttt{WidgetControllerSet} 事件里，把自己的 WidgetController 继续传给这两个子 Widget。
+	\item 使 \texttt{OverlayWidgetController} 成为 \texttt{BlueprintType} 和 \texttt{Blueprintable}，这样它才能被蓝图识别、转型、甚至被进一步做成蓝图子类。
+	\item 创建 \texttt{BP\_OverlayWidgetController}，并让 HUD 创建这个蓝图控制器，而不是裸 C++ 类。
+\end{itemize}
+
+最后在 Health Globe 中，课程通过 \texttt{Assign OnHealthChanged} 和 \texttt{Assign OnMaxHealthChanged} 绑定事件，把广播来的 \texttt{Health} 和 \texttt{MaxHealth} 保存成变量，再通过：
+\[
+\text{Percent}=\frac{\text{Health}}{\text{MaxHealth}}
+\]
+计算进度，调用父类提供的 \texttt{SetProgressBarPercent} 更新球体显示。
+
+因此，这一节真正完成的是“初始值同步链”。从此以后，UI 在创建完成的第一刻就能显示正确的生命值和最大生命值，而不需要等到下一次属性变化才刷新。
+
+\section{0035. Listening for Attribute Changes}
+
+上一节解决的是“初始化时广播一次当前值”，但真正的 HUD 系统还必须解决“属性变化时实时刷新”。这一节的主题正是把 GAS 的属性变化机制接到 Widget Controller 上，使 Health Globe 能随着属性实际变化而更新。
+
+课程首先指出，Ability System Component 自带一个非常关键的 API：
+\[
+\texttt{GetGameplayAttributeValueChangeDelegate(Attribute)}
+\]
+它接收一个 \texttt{FGameplayAttribute}，并返回对应属性的变化委托。比如，如果要监听生命值变化，就传入 \texttt{GetHealthAttribute()} 返回的属性描述对象。
+
+这里课程顺便讲清了一个容易混淆的点：这个返回的委托不是动态多播委托，所以不能用 \texttt{AddDynamic}，而必须使用 \texttt{AddUObject} 进行绑定。同时，回调函数的签名也必须匹配：
+\[
+\texttt{const FOnAttributeChangeData\& Data}
+\]
+
+基于这个机制，课程在 \texttt{AuraWidgetController} 基类中新增另一个虚函数：
+\[
+\texttt{BindCallbacksToDependencies()}
+\]
+它的设计意义和 \texttt{BroadcastInitialValues()} 类似：所有具体控制器都可能需要把自己的回调绑定到外部依赖对象上，因此统一定义成一个标准流程。
+
+然后在 \texttt{OverlayWidgetController} 中，课程为 Health 和 MaxHealth 分别实现回调函数：
+\begin{itemize}
+	\item \texttt{HealthChanged(const FOnAttributeChangeData\& Data)}
+	\item \texttt{MaxHealthChanged(const FOnAttributeChangeData\& Data)}
+\end{itemize}
+
+接着在 \texttt{BindCallbacksToDependencies()} 中完成绑定：
+\begin{itemize}
+	\item 把 \texttt{AttributeSet} 转成 \texttt{AuraAttributeSet}。
+	\item 从中取出 \texttt{GetHealthAttribute()} 与 \texttt{GetMaxHealthAttribute()}。
+	\item 让 ASC 的变化委托分别绑定到 \texttt{HealthChanged} 和 \texttt{MaxHealthChanged}。
+\end{itemize}
+
+这些回调函数内部并不直接操作 Widget，而是继续遵循一开始定义的依赖方向：它们只是把 \texttt{Data.NewValue} 再广播给自定义委托 \texttt{OnHealthChanged} 和 \texttt{OnMaxHealthChanged}。这样，Widget Controller 仍然不知道具体有哪些 Widget 在监听，Widget 只需要继续监听它熟悉的控制器委托即可。
+
+蓝图侧的 Health Globe 已经在上一节绑定过这两个委托，因此这节几乎不需要额外改动 UI 结构，只要 GAS 属性真的发生变化，Widget 就会自动拿到新的数值并重新计算百分比。课程通过一个简单实验验证了这一点：把初始生命值改成 50，最大生命保持 100，此时 Health Globe 启动后应显示半满；拾取加 25 血的药水后，它应上升到 75\%。
+
+这一节最后还讨论了一个实现时机问题：\texttt{BindCallbacksToDependencies()} 应该何时调用。最终答案是放在 \texttt{GetOverlayWidgetController()} 里，在控制器第一次被创建并且参数刚设置完成之后立刻绑定。原因很直接：
+\begin{itemize}
+	\item 此时四个关键依赖都已经存在。
+	\item 这是控制器生命周期中最早且最自然的绑定时机。
+	\item 后续 HUD 初始化流程不必再反复关心是否已经绑定过回调。
+\end{itemize}
+
+所以，这一节真正打通的是“运行时变化链”：
+\[
+\text{ASC 属性变化} \rightarrow \text{WidgetController 回调} \rightarrow \text{自定义委托广播} \rightarrow \text{HealthGlobe 刷新}
+\]
+
+从这里开始，UI 就不再只是启动时显示一次数据，而是具备了真正意义上的实时同步能力。
+
+\section{0036. Callbacks for Mana Changes}
+
+这一节是一次综合练习，目标是把上一节为生命值建立的整套回调与广播机制，完整复制到法力值上。课程把它设计成“全 Quest”形式，要求学习者自己回忆并补齐所有步骤，以检验是否真正理解了整个 UI 数据流。
+
+首先，在 \texttt{OverlayWidgetController} 中新增针对 Mana 的两个回调函数：
+\begin{itemize}
+	\item \texttt{ManaChanged(const FOnAttributeChangeData\& Data)}
+	\item \texttt{MaxManaChanged(const FOnAttributeChangeData\& Data)}
+\end{itemize}
+
+随后，像处理 Health 一样，课程又新增两组动态多播委托：
+\begin{itemize}
+	\item \texttt{OnManaChanged}
+	\item \texttt{OnMaxManaChanged}
+\end{itemize}
+
+这一步很关键，因为 Widget Controller 与 Widget 之间的接口仍然要保持统一风格。ASC 的变化委托只负责通知控制器，真正面向蓝图层的事件仍然应该通过自定义的动态多播委托转发出去。
+
+接下来，在 \texttt{BindCallbacksToDependencies()} 中再补两条绑定逻辑：
+\begin{itemize}
+	\item 把 \texttt{GetManaAttribute()} 绑定到 \texttt{ManaChanged}。
+	\item 把 \texttt{GetMaxManaAttribute()} 绑定到 \texttt{MaxManaChanged}。
+\end{itemize}
+
+在回调函数内部，依旧只是把 \texttt{Data.NewValue} 广播出去，而不是直接操作某个具体 Widget。也就是说，Health 和 Mana 的整套设计是完全对称的。
+
+课程还提醒，既然 Mana 现在也要在 UI 上显示，那么初始广播也必须补齐。因此在 \texttt{BroadcastInitialValues()} 中，不仅要广播 Health 和 MaxHealth，也要同时广播：
+\begin{itemize}
+	\item \texttt{GetMana()}
+	\item \texttt{GetMaxMana()}
+\end{itemize}
+
+这样 Mana Globe 在刚出现时就能显示正确的初始填充比例，而不会等到第一次属性变化才更新。
+
+为了验证链路完整性，课程还修改了 \texttt{AuraEffectActor}，让拾取药水时不只是给角色加血，同时还要扣除法力。这样一次交互就能同时触发 Health 和 Mana 两组更新逻辑，是很好的联调测试方式。
+
+蓝图侧的 Mana Globe 也和 Health Globe 保持完全一致的模式：
+\begin{itemize}
+	\item 在 \texttt{WidgetControllerSet} 事件里获取自己的 WidgetController。
+	\item 把它转成 \texttt{BP\_OverlayWidgetController}。
+	\item 分别绑定 \texttt{OnManaChanged} 与 \texttt{OnMaxManaChanged}。
+	\item 把委托传来的数值保存成 \texttt{Mana} 和 \texttt{MaxMana}。
+	\item 用安全除法计算百分比。
+	\item 调用从父类继承来的 \texttt{SetProgressBarPercent} 更新法力球显示。
+\end{itemize}
+
+最终测试结果非常直观：
+\begin{itemize}
+	\item Mana 初始值为 50，最大值也为 50，因此 Mana Globe 一开始是满的。
+	\item 拾取药水后 Mana 降为 25，因此球体显示下降到一半。
+	\item 同时 Health 继续按既定逻辑升到 75\%。
+	\item 调试输出中的数值与 HUD 表现完全一致。
+\end{itemize}
+
+这一节的真正意义在于验证前面整套 UI 架构不是“只能给生命值硬编码一遍”，而是能够按同一模式平滑扩展到新的属性类型。只要继续遵循以下模式：
+\[
+\text{属性回调} \rightarrow \text{控制器广播} \rightarrow \text{Widget 绑定} \rightarrow \text{百分比刷新}
+\]
+那么未来不管是经验值、能量、怒气，还是更多 GAS 属性，都可以用同一套思路扩展。
+
+因此，到这一节结束时，课程实际上已经完成了一个完整的 GAS HUD 数据流闭环：顶层 Overlay 由 HUD 构建，具体 Widget 由统一父类承载，数据由 Widget Controller 从 GAS 模型中提取，通过初始广播和变化回调双路径同步到生命球与法力球，整个系统既结构清晰，又具备扩展性。
 \end{document}
