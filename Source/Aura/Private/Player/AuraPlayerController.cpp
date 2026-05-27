@@ -8,7 +8,9 @@
 #include "Engine/HitResult.h"
 #include "Engine/LocalPlayer.h"
 #include "GameFramework/Pawn.h"
+#include "InputCoreTypes.h"
 #include "Interaction/HighlightInterface.h"
+#include "UI/HUD/AuraHUD.h"
 
 AAuraPlayerController::AAuraPlayerController()
 {
@@ -59,6 +61,7 @@ void AAuraPlayerController::SetupInputComponent()
 	}
 	// Bind Move Input Action
 	EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ThisClass::Move);
+	EnhancedInputComponent->BindAction(DebugAction, ETriggerEvent::Started, this, &ThisClass::ToggleAttributeDebugPanel);
 }
 
 void AAuraPlayerController::Move(const FInputActionValue& InputActionValue)
@@ -96,3 +99,17 @@ void AAuraPlayerController::CursorTrace()
 	}
 	LastActor = CurrentActor;
 }
+
+void AAuraPlayerController::ToggleAttributeDebugPanel()
+{
+	if (!IsLocalController())
+	{
+		return;
+	}
+
+	if (AAuraHUD* AuraHUD = Cast<AAuraHUD>(GetHUD()))
+	{
+		AuraHUD->ToggleAttributeDebugPanel();
+	}
+}
+

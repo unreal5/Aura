@@ -4,8 +4,15 @@
 #include "UI/HUD/AuraHUD.h"
 
 #include "Blueprint/UserWidget.h"
+#include "AbilitySystem/AuraAttributeSet.h"
+#include "UI/Widget/AuraAttributeDebugWidget.h"
 #include "UI/Widget/AuraUserWidget.h"
 #include "UI/WidgetController/OverlayWidgetController.h"
+
+AAuraHUD::AAuraHUD()
+{
+	AttributeDebugWidgetClass = UAuraAttributeDebugWidget::StaticClass();
+}
 
 UOverlayWidgetController* AAuraHUD::GetOverlayWidgetController(const FWidgetControllerParams& WCParams)
 {
@@ -42,4 +49,39 @@ void AAuraHUD::InitOverlay(APlayerController* PC, APlayerState* PS, UAbilitySyst
 	OverlayWidgetController->BroadcastInitialValues();
 	
 	OverlayWidget->AddToViewport();
+	InitAttributeDebugPanel(ASC, AS);
+}
+
+void AAuraHUD::ToggleAttributeDebugPanel()
+{
+	if (IsValid(AttributeDebugWidget))
+	{
+		AttributeDebugWidget->TogglePanelVisibility();
+	}
+}
+
+void AAuraHUD::InitAttributeDebugPanel(UAbilitySystemComponent* ASC, UAttributeSet* AS)
+{
+	UAuraAttributeSet* AuraAttributeSet = Cast<UAuraAttributeSet>(AS);
+	if (!IsValid(ASC) || !IsValid(AuraAttributeSet))
+	{
+		return;
+	}
+
+	if (!IsValid(AttributeDebugWidget))
+	{
+		UClass* WidgetClass = AttributeDebugWidgetClass
+			? AttributeDebugWidgetClass.Get()
+			: UAuraAttributeDebugWidget::StaticClass();
+
+		AttributeDebugWidget = CreateWidget<UAuraAttributeDebugWidget>(GetOwningPlayerController(), WidgetClass);
+		if (!IsValid(AttributeDebugWidget))
+		{
+			return;
+		}
+
+		AttributeDebugWidget->AddToViewport(1000);
+	}
+
+	AttributeDebugWidget->InitializeWithAbilitySystem(ASC, AuraAttributeSet);
 }

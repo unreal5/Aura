@@ -36,8 +36,14 @@ private:
 	UInputAction* MoveAction;
 	void Move(const FInputActionValue& InputActionValue);
 
+	UPROPERTY(EditAnywhere, Category="Input")
+	UInputAction* DebugAction;
+	
 	// 追踪当前光标下面的物体
 	void CursorTrace();
-	AActor* LastActor = nullptr;
-	AActor* CurrentActor = nullptr;
+	void ToggleAttributeDebugPanel();
+	UPROPERTY(Transient)
+	TObjectPtr<AActor> LastActor = nullptr;
+	UPROPERTY(Transient)
+	TObjectPtr<AActor> CurrentActor = nullptr;
 };
