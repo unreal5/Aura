@@ -1,0 +1,172 @@
+\chapter{PowerShell的一些常用命令}
+\section{核心理念}
+PowerShell 的强大之处在于它处理的是\textbf{对象 (Objects)} 而非简单的文本字符串。
+\begin{itemize}
+	\item \textbf{输入}：不仅仅是文件名，而是包含属性（大小、时间、名称）的文件对象。
+	\item \textbf{处理}：通过管道符流式处理每一个对象。
+\end{itemize}
+
+\section{命令详解}
+
+\subsection{基本语法模板}
+\begin{lstlisting}
+	Get-ChildItem <匹配模式>|Rename-Item -NewName {$_.Name -replace '正则查找', '替换内容'}
+\end{lstlisting}
+
+\subsection{参数逐步拆解}
+\begin{enumerate}
+	\item \ci{Get-ChildItem *.txt}：
+	获取文件列表（类似 Linux 的 \ci{ls}）。输出一系列文件对象。
+	
+	\item 管道符号“\ci{|}” ：
+	将左侧找到的每一个文件对象，逐个传递给右侧命令处理。
+	
+	\item \ci{Rename-Item}：
+	执行重命名动作的命令。
+	
+	\item \ci{-NewName \{ ... \}}：
+	接收一个\textbf{脚本块}。PowerShell 会对管道传来的\textbf{每一个}文件执行此代码，计算出新的名字。
+	
+	\item \textcolor{red}{\texttt{\$\_}} (当前对象)：
+	在脚本块中，\ci{\$\_} 代表“当前正在处理的这个文件”。
+	\begin{itemize}
+		\item \texttt{\$\_.Name}：获取完整文件名（如 \texttt{data.txt}）。
+	\end{itemize}
+	
+	\item \textbf{\texttt{-replace}} (操作符)：
+	语法：
+	\begin{lstlisting}
+		'源' -replace '正则', '新内容'
+	\end{lstlisting}
+	\begin{itemize}
+		\item 默认\textbf{不区分大小写}。
+		\item 支持标准正则（如 \ci{^} 开头，\texttt{\$} 结尾）。
+		\item 支持捕获组引用（如 \texttt{\$1}）。
+	\end{itemize}
+\end{enumerate}
+
+\section{实战场景与技巧}
+
+\subsection{1. 安全模式 (强烈推荐)}
+在正式执行前，务必添加 \texttt{-WhatIf} 参数进行预览，防止误操作。
+\begin{lstlisting}
+	Get-ChildItem *.log | Rename-Item -NewName {$_.Name -replace 'old', 'new'} -WhatIf
+\end{lstlisting}
+
+\subsection{2. 使用捕获组调换顺序}
+场景：将 \texttt{Part1\_Invoice.pdf} 改为 \texttt{Invoice\_Part1.pdf}。
+\begin{lstlisting}
+	Get-ChildItem *.pdf | Rename-Item -NewName {$_.Name -replace '^(Part\d+)_(.+)\.pdf$','$2_$1.pdf'}
+\end{lstlisting}
+\textit{注：\texttt{\$1} 和 \texttt{\$2} 对应正则表达式中括号捕获的内容。}
+
+\subsection{3. 仅操作文件名 (保留扩展名)}
+如果担心误改扩展名，可以使用 \texttt{\$\_.BaseName} 仅获取主文件名。
+\begin{lstlisting}
+	# 仅给文件名前加 Backup_，不影响后续扩展名
+	Get-ChildItem * | Rename-Item -NewName { 'Backup_' + $_.Name }
+\end{lstlisting}
+\section{批处理}
+
+\begin{itemize}
+	\item 如果你想传完整路径，用这个：
+	\begin{code}
+		Get-ChildItem *.mp4|ForEach-Object{python D:\SDKs\ToSRT\GenSRT.py $_.FullName}
+	\end{code}
+	\item 如果你更喜欢传统 \ci{foreach} 写法，也可以：
+	\begin{code}
+		foreach ($file in Get-ChildItem -Name *.mp4) {
+			python .\script.py $file
+		}
+	\end{code}
+	\item 如果要在执行时顺便打印当前处理的是哪个文件，方便观察：
+	\begin{code}
+		foreach ($file in Get-ChildItem -Name *.mp4) {
+			Write-Host "Processing $file"
+			python .\script.py $file
+		}	
+	\end{code}
+\end{itemize}
+
+\section{总结公式}
+\begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black,title=记忆口诀]
+	Let (获取列表) $\rightarrow$ Pipe (管道传入) $\rightarrow$ Rename (重命名命令) $\rightarrow$ Script (计算新名)
+\end{tcolorbox}
+
+\chapter{yt-dlp常用命令}
+\section{yt-dlp 常用命令}
+\begin{enumerate}
+	\item 下载视频（最佳画质 + 音质）	\ci{yt-dlp "URL"}，下载成指定文件名 \ci{yt-dlp -o "\%(title)s.\%(ext)s" "URL"}
+	\item 下载音频
+	
+	\begin{itemize}
+		\item 		提取音频（默认 m4a）		\ci{yt-dlp -x "URL"}
+		\item		指定音频格式（mp3/wav/flac/opus 等）
+		\ci{yt-dlp -x --audio-format mp3 "URL"}
+		\item		指定音频质量（0=最佳，9=最差）
+		\ci{yt-dlp -x --audio-format mp3 --audio-quality 0 "URL"}
+	\end{itemize}
+	\item  播放列表相关
+	\begin{itemize}
+		\item 下载整个播放列表：\ci{yt-dlp "播放列表URL"}
+		\item 只下载某一个视频（忽略播放列表）\ci{yt-dlp --no-playlist "URL"}
+		\item 下载播放列表的某几集：
+		\begin{code}
+			yt-dlp --playlist-items 1,3,5 "URL"   \# 下载第1、3、5个
+			yt-dlp --playlist-items 1-10 "URL"    \# 下载前10个
+		\end{code}
+	\end{itemize}
+	\item  视频画质选择
+	\begin{itemize}
+		\item 下载最佳画质（默认） \ci{yt-dlp -f bestvideo+bestaudio "URL"}
+		\item 指定分辨率（如 720p）\ci{yt-dlp -f "bestvideo[height=720]+bestaudio" "URL"}
+		\item 仅下载音频流（不转格式）\ci{yt-dlp -f bestaudio "URL"}
+	\end{itemize}
+	\item  字幕
+	\begin{itemize}
+		\item 下载字幕（不下载视频）
+		\ci{yt-dlp --write-subs --skip-download "URL"}
+		\item
+		下载英文字幕
+		\ci{yt-dlp --write-subs --sub-lang en --skip-download "URL"}
+		\item
+		下载自动生成字幕
+		\ci{yt-dlp --write-auto-subs --sub-lang en --skip-download "URL"}
+		\item 字幕格式转换成 srt
+		\ci{yt-dlp --write-subs --sub-format srt "URL"}
+	\end{itemize}
+	\item  文件输出与命名
+	指定保存目录
+	\ci{yt-dlp -o "~/Downloads/\%(title)s.\%(ext)s" "URL"}
+	\item 输出模板常用变量
+	\begin{code}
+		%(title)s → 视频标题
+		%(id)s → 视频ID
+		%(uploader)s → 上传者
+		%(playlist_index)s → 播放列表序号
+	\end{code}
+	
+	\item  高级功能
+	\begin{itemize}
+		\item 只下载部分时长（需 ffmpeg） \ci{yt-dlp --download-sections "*00:00:00-00:30:00" "URL"  \# 前30分钟}
+		\item 限制下载速度
+		\ci{yt-dlp --limit-rate 500K "URL"}
+		\item 断点续传（默认支持）
+		\ci{yt-dlp -c "URL"}
+		\item 模拟运行（不下载，只显示信息）
+		\ci{yt-dlp -F "URL"}
+		\item 选择具体格式
+		\ci{yt-dlp -f 251 "URL"   # 先用 -F 查格式编号}
+	\end{itemize}
+\end{enumerate}
+\section{常见示例}
+\begin{itemize}
+	\item 下载 YouTube 视频为 mp3
+	\ci{yt-dlp -x --audio-format mp3 "https://www.youtube.com/watch?v=xxxx"}
+	\item  下载 720p mp4 视频
+	\ci{yt-dlp -f "bestvideo[height<=720]+bestaudio" --merge-output-format mp4 "URL"}
+	\item 下载 TED 演讲字幕 + 音频
+	\ci{yt-dlp -x --audio-format mp3 --write-subs --sub-lang en "URL"}
+	\item ️ 只下载视频的前 1 小时音频
+	\ci{yt-dlp -x --audio-format mp3 --download-sections "*00:00:00-01:00:00" "URL"}
+\end{itemize}
