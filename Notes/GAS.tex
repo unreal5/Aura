@@ -41,28 +41,21 @@
 %BoldFont = *-Bold,
 %AutoFakeSlant = 0.2
 %]
-\setCJKsansfont[
-Path=fonts/HarmonyOS_Sans/,
-BoldFont=HarmonyOS_Sans_Bold.ttf,
-ItalicFont=HarmonyOS_Sans_Regular_Italic.ttf,
-BoldItalicFont=HarmonyOS_Sans_Bold_Italic.ttf,
-%Scale=.8
-]{HarmonyOS_Sans_Regular.ttf}%
 	\setmainfont[
-Path=fonts/Alegreya/,
-BoldFont=Alegreya-Bold.ttf,
-ItalicFont=Alegreya-Italic.ttf,
-BoldItalicFont=Alegreya-BoldItalic,ttf,
-%Scale=.9
-]{Alegreya-Regular.ttf}
+		Path=fonts/Alegreya/,
+		BoldFont=Alegreya-Bold.ttf,
+		ItalicFont=Alegreya-Italic.ttf,
+		BoldItalicFont=Alegreya-BoldItalic,ttf,
+		%Scale=.9
+	]{Alegreya-Regular.ttf}%
 
-\setsansfont[
-Path=fonts/Alegreya/,
-BoldFont=AlegreyaSC-Bold.ttf,
-ItalicFont=AlegreyaSC-Italic.ttf,
-BoldItalicFont=AlegreyaSC-BoldItalic,ttf,
-%Scale=.9
-]{AlegreyaSC-Regular.ttf}
+	\setsansfont[
+		Path=fonts/Alegreya/,
+		BoldFont=AlegreyaSC-Bold.ttf,
+		ItalicFont=AlegreyaSC-Italic.ttf,
+		BoldItalicFont=AlegreyaSC-BoldItalic,ttf,
+		%Scale=.9
+	]{AlegreyaSC-Regular.ttf}%
 
 % 定义 PowerShell 代码样式
 \lstdefinelanguage{PowerShell}{
@@ -5433,4 +5426,357 @@ $
 在大多数联网 Gameplay 场景下，它可以近似当作“当前是否在服务器端执行权威逻辑”的判断；  
 但它严格来说不是世界级别的“服务器 / 客户端进程判断器”。  
 如果要判断当前环境究竟是 \texttt{Server} 还是 \texttt{Client}，应使用 \texttt{GetWorld()->GetNetMode()}。
+
+\chapter{学习copilot生成的辅助调试代码}
+\section{GAS 调试面板代码学习路径}
+
+\subsection{推荐阅读顺序}
+\begin{itemize}
+	\item 先看入口：是谁创建面板、谁控制显示
+	\item 再看核心：面板怎么拿 \texttt{ASC} 和 \texttt{AttributeSet}
+	\item 再看刷新：数据怎么更新到 UI
+	\item 最后看扩展点：以后自己往里加什么最方便
+\end{itemize}
+
+按这个顺序阅读，会比较容易建立整体结构，而不是一上来陷进某个函数细节里。
+
+\subsection{第一步：先看是谁打开这个面板的}
+先看文件：
+
+\begin{itemize}
+	\item \texttt{Source/Aura/Private/Player/AuraPlayerController.cpp}
+\end{itemize}
+
+重点看：
+\begin{itemize}
+	\item \texttt{AAuraPlayerController::ToggleAttributeDebugPanel()}
+	\item \texttt{SetupInputComponent()} 里绑定按键的地方
+\end{itemize}
+
+这一层主要回答两个问题：
+\begin{enumerate}
+	\item 为什么按下 \texttt{F12} 会生效？
+	\item 按键事件最后是如何转发给 \texttt{HUD} 的？
+\end{enumerate}
+
+可以把这一层理解成：
+
+\begin{itemize}
+	\item \texttt{PlayerController} 负责输入
+	\item 输入触发后，调用 \texttt{HUD} 去显示或隐藏调试面板
+\end{itemize}
+
+\subsection{第二步：再看 HUD 是怎么创建这个面板的}
+然后看：
+
+\begin{itemize}
+	\item \texttt{Source/Aura/Public/UI/HUD/AuraHUD.h}
+	\item \texttt{Source/Aura/Private/UI/HUD/AuraHUD.cpp}
+\end{itemize}
+
+重点看两个函数：
+
+\begin{itemize}
+	\item \texttt{AAuraHUD::InitOverlay(...)}
+	\item \texttt{AAuraHUD::InitAttributeDebugPanel(...)}
+\end{itemize}
+
+这里是整个调用链里最关键的一步。你会看到：
+
+\begin{enumerate}
+	\item HUD 先初始化正常的 Overlay
+	\item 然后顺手创建 \texttt{UAuraAttributeDebugWidget}
+	\item 再把 \texttt{ASC} 和 \texttt{AttributeSet} 传进去
+\end{enumerate}
+
+这一层可以概括为：
+
+\begin{itemize}
+	\item \texttt{PlayerController} 负责“开关”
+	\item \texttt{HUD} 负责“创建和持有面板”
+\end{itemize}
+
+\subsection{第三步：看 Widget 本体}
+然后重点看：
+\begin{marker}
+\begin{itemize}
+	\item \texttt{Source/Aura/Public/UI/Widget/AuraAttributeDebugWidget.h}
+	\item \texttt{Source/Aura/Private/UI/Widget/AuraAttributeDebugWidget.cpp}
+\end{itemize}
+\end{marker}
+这是整个功能的核心部分。
+
+建议按下面顺序读函数。
+\begin{enumerate}
+
+\item \textbf{生命周期函数}\\
+先看：
+
+\begin{itemize}
+	\item \texttt{InitializeWithAbilitySystem(...)}
+	\item \texttt{NativeOnInitialized()}
+	\item \texttt{NativeTick(...)}
+	\item \texttt{NativeDestruct()}
+\end{itemize}
+
+你要先搞懂它的“活法”：
+
+\begin{itemize}
+	\item 什么时候创建
+	\item 什么时候绑定 \texttt{ASC}
+	\item 什么时候定时刷新
+	\item 什么时候解绑委托
+\end{itemize}
+
+如果这组函数读明白了，后面很多刷新逻辑都会更容易理解。
+
+\item \textbf{UI 是怎么纯 C++ 搭出来的}
+重点看：
+
+\begin{itemize}
+	\item \texttt{BuildWidgetTree()}
+\end{itemize}
+
+这个函数是在不依赖蓝图控件树的情况下，直接在 C++ 里创建 UI 结构。这里会创建：
+
+\begin{itemize}
+	\item \texttt{CanvasPanel}
+	\item \texttt{Border}
+	\item \texttt{ScrollBox}
+	\item \texttt{VerticalBox}
+	\item 多个 \texttt{TextBlock}
+\end{itemize}
+
+如果把这个函数看懂，你对 UE 的 UMG 底层组织方式会清晰很多。
+
+建议重点关注这些对象之间的关系：
+
+\begin{itemize}
+	\item \texttt{RootWidget}
+	\item \texttt{PanelBorder}
+	\item \texttt{DebugScrollBox}
+	\item \texttt{DebugContentBox}
+	\item 各种 \texttt{TextBlock}
+\end{itemize}
+
+本质上，这里就是在手动搭一棵 Widget Tree。
+
+\item \textbf{总刷新入口}
+重点看：
+
+\begin{itemize}
+	\item \texttt{RefreshValues()}
+\end{itemize}
+
+这个函数可以理解为总控刷新器。它会统一去做：
+
+\begin{itemize}
+	\item 刷新属性
+	\item 刷新 Tag
+	\item 刷新 Gameplay Effect
+	\item 刷新 Ability
+\end{itemize}
+
+读到这里时，建议在脑子里建立这样一条总链路：
+
+\begin{center}
+	\texttt{ASC / AttributeSet} $\rightarrow$ 读取数据 $\rightarrow$ 写入缓存 $\rightarrow$ \texttt{UpdateDisplayedValues()} $\rightarrow$ 更新到 UI
+\end{center}
+
+\item \textbf{每个分区的数据怎么来的}
+依次看：
+
+\begin{itemize}
+	\item \texttt{RefreshOwnedTags()}
+	\item \texttt{RefreshActiveGameplayEffects()}
+	\item \texttt{RefreshActivatableAbilities()}
+\end{itemize}
+
+这三个函数分别对应三个调试区块。
+
+\paragraph{1. \texttt{RefreshOwnedTags()}}
+这个函数主要看：
+
+\begin{itemize}
+	\item 如何从 \texttt{AbilitySystemComponent} 里读取 \texttt{OwnedGameplayTags}
+\end{itemize}
+
+\paragraph{2. \texttt{RefreshActiveGameplayEffects()}}
+这个函数值得重点学。你会看到如何读取当前所有 Active Gameplay Effects，以及如何提取：
+
+\begin{itemize}
+	\item \texttt{Stack}
+	\item \texttt{Duration}
+	\item \texttt{RemainingTime}
+	\item \texttt{Period}
+	\item \texttt{GrantedTags}
+\end{itemize}
+
+这部分对理解 GAS 的运行态信息很有帮助。
+
+\paragraph{3. \texttt{RefreshActivatableAbilities()}}
+这个函数主要学习：
+
+\begin{itemize}
+	\item 如何枚举 \texttt{GetActivatableAbilities()}
+	\item 如何读取 Ability 的名称、等级、输入 ID、激活状态
+\end{itemize}
+
+\item \textbf{最终怎么显示到屏幕}
+最后看：
+
+\begin{itemize}
+	\item \texttt{UpdateDisplayedValues()}
+\end{itemize}
+
+这个函数负责把前面缓存好的内容真正塞到 UI 控件里，例如：
+
+\begin{itemize}
+	\item \texttt{HealthText}
+	\item \texttt{ManaText}
+	\item \texttt{TagValuesText}
+	\item \texttt{EffectValuesText}
+	\item \texttt{AbilityValuesText}
+\end{itemize}
+
+如果你以后要扩展新字段，一般就是按这个套路：
+
+\begin{enumerate}
+	\item 在头文件里新增缓存变量或控件指针
+	\item 在某个 \texttt{RefreshXXX()} 函数里填充数据
+	\item 在 \texttt{UpdateDisplayedValues()} 里把它显示出来
+\end{enumerate}
+
+\end{enumerate}
+
+\subsection{第四步：最后看属性变化的实时绑定}
+看下面这些函数：
+
+\begin{itemize}
+	\item \texttt{BindAttributeDelegates()}
+	\item \texttt{UnbindAttributeDelegates()}
+	\item \texttt{HandleHealthChanged(...)}
+	\item \texttt{HandleMaxHealthChanged(...)}
+	\item \texttt{HandleManaChanged(...)}
+	\item \texttt{HandleMaxManaChanged(...)}
+\end{itemize}
+
+这里的重点是理解：
+
+\subsubsection{为什么 Attribute 用 Delegate}
+因为属性变化频繁，而且 GAS 已经提供了现成的属性变化委托。  
+所以属性值变化时，可以及时触发更新。
+
+\subsubsection{为什么 Tag / GE / Ability 用轮询刷新}
+因为当前项目阶段里，还没有为这些内容单独封装完整的事件驱动同步机制，比如：
+
+\begin{itemize}
+	\item Tag 增删事件聚合
+	\item GE 增删变化通知
+	\item Ability 授予或移除时的 UI 同步
+\end{itemize}
+
+所以当前实现采用了一个很实用的工程折中：
+
+\begin{itemize}
+	\item 属性：用 Delegate
+	\item 其他信息：面板可见时按固定间隔轮询刷新
+\end{itemize}
+
+\subsection{这套代码里最值得学习的 4 个设计点}
+
+\subsubsection{1. HUD 持有调试 UI，而不是 Character 持有}
+这是一个比较清晰的职责分层：
+
+\begin{itemize}
+	\item \texttt{Character} 管角色能力系统
+	\item \texttt{HUD} 管显示
+	\item \texttt{PlayerController} 管输入
+\end{itemize}
+
+这样结构更稳，也更方便以后维护。
+
+\subsubsection{2. Widget 不自己乱找对象，而是显式传入依赖}
+\texttt{InitializeWithAbilitySystem(...)} 很关键。  
+它不是在 Widget 里到处 \texttt{GetPlayerCharacter()}、\texttt{GetPlayerState()}，而是由外部把：
+
+\begin{itemize}
+	\item \texttt{ASC}
+	\item \texttt{AttributeSet}
+\end{itemize}
+
+明确传进来。
+
+这是一种显式依赖注入的思路，通常比在内部随便查对象更清晰。
+
+\subsubsection{3. 用“缓存 + 统一更新显示”，而不是边算边改 UI}
+代码不是在每个地方都直接 \texttt{SetText(...)}，而是先把数据整理成缓存，比如：
+
+\begin{itemize}
+	\item \texttt{CachedHealth}
+	\item \texttt{CachedOwnedTagsText}
+	\item \texttt{CachedActiveEffectsText}
+	\item \texttt{CachedAbilitiesText}
+\end{itemize}
+
+最后再统一调用 \texttt{UpdateDisplayedValues()}。
+
+这种模式很适合做：
+
+\begin{itemize}
+	\item 调试面板
+	\item 状态面板
+	\item 角色信息面板
+\end{itemize}
+
+\subsubsection{4. 只有可见时才轮询}
+在 \texttt{NativeTick(...)} 里，不是永远高频刷新，而是：
+
+\begin{itemize}
+	\item 面板可见时才刷新
+	\item 并且有 \texttt{RefreshIntervalSeconds} 控制刷新间隔
+\end{itemize}
+
+这是一个很实用的 UI 性能优化习惯。
+
+\subsection{建议你边读边回答的 8 个问题}
+如果你想真正吃透这套代码，建议边读边回答下面这些问题：
+
+\begin{enumerate}
+	\item \texttt{F12} 按下后，完整调用链是怎样的？
+	\item 调试面板是谁创建的？谁持有它？
+	\item \texttt{ASC} 和 \texttt{AttributeSet} 是从哪里传进 Widget 的？
+	\item 为什么属性用 Delegate，而其他信息用定时刷新？
+	\item \texttt{RefreshActiveGameplayEffects()} 里的每一行信息分别来自哪个 GAS API？
+	\item \texttt{GetActivatableAbilities()} 返回的是什么？
+	\item \texttt{BuildWidgetTree()} 里 Widget 的层级结构是什么？
+	\item 如果要加一个 \texttt{Armor} 文本，需要改哪几处？
+\end{enumerate}
+
+如果这 8 个问题都能回答出来，这套代码基本就算真正吃透了。
+
+\subsection{建议你自己动手做的一个最小练习}
+建议做一个小练习：加一行显示 \texttt{MaxHealth - Health}。
+
+例如增加一个：
+
+\begin{itemize}
+	\item \texttt{MissingHealthText}
+\end{itemize}
+
+用于显示：
+
+\begin{itemize}
+	\item \texttt{Missing Health}
+\end{itemize}
+
+这个练习会让你完整走一遍扩展流程：
+
+\begin{enumerate}
+	\item 在 \texttt{.h} 里加一个 \texttt{UTextBlock*}
+	\item 在 \texttt{BuildWidgetTree()} 里创建它
+	\item 在 \texttt{UpdateDisplayedValues()} 里给它设置文本
+\end{enumerate}
+
+这是最适合入手的练习：改动小，但能把整体结构摸熟。
 \end{document}

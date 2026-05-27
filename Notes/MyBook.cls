@@ -56,7 +56,7 @@
 \newcommand{\setchapterimage}[1]{\def\chap@image{#1}}%
 
 \newsavebox{\chap@titlebox}
-\titleformat{\chapter}[display]{\Huge\heiti\thispagestyle{empty}}{}{20pt}
+\titleformat{\chapter}[display]{\Huge\bfseries\thispagestyle{empty}}{}{20pt}
 {
 	\ifx\chap@image\@empty \def\title@color{maincolor}%
 	\else \def\title@color{highlightcolor}%

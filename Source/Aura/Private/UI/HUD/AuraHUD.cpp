@@ -11,6 +11,7 @@
 
 AAuraHUD::AAuraHUD()
 {
+	// 设置默认的Debug Widget类
 	AttributeDebugWidgetClass = UAuraAttributeDebugWidget::StaticClass();
 }
 
@@ -49,6 +50,7 @@ void AAuraHUD::InitOverlay(APlayerController* PC, APlayerState* PS, UAbilitySyst
 	OverlayWidgetController->BroadcastInitialValues();
 	
 	OverlayWidget->AddToViewport();
+	// 初始化调试面板
 	InitAttributeDebugPanel(ASC, AS);
 }
 

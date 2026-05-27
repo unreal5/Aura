@@ -16,12 +16,9 @@
 #include "Blueprint/WidgetTree.h"
 
 void UAuraAttributeDebugWidget::InitializeWithAbilitySystem(UAbilitySystemComponent* InAbilitySystemComponent,
-	UAuraAttributeSet* InAttributeSet)
+                                                            UAuraAttributeSet* InAttributeSet)
 {
-	if (!IsValid(InAbilitySystemComponent) || !IsValid(InAttributeSet))
-	{
-		return;
-	}
+	if (!IsValid(InAbilitySystemComponent) || !IsValid(InAttributeSet)) return;
 
 	UAbilitySystemComponent* PreviousAbilitySystemComponent = AbilitySystemComponent;
 	const bool bAbilitySystemChanged = PreviousAbilitySystemComponent != InAbilitySystemComponent;
@@ -71,16 +68,10 @@ void UAuraAttributeDebugWidget::NativeTick(const FGeometry& MyGeometry, const fl
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
 
-	if (!IsVisible() || !IsValid(AbilitySystemComponent))
-	{
-		return;
-	}
+	if (!IsVisible() || !IsValid(AbilitySystemComponent)) return;
 
 	TimeSinceLastRefresh += InDeltaTime;
-	if (TimeSinceLastRefresh < RefreshIntervalSeconds)
-	{
-		return;
-	}
+	if (TimeSinceLastRefresh < RefreshIntervalSeconds) return;
 
 	TimeSinceLastRefresh = 0.f;
 	RefreshValues();
@@ -94,10 +85,7 @@ void UAuraAttributeDebugWidget::NativeDestruct()
 
 void UAuraAttributeDebugWidget::BuildWidgetTree()
 {
-	if (!WidgetTree || WidgetTree->RootWidget)
-	{
-		return;
-	}
+	if (!WidgetTree || WidgetTree->RootWidget) return;
 
 	UCanvasPanel* RootPanel = WidgetTree->ConstructWidget<UCanvasPanel>(UCanvasPanel::StaticClass(), TEXT("RootPanel"));
 	WidgetTree->RootWidget = RootPanel;
@@ -120,7 +108,7 @@ void UAuraAttributeDebugWidget::BuildWidgetTree()
 	DebugScrollBox->AddChild(DebugContentBox);
 
 	auto AddTextToPanel = [this](const TCHAR* WidgetName, const int32 FontSize, const FLinearColor& Color,
-		const bool bBold, const FMargin& SlotPadding) -> UTextBlock*
+	                             const bool bBold, const FMargin& SlotPadding) -> UTextBlock*
 	{
 		UTextBlock* TextBlock = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), WidgetName);
 		ConfigureTextBlock(TextBlock, FontSize, Color, bBold);
@@ -132,47 +120,45 @@ void UAuraAttributeDebugWidget::BuildWidgetTree()
 	};
 
 	TitleText = AddTextToPanel(TEXT("TitleText"), 28, FLinearColor(1.f, 0.85f, 0.2f), true,
-		FMargin(12.f, 10.f, 12.f, 10.f));
+	                           FMargin(12.f, 10.f, 12.f, 10.f));
 	TitleText->SetText(FText::FromString(TEXT("GAS 属性调试面板")));
 
 	AttributeHeaderText = AddTextToPanel(TEXT("AttributeHeaderText"), 22, FLinearColor(0.95f, 0.65f, 0.2f), true,
-		FMargin(12.f, 6.f, 12.f, 6.f));
+	                                     FMargin(12.f, 6.f, 12.f, 6.f));
 	AttributeHeaderText->SetText(FText::FromString(TEXT("[Attributes]")));
 
 	HealthText = AddTextToPanel(TEXT("HealthText"), 22, FLinearColor(0.75f, 1.f, 0.75f), false,
-		FMargin(24.f, 2.f, 12.f, 2.f));
+	                            FMargin(24.f, 2.f, 12.f, 2.f));
 	ManaText = AddTextToPanel(TEXT("ManaText"), 22, FLinearColor(0.65f, 0.85f, 1.f), false,
-		FMargin(24.f, 2.f, 12.f, 8.f));
+	                          FMargin(24.f, 2.f, 12.f, 8.f));
 
 	TagHeaderText = AddTextToPanel(TEXT("TagHeaderText"), 22, FLinearColor(0.55f, 0.85f, 1.f), true,
-		FMargin(12.f, 6.f, 12.f, 6.f));
+	                               FMargin(12.f, 6.f, 12.f, 6.f));
 	TagHeaderText->SetText(FText::FromString(TEXT("[Owned Gameplay Tags]")));
 	TagValuesText = AddTextToPanel(TEXT("TagValuesText"), 18, FLinearColor(0.88f, 0.92f, 1.f), false,
-		FMargin(24.f, 2.f, 12.f, 8.f));
+	                               FMargin(24.f, 2.f, 12.f, 8.f));
 
 	EffectHeaderText = AddTextToPanel(TEXT("EffectHeaderText"), 22, FLinearColor(1.f, 0.72f, 0.72f), true,
-		FMargin(12.f, 6.f, 12.f, 6.f));
+	                                  FMargin(12.f, 6.f, 12.f, 6.f));
 	EffectHeaderText->SetText(FText::FromString(TEXT("[Active Gameplay Effects]")));
 	EffectValuesText = AddTextToPanel(TEXT("EffectValuesText"), 18, FLinearColor(1.f, 0.9f, 0.9f), false,
-		FMargin(24.f, 2.f, 12.f, 8.f));
+	                                  FMargin(24.f, 2.f, 12.f, 8.f));
 
 	AbilityHeaderText = AddTextToPanel(TEXT("AbilityHeaderText"), 22, FLinearColor(0.85f, 0.7f, 1.f), true,
-		FMargin(12.f, 6.f, 12.f, 6.f));
+	                                   FMargin(12.f, 6.f, 12.f, 6.f));
 	AbilityHeaderText->SetText(FText::FromString(TEXT("[Activatable Abilities]")));
 	AbilityValuesText = AddTextToPanel(TEXT("AbilityValuesText"), 18, FLinearColor(0.94f, 0.88f, 1.f), false,
-		FMargin(24.f, 2.f, 12.f, 8.f));
+	                                   FMargin(24.f, 2.f, 12.f, 8.f));
 
 	HintText = AddTextToPanel(TEXT("HintText"), 18, FLinearColor(0.85f, 0.85f, 0.85f), false,
-		FMargin(12.f, 12.f, 12.f, 14.f));
+	                          FMargin(12.f, 12.f, 12.f, 14.f));
 	HintText->SetText(FText::FromString(TEXT("F12: 显示/隐藏面板")));
 }
 
 void UAuraAttributeDebugWidget::BindAttributeDelegates()
 {
-	if (!IsValid(AbilitySystemComponent))
-	{
-		return;
-	}
+	if (!IsValid(AbilitySystemComponent)) return;
+
 
 	HealthChangedHandle = AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(
 		UAuraAttributeSet::GetHealthAttribute()).AddUObject(this, &ThisClass::HandleHealthChanged);
@@ -204,8 +190,9 @@ void UAuraAttributeDebugWidget::UnbindAttributeDelegates()
 
 	if (MaxHealthChangedHandle.IsValid())
 	{
-		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UAuraAttributeSet::GetMaxHealthAttribute()).Remove(
-			MaxHealthChangedHandle);
+		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UAuraAttributeSet::GetMaxHealthAttribute()).
+		                        Remove(
+			                        MaxHealthChangedHandle);
 		MaxHealthChangedHandle.Reset();
 	}
 
@@ -218,8 +205,9 @@ void UAuraAttributeDebugWidget::UnbindAttributeDelegates()
 
 	if (MaxManaChangedHandle.IsValid())
 	{
-		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UAuraAttributeSet::GetMaxManaAttribute()).Remove(
-			MaxManaChangedHandle);
+		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UAuraAttributeSet::GetMaxManaAttribute()).
+		                        Remove(
+			                        MaxManaChangedHandle);
 		MaxManaChangedHandle.Reset();
 	}
 }
@@ -256,7 +244,8 @@ void UAuraAttributeDebugWidget::RefreshOwnedTags()
 void UAuraAttributeDebugWidget::RefreshActiveGameplayEffects()
 {
 	TArray<FString> EffectLines;
-	const TArray<FActiveGameplayEffectHandle> ActiveEffectHandles = AbilitySystemComponent->GetActiveEffects(FGameplayEffectQuery());
+	const TArray<FActiveGameplayEffectHandle> ActiveEffectHandles = AbilitySystemComponent->GetActiveEffects(
+		FGameplayEffectQuery());
 	const UWorld* World = GetWorld();
 	const float WorldTime = IsValid(World) ? World->GetTimeSeconds() : 0.f;
 
@@ -280,11 +269,11 @@ void UAuraAttributeDebugWidget::RefreshActiveGameplayEffects()
 		Spec.GetAllGrantedTags(GrantedTags);
 
 		FString EffectLine = FString::Printf(TEXT("%s | Stacks:%d | Remaining:%s | Duration:%s | Period:%s"),
-			*EffectName,
-			StackCount,
-			*FormatDuration(RemainingTime),
-			*FormatDuration(Duration),
-			Period <= 0.f ? TEXT("None") : *FString::Printf(TEXT("%.2fs"), Period));
+		                                     *EffectName,
+		                                     StackCount,
+		                                     *FormatDuration(RemainingTime),
+		                                     *FormatDuration(Duration),
+		                                     Period <= 0.f ? TEXT("None") : *FString::Printf(TEXT("%.2fs"), Period));
 
 		if (!GrantedTags.IsEmpty())
 		{
@@ -313,10 +302,10 @@ void UAuraAttributeDebugWidget::RefreshActivatableAbilities()
 		const FString InputText = AbilitySpec.InputID == INDEX_NONE ? TEXT("-") : FString::FromInt(AbilitySpec.InputID);
 		const FString ActiveText = AbilitySpec.IsActive() ? TEXT("Active") : TEXT("Idle");
 		AbilityLines.Add(FString::Printf(TEXT("%s | Lv:%d | Input:%s | %s"),
-			*AbilityName,
-			AbilitySpec.Level,
-			*InputText,
-			*ActiveText));
+		                                 *AbilityName,
+		                                 AbilitySpec.Level,
+		                                 *InputText,
+		                                 *ActiveText));
 	}
 
 	if (AbilityLines.IsEmpty())
@@ -343,12 +332,14 @@ void UAuraAttributeDebugWidget::UpdateDisplayedValues() const
 
 	if (HealthText)
 	{
-		HealthText->SetText(FText::FromString(FString::Printf(TEXT("Health    %7.1f / %7.1f"), CachedHealth, CachedMaxHealth)));
+		HealthText->SetText(
+			FText::FromString(FString::Printf(TEXT("Health    %7.1f / %7.1f"), CachedHealth, CachedMaxHealth)));
 	}
 
 	if (ManaText)
 	{
-		ManaText->SetText(FText::FromString(FString::Printf(TEXT("Mana      %7.1f / %7.1f"), CachedMana, CachedMaxMana)));
+		ManaText->SetText(
+			FText::FromString(FString::Printf(TEXT("Mana      %7.1f / %7.1f"), CachedMana, CachedMaxMana)));
 	}
 
 	if (TagHeaderText)
@@ -443,8 +434,9 @@ void UAuraAttributeDebugWidget::HandleMaxManaChanged(const FOnAttributeChangeDat
 	UpdateDisplayedValues();
 }
 
-void UAuraAttributeDebugWidget::ConfigureTextBlock(UTextBlock* TextBlock, const int32 FontSize, const FLinearColor& Color,
-	const bool bBold)
+void UAuraAttributeDebugWidget::ConfigureTextBlock(UTextBlock* TextBlock, const int32 FontSize,
+                                                   const FLinearColor& Color,
+                                                   const bool bBold)
 {
 	if (!TextBlock)
 	{
