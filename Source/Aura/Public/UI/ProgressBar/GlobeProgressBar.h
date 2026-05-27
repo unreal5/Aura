@@ -3,9 +3,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "GameplayTagContainer.h"
 #include "UI/Widget/AuraUserWidget.h"
 #include "GlobeProgressBar.generated.h"
 
+class UTextBlock;
 class UImage;
 class UOverlay;
 class USizeBox;
@@ -43,6 +45,24 @@ public:
 	
 	UFUNCTION(BlueprintCallable, Category = "Aura | GlobeProgressBar")
 	void SetProgressBarPercent(float Percent) const;
+	
+	UFUNCTION(BlueprintCallable, Category = "Aura | GlobeProgressBar")
+	void SetProgressBarText(const FText& InText) const;
+	
+	UFUNCTION(BlueprintCallable, Category = "Aura | GlobeProgressBar")
+	void SetNumerator(float InNumerator);
+	
+	UFUNCTION(BlueprintCallable, Category = "Aura | GlobeProgressBar")
+	void SetDenominator(float InDenominator);
+	
+	// 利用分子分母设置进度条百分比所需标签
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Globe属性", meta=(ToolTip="分子标签"))
+	FGameplayTag NumeratorTag;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Globe属性", meta=(ToolTip="分母标签"))
+	FGameplayTag DenominatorTag;
+
+	// 实现基类回调
+	void WidgetControllerSet_Implementation() override;
 protected:
 	UPROPERTY(meta=(BindWidget))
 	TObjectPtr<USizeBox> SizeBox_Root;
@@ -58,10 +78,22 @@ protected:
 	UPROPERTY(meta=(BindWidget))
 	TObjectPtr<UImage> Image_Glass;
 
+	UPROPERTY(meta=(BindWidget))
+	TObjectPtr<UTextBlock> Text_Percent;
+	
+	UPROPERTY(BlueprintReadOnly, Category = "Globe属性")
+	float Numerator = 1.f;
+	UPROPERTY(BlueprintReadOnly, Category = "Globe属性")
+	float Denominator = 1.f;
 private:
 	void UpdateBoxSize() const;
 	void UpdateOverlay() const;
 	void UpdateBackgroundBrush() const;
 	void UpdateGlobeImage() const;
 	void UpdateGlassImage() const;
+	
+	// 附加功能
+	void UpdateProgressBarAndText() const;
+	UFUNCTION()
+	void OnAttributeChangedWithTag(FGameplayTag AttributeTag, float NewValue);
 };

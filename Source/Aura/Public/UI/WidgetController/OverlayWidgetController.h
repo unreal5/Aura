@@ -7,7 +7,8 @@
 #include "OverlayWidgetController.generated.h"
 
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnAttributeValueChangedSignature, float, NewValue);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnAttributeValueChangedWithTagSignature, FGameplayTag, AttributeTag,
+                                             float, NewValue);
 
 UCLASS(BlueprintType, Blueprintable)
 class AURA_API UOverlayWidgetController : public UAuraWidgetController
@@ -16,11 +17,8 @@ class AURA_API UOverlayWidgetController : public UAuraWidgetController
 
 public:
 	void BroadcastInitialValues() override;
+	void BindCallbacksToDependencies() override;
 	
 	UPROPERTY(BlueprintAssignable, Category = "Aura | Delegate")
-	FOnAttributeValueChangedSignature OnHealthChanged;
-	
-	UPROPERTY(BlueprintAssignable, Category = "Aura | Delegate")
-	FOnAttributeValueChangedSignature OnMaxHealthChanged;
-	
+	FOnAttributeValueChangedWithTagSignature OnAttributeChangedWithTag;
 };

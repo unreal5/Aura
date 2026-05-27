@@ -7,6 +7,8 @@
 #include "Components/OverlaySlot.h"
 #include "Components/ProgressBar.h"
 #include "Components/SizeBox.h"
+#include "Components/TextBlock.h"
+#include "UI/WidgetController/OverlayWidgetController.h"
 
 
 void UGlobeProgressBar::NativePreConstruct()
@@ -29,6 +31,36 @@ void UGlobeProgressBar::SetProgressBarPercent(float Percent) const
 	{
 		ProgressBar_Globe->SetPercent(Percent);
 	}
+}
+
+void UGlobeProgressBar::SetProgressBarText(const FText& InText) const
+{
+	if (Text_Percent)
+	{
+		Text_Percent->SetText(InText);
+	}
+}
+
+void UGlobeProgressBar::SetNumerator(float InNumerator)
+{
+	Numerator = InNumerator;
+	UpdateProgressBarAndText();
+}
+
+void UGlobeProgressBar::SetDenominator(float InDenominator)
+{
+	Denominator = InDenominator;
+	UpdateProgressBarAndText();
+}
+
+void UGlobeProgressBar::WidgetControllerSet_Implementation()
+{
+	Super::WidgetControllerSet_Implementation();
+	
+	UOverlayWidgetController* OverlayController = Cast<UOverlayWidgetController>(WidgetController);
+	if (!OverlayController) return;
+	
+	OverlayController->OnAttributeChangedWithTag.AddDynamic(this, &UGlobeProgressBar::OnAttributeChangedWithTag);
 }
 
 void UGlobeProgressBar::UpdateBoxSize() const
@@ -100,4 +132,22 @@ void UGlobeProgressBar::UpdateGlassImage() const
 	OverlaySlot->SetPadding(FMargin{GlassPadding});
 
 	Image_Glass->SetBrush(GlassBrush);
+}
+
+void UGlobeProgressBar::UpdateProgressBarAndText() const
+{
+	SetProgressBarPercent(FMath::SafeDivide(Numerator, Denominator));
+	FString Text = FString::Printf(TEXT("%.0f / %.0f"), Numerator, Denominator);
+	SetProgressBarText(FText::FromString(Text));
+}
+
+void UGlobeProgressBar::OnAttributeChangedWithTag(FGameplayTag AttributeTag, float NewValue)
+{	if (AttributeTag == NumeratorTag)
+	{
+		SetNumerator(NewValue);
+	}
+	else if (AttributeTag == DenominatorTag)
+	{
+		SetDenominator(NewValue);
+	}
 }

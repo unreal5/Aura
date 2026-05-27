@@ -43,6 +43,9 @@ void AAuraEffectActor::OnBeginOverlay(UPrimitiveComponent* OverlappedComponent, 
 			float NewBaseValue = AS->GetHealth() + 25.f;
 			FGameplayAttribute HealthAttribute = UAuraAttributeSet::GetHealthAttribute();
 			ASC->SetNumericAttributeBase(HealthAttribute, NewBaseValue);
+			NewBaseValue = AS->GetMana() - 5.f;
+			FGameplayAttribute ManaAttribute = UAuraAttributeSet::GetManaAttribute();
+			ASC->SetNumericAttributeBase(ManaAttribute, NewBaseValue);
 		}
 		Destroy();
 	}

@@ -24,6 +24,6 @@ public:
 	TObjectPtr<UObject> WidgetController;
 protected:
 	// 设置WidgetController时会调用这个函数
-	UFUNCTION(BlueprintImplementableEvent, Category = "Aura | Callback Event")
+	UFUNCTION(BlueprintNativeEvent, Category = "Aura | Callback Event")
 	void WidgetControllerSet();
 };

@@ -921,7 +921,7 @@ RPC 用来实现例如：
 
 因此，这一节真正完成的是“初始值同步链”。从此以后，UI 在创建完成的第一刻就能显示正确的生命值和最大生命值，而不需要等到下一次属性变化才刷新。
 
-\section{0035. Listening for Attribute Changes}
+\section{Listening for Attribute Changes}
 
 上一节解决的是“初始化时广播一次当前值”，但真正的 HUD 系统还必须解决“属性变化时实时刷新”。这一节的主题正是把 GAS 的属性变化机制接到 Widget Controller 上，使 Health Globe 能随着属性实际变化而更新。
 
@@ -973,7 +973,7 @@ RPC 用来实现例如：
 
 从这里开始，UI 就不再只是启动时显示一次数据，而是具备了真正意义上的实时同步能力。
 
-\section{0036. Callbacks for Mana Changes}
+\section{Callbacks for Mana Changes}
 
 这一节是一次综合练习，目标是把上一节为生命值建立的整套回调与广播机制，完整复制到法力值上。课程把它设计成“全 Quest”形式，要求学习者自己回忆并补齐所有步骤，以检验是否真正理解了整个 UI 数据流。
 
