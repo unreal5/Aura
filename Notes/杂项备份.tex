@@ -1,0 +1,5334 @@
+
+\chapter{角色移动及动画}
+创建空\cppsign{}项目\ci{Crunch}，然后添加\texttt{Paragon:Crunch}资产，角色，控制器，游戏模式……。对于角色来说，添加摄像机，摄像机参数\ci{Auto Activate}默认为\ci{true}，会自动使用这个摄像机。可以在角色上绑定多个摄像机，根据需要激活以实现我们想要的效果。
+\section{APawn::PawnClientRestart}
+\begin{code}
+	/** Called on the owning client of a player-controlled Pawn when it is restarted, this calls Restart() */
+	ENGINE_API virtual void PawnClientRestart();
+\end{code}
+\subsection{触发时机}
+在多人游戏（Dedicated Server 或 Listen Server）中，它的触发时机只有以下几种情况，且只在“\textbf{拥有该角色的客户端（Owning Client）}”上执行：
+\begin{enumerate}
+	\item 玩家首次加入并出生： 服务器生成（Spawn）了玩家对应的 Pawn，并让 PlayerController 附身（Possess），随后通知该客户端：“这是你的躯体，初始化你的操作吧”。
+	\item 玩家死亡后复活： 旧的 Pawn 被摧毁，服务器新生成了一个 Pawn 并重新 Possess，此时客户端会针对新生成的 Pawn 调用此函数。
+	\item 游戏中途切换控制对象（如上车/下车）： 玩家从角色（Character）转移到载具（Vehicle Pawn）上，服务器端发生 Possess 变更，客户端接到通知后，会在那个载具 Pawn 上触发 PawnClientRestart。
+	\item 无缝漫游（Seamless Travel）过图后： 玩家控制器（PlayerController）跨地图保留，重新附身到新地图的新 Pawn 时。
+\end{enumerate}
+
+\subsection{多人游戏下的底层调用链路（发生了什么？）}
+在多人游戏中，普通的客户端是不知道自己该控制哪个 Pawn 的，一切靠服务器下发指令。它的调用链通常是这样的：
+\begin{enumerate}
+	\item \textbf{服务端}： 生成 \ci{CPlayerCharacter}。
+	\item \textbf{服务端}： 调用 \ci{PlayerController->Possess(NewPawn)}。
+	\item \textbf{服务端}：  触发内部的 RPC 调用 \ci{ClientRestart(NewPawn)} 发送给对应的客户端。
+	\item \textbf{客户端}： 接收到 RPC，执行客户端的 \ci{APlayerController::ClientRestart_Implementation}。
+	\item \textbf{客户端}： 确认自己接管了这个 \ci{Pawn}。
+	\item \textbf{客户端}： 执行 \ci{CPlayerCharacter::PawnClientRestart()}。
+\end{enumerate}
+
+\subsection{为什么多人游戏中要用它，而不是 BeginPlay？（重要坑点）}
+这是 UE 多人游戏中最经典的问题之一。
+\begin{itemize}
+	\item \ci{BeginPlay} 的问题： 在客户端上，由于网络同步的延迟，当网络把 Pawn 复制（Replicate）到客户端时，\ci{BeginPlay()} 就会\emph{瞬间执行}（执行过早）。但是此时，服务端关于“谁控制这个 Pawn”的 RPC 指令可能还没通过网络发过来！ 这导致你在 \ci{BeginPlay} 中调用 \ci{IsLocallyControlled()} 可能会返回 \ci{false}，从而导致绑定的输入或者 UI 失败\footnote{\ci{APawn::PawnClientRestart()}的源代码显示其
+		\begin{itemize}
+			\item 激活摄像机
+			\item 确保创建输入组件
+	\end{itemize}}。
+	
+	\item \ci{PawnClientRestart} 的优势： 当这个函数被调用时，引擎绝对保证本地的 PlayerController 已经成功接管了这个 Pawn（IsLocallyControlled() 必为 true，GetController() 一定有效）。
+\end{itemize}
+\subsection{你的代码中应该在里面写什么？}
+在你的 \ci{CPlayerCharacter::PawnClientRestart()} 中，最适合用来做\textbf{只呈现给主控玩家自己}的事情：
+
+推荐做的操作：
+\begin{enumerate}
+	\item 绑定增强输入子系统（Enhanced Input System）： 添加你的 IMC（Input Mapping Context）。
+	\item 初始化玩家个人的 HUD/UI： 比如血条、准星的本地初始化。
+	\item 特定主控视角的调整： 你的 SpringArm 和 CameraComponent 已经在构造函数里建好了，但如果你需要根据玩家配置动态调整相机的 FOV（视野）、鼠标灵敏度，放在这里最合适。
+	\item 隐藏本地模型的头部（如果是第一人称）： 第一人称游戏中经常需要把自己的头或者身体隐藏，但让服务器上的其他玩家看到。
+\end{enumerate}
+\begin{code}[caption={伪代码示例}]
+	void ACPlayerCharacter::PawnClientRestart()
+	{
+		Super::PawnClientRestart();
+		
+		// 1. 获取本地控制玩家的子系统并绑定输入
+		if (APlayerController* PC = Cast<APlayerController>(GetController()))
+		{
+			if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PC->GetLocalPlayer()))
+			{
+				// Subsystem->AddMappingContext(DefaultMappingContext, 0);
+			}
+		}
+		
+		// 2. 这里可以安全地调用依赖于 "本地控制" 的逻辑
+	}
+\end{code}
+\subsection{总结}
+把\ci{PawnClientRestart}当成是客户端真正获得肉身控制权的“醒来第一秒”。不需要给所有端做的事情（比如播个特效、加个粒子），不要放在这里；跟本地玩家交互直接相关的事情（输入、UI、镜头初始化），全放这里就好。
+
+\chapter{整合GAS}
+\section{FGameplayAttributeData}
+在虚幻引擎 (Unreal Engine) 的 Gameplay Ability System (GAS) 框架中，\texttt{FGameplayAttributeData} 是定义和管理角色属性的核心数据结构。GAS 强烈建议使用此结构体替代原生的 \texttt{float} 类型来声明属性（如生命值、护甲、移动速度等）。
+
+其底层数据结构本质上是对两个浮点数的封装：
+\begin{equation*}
+	FGameplayAttributeData = \begin{cases}
+		BaseValue \in \mathbb{R} & \text{（基础值，记录永久性修改）} \\
+		CurrentValue \in \mathbb{R} & \text{（当前值，记录叠加临时增益后的最终值）}
+	\end{cases}
+\end{equation*}
+
+\subsection{核心成员变量解析}
+
+\subsubsection{BaseValue (基础值)}
+\ci{BaseValue} 记录的是该属性\textbf{永久的、底层的数值}。
+\begin{itemize}
+	\item \textbf{物理含义}：角色的基础面板数据。例如：角色初始拥有 100 点最大生命值，随后装备了一件永久增加 50 点最大生命值的神器，此时 $BaseValue = 150$。
+	\item \textbf{修改时机}：
+	\begin{enumerate}
+		\item \textbf{数据初始化}时（如通过 \texttt{CurveTable}、\texttt{DataTable} 读取配置数据）。
+		\item 应用 \textbf{Instant（瞬间）类型} 的 Gameplay Effect (GE) 时。例如：受到真实扣血伤害、吃下永久增加力量的属性药水。
+	\end{enumerate}
+	\item \textbf{数学特性}：\emph{任何拥有持续时间（Duration）或无限期（Infinite）的 GE} 都\textbf{不会}改变这个值。$BaseValue$ 的改变代表了属性的“硬性”变化。
+\end{itemize}
+
+\begin{equation*}
+	BaseValue_{new} = BaseValue_{old} + \sum \Delta_{Instant\_Effects}
+\end{equation*}
+
+\subsubsection{CurrentValue (当前值)}
+$CurrentValue$ 记录的是该属性在\textbf{当前游戏逻辑帧中的最终生效数值}。它是游戏中用来做最终逻辑计算（如伤害判定、获取当前移速）的唯一权威标准。
+
+\begin{itemize}
+	\item \textbf{物理含义}：角色此时此刻\textbf{真实表现出}的属性。例如：角色踩到了减速陷阱（持续 5 秒），面板基础移速依然是 500，但当前实际生效的移速变成了 200。
+	\item \textbf{修改时机}：当应用了拥有\textbf{持续时间（Duration）}或\textbf{无限时长（Infinite）}的 Gameplay Effect (GE) 时，$CurrentValue$ 会被触发更新。
+	\item \textbf{数学特性}：$CurrentValue$ 本质上是由 $BaseValue$ 加上所有活跃的修饰符（Modifiers）经过聚合器（\texttt{FAggregator}，参考\ref{FAggregator}）计算而来。其抽象计算公式如下：
+\end{itemize}
+
+\begin{equation*}
+	CurrentValue = \frac{\left(BaseValue + \sum Add\right) \times \left(1 + \sum Multiply\right)}{\sum Divide} \pm \dots
+\end{equation*}
+\textit{（注：具体的乘除加法计算顺序，取决于 GE 中设置的 \texttt{EGameplayModOp} 枚举的优先级计算规则）。}
+
+\subsection{经典运作案例分析模型}
+假设我们追踪一个具体属性：移动速度（$MoveSpeed$）。
+
+\subsubsection{阶段 1：角色初始化}
+初始状态下没有受到任何额外的 Buff 影响，两值相等：
+\begin{align*}
+	BaseValue_{MoveSpeed} &= 500.0 \\
+	CurrentValue_{MoveSpeed} &= 500.0
+\end{align*}
+
+\subsubsection{阶段 2：角色获得加速技能}
+应用一个持续 5 秒的 Duration GE（提供 $+200$ 移速增益）：
+\begin{align*}
+	BaseValue_{MoveSpeed} &= 500.0 \quad \text{（底层面板保持纯净，不变）} \\
+	CurrentValue_{MoveSpeed} &= 500.0 + 200.0 = 700.0 \quad \text{（运动组件将读取读取此值）}
+\end{align*}
+
+\subsubsection{阶段 3：加速期间，角色受到永久致残打击}
+应用一个 Instant GE（永久削减基础移速 $100$）：
+\begin{align*}
+	BaseValue_{MoveSpeed} &= 500.0 - 100.0 = 400.0 \\
+	CurrentValue_{MoveSpeed} &= BaseValue_{new} + \sum Buff_{active} = 400.0 + 200.0 = 600.0
+\end{align*}
+\begin{marker}
+	\textit{注：因为底层的 $BaseValue$ 发生了改变，GAS 引擎的 \texttt{FAggregator} 监听到变化，会自动引入新的基础值重新计算 $CurrentValue$。}
+\end{marker}
+
+\subsubsection{阶段 4：加速 Buff 到期}
+5秒后，加速 Buff 被 GAS 自动移除：
+\begin{align*}
+	BaseValue_{MoveSpeed} &= 400.0 \\
+	CurrentValue_{MoveSpeed} &= 400.0 + 0 = 400.0
+\end{align*}
+
+\subsection{源码层面的设计与限制}
+我们在 \texttt{AttributeSet.h} 源码中可以看到定义：
+
+\begin{code}
+	protected:
+	UPROPERTY(BlueprintReadOnly, Category = "Attribute")
+	float BaseValue;
+	
+	UPROPERTY(BlueprintReadOnly, Category = "Attribute")
+	float CurrentValue;
+\end{code}
+这两个成员都被严格标记为了 \ci{BlueprintReadOnly}。这意味着在编码规范上：
+\begin{enumerate}
+	\item \textbf{绝对不要}在 C++ 或蓝图中尝试直接以 \texttt{MyAttribute.BaseValue = 100.f;} 的方式强行赋值。
+	\item 取而代之，必须使用 GAS 提供的宏（如 \texttt{GAMEPLAYATTRIBUTE\_VALUE\_SETTER}、\texttt{InitHealth}）或通过官方框架函数（如 \texttt{ApplyGameplayEffectToSelf}）合法地修改属性。
+	\item 如果绕过框架强行修改这两个值，将导致 GAS 内部的修饰符计算缓存发生数据断层。
+\end{enumerate}
+
+
+
+
+\subsection{FAggregator (聚合器)？}\label{FAggregator}
+\texttt{FAggregator} 是虚幻引擎 Gameplay Ability System (GAS) 中负责\textbf{收集、统筹和计算所有属性修饰符（Modifiers）的数学引擎}。
+
+每一个具有临时增减益（Duration/Infinite Gameplay Effects）的 \texttt{FGameplayAttributeData}，在其所属的 \texttt{UAbilitySystemComponent}（ASC）内部，都会分配一个对应的 \texttt{FAggregator} 实例。
+
+\textbf{它的核心职责是}：实时监听 $BaseValue$ 的变化以及所有活跃生效的修饰符（Buffs/Debuffs），然后计算出最终结果，并推送到 $CurrentValue$。
+
+\subsubsection{为什么需要聚合器？（解决的痛点）}
+在传统游戏开发中，如果你有 100 点基础攻击力，吃了一个 \textbf{“+10 攻击力”}的药，又踩了一个\textbf{“降低 20\% 攻击”}的光环，当光环消失时，你该如何精确恢复数值？如果在光环生效期间你的基础攻击力又升级变成了 110，这又怎么算？
+
+手写逻辑会面临极大的“状态残留”与“计算顺序（优先级）”地狱。\texttt{FAggregator} 就是为了彻底解决这个痛点而生的——它\textbf{不修改原始数据}，而是像一个“漏斗”，把原始数据和所有 buff 倒进去，瞬间过滤出最终结果。
+
+\subsubsection{EGameplayModOp：四种运算规则}
+聚合器对所有输入它内部的修饰符，制定了严格的四种运算分类（对应枚举 \texttt{EGameplayModOp}）：
+
+\begin{itemize}
+	\item \textbf{Additive (加法 0):} 线性增加或减少数值（例如：+10 攻击力，-50 移速）。
+	\item \textbf{Multiplicitive (乘法 1):} 按照倍率放大（例如：$\times 1.5$ 爆伤）。
+	\item \textbf{Division (除法 2):} 按比例衰减（例如：受到伤害 $\div 2$ 表示 50\% 减伤）。
+	\item \textbf{Override (覆盖 3):} 强制取代一切结果，优先级最高（例如：将生命值强制锁定在 1 点的“名刀效果”）。
+\end{itemize}
+
+\subsubsection{核心数学计算公式}
+当一个属性需要被读取 $CurrentValue$ 时，\texttt{FAggregator} 会按以下顺序与公式进行归纳计算：
+
+\begin{equation*}
+	\text{CurrentValue} = 
+	\begin{cases} 
+		\text{Override\_Value} & \texttt{如果有生效的 Override 修饰符} \\
+		\dfrac{(BaseValue + \sum Additive) \times \prod Multiplicitive}{\prod Division} & \texttt{默认常规计算流}
+	\end{cases}
+\end{equation*}
+
+\textbf{运算优先级特点}：优先计算所有的加法（基础值+基础加成），然后再去整体乘算所有的乘号，最后结算除号。
+
+\subsubsection{生命周期与运作流程}
+聚合器的运作高度自动化，完全与 Gameplay Effect 绑定：
+
+\begin{enumerate}
+	\item \textbf{GE 施加时}：ASC 发送包含 modifier 的 GE，聚合器将该 modifier 存入自己的列表中，并重新计算 $CurrentValue$。
+	\item \textbf{BaseValue 变化时}：不管是被瞬间（Instant）伤害扣除了血量，还是因为角色升级（Level Up）增加了基础血量，聚合器都会拿新的 $BaseValue$ 配合列表里的旧 Buff 从头算一遍最新结果。
+	\item \textbf{GE 移除时}：Buff 时间到期或被强制驱散（Remove），聚合器直接把该 modifier 从它的列表中删掉，重算 $CurrentValue$，绝不残留。
+\end{enumerate}
+
+\subsubsection{源码印证}
+在之前的 \texttt{AttributeSet.h} 源码中，有一句回调函数印证了它的存在：
+
+\begin{code}
+	/** Callback for when an FAggregator is created for an attribute in this set... */
+	virtual void OnAttributeAggregatorCreated(const FGameplayAttribute& Attribute, FAggregator* NewAggregator) const { }
+\end{code}
+
+\subsubsection{结论}通过实现此挂载点（Hook），开发者可以在特定属性的聚合器刚刚“诞生”之时，向其注入自定义的规则（例如开启聚合器的 Evaluation Channels 功能，实现像“护甲穿透忽略特定护甲 Buff” 这种更高阶的过滤操作）。
+\subsubsection{一些调试命令}
+使用\keys{`}打开控制台，可以使用如下调试命令
+\begin{code}
+	AbilitySystem.DebugAttribute Health MaxHealth Mana MaxMana
+\end{code}
+
+
+\chapter{设置UI}
+\section{自定义数值标尺(Value Gauge)}
+创建\ci{UValueGauge : public UUserWidget}，要重载\ci{NativePreConstruct}。这个虚函数类似\emph{Construction}脚本，使用它的原因在于随后的健康和魔法条需要使用不同的颜色。
+
+\subsection{组件填充方式}
+\begin{enumerate}
+	\item \textbf{Fill Screen (填充屏幕)}
+	此模式使UI组件扩展以完全填充其父容器的分配空间。例如，如果一个组件被直接添加到视口（Viewport）中，它将拉伸以覆盖整个游戏屏幕。这种模式不考虑组件内容的原始尺寸或宽高比，可能会导致视觉上的拉伸或压缩。
+	
+	\item \textbf{Desired (预期)}
+	在此模式下，组件会根据其内容计算出一个“期望”的尺寸。
+	\begin{itemize}
+		\item 对于简单组件，如文本（Text Block）或图像（Image），其期望尺寸就是内容本身的尺寸。
+		\item 对于容器组件，如垂直框（Vertical Box），其期望尺寸是其所有子组件尺寸之和（或最大值，取决于容器类型）加上内边距（Padding）。
+	\end{itemize}
+	这是一种自适应布局的常用模式，组件会占据它所需要的最小空间。
+	
+	\item \textbf{Desired on Screen (屏幕上的预期)}
+	此模式与 \texttt{Desired} 类似，但它会额外考虑屏幕的DPI（每英寸点数）缩放因子。它首先计算出期望的尺寸，然后根据当前的DPI缩放比例进行调整。这确保了在高分辨率或不同DPI设置的屏幕上，UI元素能保持视觉上一致的物理尺寸，而不是仅仅像素尺寸一致。
+	
+	\item \textbf{Custom (自定义)}
+	\texttt{Custom} 模式允许开发者为组件指定一个固定的像素宽度和高度。组件将严格按照设定的尺寸进行渲染，忽略其内容的期望尺寸和父容器的大小。这种模式适用于需要精确像素控制的场景。
+	
+	\item \textbf{Custom on Screen (屏幕上的自定义)}
+	此模式与 \texttt{Custom} 类似，同样是设置一个固定的尺寸。区别在于，这个尺寸会被视为屏幕空间下的尺寸，并会受到DPI缩放的影响。在高DPI屏幕上，实际渲染的像素尺寸会比设定的值要大，以保持与低DPI屏幕上相似的物理大小。
+\end{enumerate}	
+\subsection{总结对比}
+\begin{tabular}{|l|l|l|}
+	\hline
+	\textbf{模式} & \textbf{尺寸决定因素} & \textbf{是否受DPI缩放影响} \\
+	\hline
+	Fill Screen & 父容器的可用空间 & 否 (但会拉伸) \\
+	\hline
+	Desired & 组件内容 & 否 \\
+	\hline
+	Desired on Screen & 组件内容 & 是 \\
+	\hline
+	Custom & 用户指定的固定值 & 否 \\
+	\hline
+	Custom on Screen & 用户指定的固定值 & 是 \\
+	\hline
+\end{tabular}
+\section{更新健康和魔法数值}
+这两个函数都是用来从 \texttt{UAbilitySystemComponent} (ASC) 中获取 Gameplay Attribute（属性）当前值的，但它们在**安全性与应用场景**上有核心的区别。简单来说，这是“**盲拿**”与“**安全获取**”的区别。
+
+
+\subsection{GetNumericAttribute和GetGameplayAttributeValue区别}
+在 GAS 系统中，这两个函数都用于获取属性的 $CurrentValue$（当前值），但最大的差异在于\textbf{对“属性不存在”异常的处理机制}。
+
+\begin{itemize}
+	\item \texttt{GetNumericAttribute}：直接返回数值，\textbf{无法区分}“该属性值为 0”和“该角色根本不存在这个属性”。
+	\item \texttt{GetGameplayAttributeValue}：提供了一个 \texttt{bFound} 输出参数（Out Parameter），\textbf{能确切校验}角色身上是否真的拥有该属性。
+\end{itemize}
+
+\subsection{GetNumericAttribute (盲拿)}
+
+\subsubsection{函数特征}
+它是最直接、最简短的取值方式，适合在\textbf{绝对确信}该角色拥有对应 AttributeSet 时使用。
+
+\begin{code}
+	// 典型的 C++ 调用形式
+	float MaxValue = InASC->GetNumericAttribute(InMaxAttribute);
+\end{code}
+
+\subsubsection{内部逻辑与缺陷}
+当此函数被调用时，引擎会在目标 ASC 上寻找对应的 \texttt{UAttributeSet} 并读取该属性的数据。
+\begin{itemize}
+	\item \textbf{如果目标身上有这个属性}：正常返回属性的浮点数值。
+	\item \textbf{如果目标身上没有这个属性}（例如：你想获取“魔法值/Mana”，但目标是一个只有“生命值”的小草怪）：系统会静默失败，并且\textbf{直接返回 $0.0f$}。
+\end{itemize}
+
+\textbf{隐患}：你无法通过返回值 $0.0f$ 来判断当前到底是“目标魔法值被抽干了（就是 0）”，还是“目标根本不需要蓝条”。这往往会导致 UI 界面上出现诡异的 \texttt{"0 / 0"} 进度条。
+
+\subsection{GetGameplayAttributeValue (安全获取)}
+
+\subsubsection{函数特征}
+为了弥补上述缺陷而设计的安全取值API，常常在 UI 绑定（UI Binding）或针对不确定目标进行探测时使用。
+
+\begin{code}
+	// 你的项目代码中的典型调用
+	bool bFoundAttribute = false;
+	float CurrentValue = InASC->GetGameplayAttributeValue(InAttribute, bFoundAttribute);
+\end{code}
+
+\subsubsection{内部逻辑与优势}
+它除了返回属性的具体数值（Float）外，还会通过引用的方式（\texttt{bool\& bFoundAttribute}）向你报告查找结果。
+
+\begin{itemize}
+	\item 逻辑模型可以表示为：
+	\begin{equation}
+		(Value, \text{IsExist}) = f(\text{Attribute})
+	\end{equation}
+	\item \textbf{当 \texttt{bFoundAttribute == true}}：证明目标拥有该属性，返回的 \texttt{CurrentValue} 数据是真实的。
+	\item \textbf{当 \texttt{bFoundAttribute == false}}：证明目标根本没有这个挂载属性，返回的 \texttt{CurrentValue} 为默认的 $0.0f$（这个 $0.0f$ 是废数据）。
+\end{itemize}
+
+\textbf{优势}：在制作通用型 UI（如通用血条/蓝条 Widget）时，你可以判断 \texttt{bFoundAttribute}。如果为 False，可以直接调用 \texttt{SetVisibility(ESlateVisibility::Collapsed)} 隐藏掉这条法力槽，避免不拥有法力的怪物头顶悬浮着空蓝条。
+
+\subsection{ 最佳实践建议 (Best Practices)}
+
+结合你当前 \texttt{ValueGauge.cpp} 里的代码：
+
+\begin{code}
+	bool bFoundAttribute = false;
+	float CurrentValue = InASC->GetGameplayAttributeValue(InAttribute, bFoundAttribute);
+	float MaxValue = InASC->GetNumericAttribute(InMaxAttribute);
+\end{code}
+
+\textbf{建议}：
+\begin{enumerate}
+	\item 既然声明了 \texttt{bFoundAttribute}，紧接着就可以写一个判断：\texttt{if (!bFoundAttribute) \{ return; \}} 或者将 \text{ProgressBar} 隐藏。这样可以极大增加控件的鲁棒性。
+	\item \texttt{InMaxAttribute}（最大值）通常也可能由于角色没有某些属性而不存在，如果你希望两者的安全性对齐，建议 \texttt{MaxValue} 的获取同样切换为 \texttt{GetGameplayAttributeValue}。
+\end{enumerate}
+
+
+
+
+
+
+
+
+
+\section{虚幻多人游戏中：客户端与主机建立连接的过程}
+
+\subsection{整体结论}
+
+在 Unreal Engine 的多人游戏中，客户端连接到主机（Host）或 Dedicated Server，大体会经历下面这条主线：
+
+$
+\text{Client 发起连接}
+\rightarrow
+\text{Server 接受连接}
+\rightarrow
+\text{创建 PlayerController}
+\rightarrow
+\text{登录校验}
+\rightarrow
+\text{进入地图}
+\rightarrow
+\text{创建/分配 PlayerState}
+\rightarrow
+\text{Spawn Pawn/Character}
+\rightarrow
+\text{Possess}
+\rightarrow
+\text{开始复制同步}
+$
+
+如果用更口语的话来讲，就是：
+
+\begin{enumerate}
+	\item 客户端先找到服务器；
+	\item 服务器同意这个客户端进来；
+	\item 服务器为这个玩家创建“控制入口”（\ci{PlayerController}）；
+	\item 服务器让这个玩家真正进入当前世界；
+	\item 服务器给这个玩家生成角色；
+	\item 服务器让控制器附身到角色上；
+	\item 然后双方开始持续同步位置、属性、RPC 等数据。
+\end{enumerate}
+
+
+\subsection{先区分 Listen Server 和 Dedicated Server}
+
+\subsubsection{1. Dedicated Server}
+Dedicated Server 是纯服务器进程：
+\begin{itemize}
+	\item 有世界（World）
+	\item 有 \texttt{GameMode}
+	\item 有所有玩家的 \texttt{PlayerController}
+	\item 有所有玩家的 \texttt{Pawn/Character}
+	\item 没有本地渲染、没有本地玩家视角
+\end{itemize}
+\subsubsection{2. Listen Server}
+Listen Server 是“主机玩家自己同时也是服务器”：
+
+\begin{itemize}
+	\item 既有服务器逻辑
+	\item 又有本地玩家客户端逻辑
+	\item 主机玩家本机上会同时存在“服务端视角”和“本地玩家视角”
+\end{itemize}
+
+\textbf{连接流程本质上与 Dedicated Server 类似，区别主要在于：}
+主机自己不需要走真正意义上的远程网络握手那一段，但远端玩家连接进来时流程基本一致。
+
+
+\subsection{连接过程中的主要参与对象}
+
+连接过程中你最常接触的类有：
+
+\begin{itemize}
+	\item \texttt{UGameInstance}：客户端发起连接请求时常从这里出发
+	\item \texttt{AGameModeBase} / \texttt{AGameMode}：只存在于服务器，负责登录、生成 Pawn、重生规则
+	\item \texttt{AGameStateBase} / \texttt{AGameState}：同步给所有客户端的比赛公共状态
+	\item \texttt{APlayerController}：服务器为每个玩家创建；客户端本地也有自己的那一个
+	\item \texttt{APlayerState}：用于同步玩家身份、分数、名字等
+	\item \texttt{APawn} / \texttt{ACharacter}：玩家最终控制的角色
+\end{itemize}
+
+可以记成一句：
+$
+\text{GameMode 决定你怎么进场，PlayerController 决定你怎么控制，Pawn 决定你控制谁}
+$
+
+
+\subsection{客户端连接服务器的大致阶段}
+
+\subsubsection{阶段 1：客户端发起连接}
+客户端通常通过：\ci{ClientTravel(Address, TRAVEL_Absolute);}
+或者控制台命令：	\ci{open 127.0.0.1}
+来请求连接服务器。
+
+此时客户端会：
+\begin{itemize}
+	\item 断开当前世界（如需要）
+	\item 尝试建立到目标地址的网络连接
+	\item 开始地图切换/加入会话流程
+\end{itemize}
+
+
+\subsubsection{阶段 2：服务器接受连接}
+服务器收到连接请求后，会经过一系列登录相关流程，典型会涉及：
+\begin{itemize}
+	\item \ci{PreLogin}
+	\item \ci{Login}
+	\item \ci{PostLogin}
+\end{itemize}
+它们都属于 \ci{GameMode} 侧的重要入口。
+大致含义是：
+
+\begin{itemize}
+	\item \ci{PreLogin}：先检查这个玩家能不能进
+	\item \ci{Login}：正式为这个连接创建玩家控制相关对象
+	\item \ci{PostLogin}：玩家已经登录完成，可以开始后续逻辑
+\end{itemize}
+其中最常用的是：
+\ci{AGameModeBase::PostLogin(APlayerController* NewPlayer)}。
+
+通常你会在这里做：
+\begin{itemize}
+	\item 欢迎玩家
+	\item 初始化玩家数据
+	\item 决定是否立即生成角色
+\end{itemize}
+
+\subsubsection{阶段 3：服务器创建 PlayerController}
+当服务器接受玩家后，会为该连接创建一个服务端的：\ci{APlayerController}
+
+这是这个玩家在服务器上的“代表对象”。服务器之后很多事情都围绕这个对象展开：
+\begin{itemize}
+	\item 分配 \ci{PlayerState}
+	\item 生成 \ci{Pawn}
+	\item 调用 \ci{Possess}
+	\item 发送客户端 RPC
+\end{itemize}
+
+与此同时，客户端本地最终也会有一个与自己对应的本地 \ci{PlayerController}。
+
+
+
+\subsubsection{阶段 4：进入世界并同步基础框架对象}
+玩家连接后，客户端会逐步收到并建立以下对象的副本：
+
+\begin{itemize}
+	\item 当前关卡里的相关 \ci{Actor}
+	\item \ci{GameState}
+	\item 自己的 \ci{PlayerController}
+	\item 自己及其他玩家的 \ci{PlayerState}
+	\item 相关的 \ci{Pawn/Character}
+\end{itemize}
+
+注意：
+\textbf{客户端通常只拥有自己的 PlayerController}，但会看到很多 Pawn 与 PlayerState 的复制副本。
+
+\subsubsection{阶段 5：服务器为玩家生成 Pawn/Character}
+服务器会通过 \ci{GameMode} 的逻辑决定生成什么 Pawn，常见入口有：
+\begin{itemize}
+	\item \ci{RestartPlayer}
+	\item \ci{SpawnDefaultPawnFor}
+	\item \ci{ChoosePlayerStart}
+\end{itemize}
+
+典型逻辑链可以理解为：
+$
+\text{PostLogin}
+\rightarrow
+\text{RestartPlayer}
+\rightarrow
+\text{SpawnDefaultPawnFor}
+\rightarrow
+\text{Possess}
+$
+
+
+\subsubsection{阶段 6：PlayerController Possess Pawn}
+服务器调用：
+
+\begin{code}[language=C++]
+	PlayerController->Possess(NewPawn);
+\end{code}
+
+这一步非常关键，它意味着：
+
+\begin{itemize}
+	\item 服务器上控制关系正式建立
+	\item \ci{Pawn::PossessedBy()} 在服务器上触发
+	\item 后续客户端会收到控制权同步
+	\item owning client 会进入 \ci{PawnClientRestart()} 这类客户端重新接管逻辑
+\end{itemize}
+
+
+\subsubsection{阶段 7：客户端收到控制权并完成本地初始化}
+当拥有者客户端收到“这个 Pawn 现在归你控制”后，通常会发生：
+
+\begin{itemize}
+	\item 本地 \texttt{PlayerController} 指向该 Pawn
+	\item \ci{OnRep_Controller()} / \ci{OnRep_PlayerState()} 等可能触发
+	\item PawnClientRestart() 触发
+	\item 输入绑定、本地相机、HUD、UI 初始化等在这里完成
+\end{itemize}
+
+这一步之后，玩家通常才真正“可玩”。
+
+
+
+
+\subsection{在实际开发中最该记住的几个时机}
+\subsubsection{1. PostLogin} 这是服务器确认“玩家已经成功进来”的关键入口。
+适合做：
+\begin{itemize} \item 记录玩家进入 \item 初始化玩家服务端数据 \item 触发生成角色逻辑 \end{itemize}
+
+\subsubsection{2. PossessedBy} 这是服务器上 Pawn 真正被某个 Controller 接管的时机。
+适合做：
+\begin{itemize} \item 服务端 ASC 初始化 \item 授予默认技能 \item 应用初始 Gameplay Effects \end{itemize}
+
+\subsubsection{3. PawnClientRestart} 这是 owning client 真正接管 Pawn 的重要时机。
+适合做：
+\begin{itemize} \item 输入绑定 \item 本地 HUD 创建 \item 相机初始化 \item 本地玩家特有 UI 逻辑 \end{itemize}
+
+\subsubsection{4. BeginPlay} 它只是 Actor 生命周期开始，不等于“联机控制关系已经稳定”。
+所以： \textbf{不要把所有多人初始化都压在 BeginPlay 上}
+
+\subsection{一句总结}
+客户端连入 Unreal 多人服务器的本质过程可以概括为：
+\[ \text{连接} \rightarrow \text{登录} \rightarrow \text{创建控制器} \rightarrow \text{生成角色} \rightarrow \text{附身} \rightarrow \text{复制同步} \rightarrow \text{客户端完成本地初始化} \]
+如果你把这条主线记清楚，之后看：
+\begin{itemize}
+	\item PreLogin 
+	\item PostLogin 
+	\item RestartPlayer 
+	\item PossessedBy 
+	\item OnRep\_Controller 
+	\item PawnClientRestart 
+\end{itemize}
+这些函数时，就会非常清楚它们分别处在哪个阶段。
+
+\section{\texttt{AController::IsLocalController()}解析}
+\begin{code}[caption={AController::IsLocalController()}]
+	bool AController::IsLocalController() const
+	{
+		const ENetMode NetMode = GetNetMode();
+		
+		if (NetMode == NM_Standalone)
+		{
+			// Not networked.
+			return true;
+		}
+		
+		if (NetMode == NM_Client && GetLocalRole() == ROLE_AutonomousProxy)
+		{
+			// Networked client in control.
+			return true;
+		}
+		
+		if (GetRemoteRole() != ROLE_AutonomousProxy && GetLocalRole() == ROLE_Authority)
+		{
+			// Local authority in control.
+			return true;
+		}
+		
+		return false;
+	}
+\end{code}
+
+\subsection{核心含义}
+函数\ci{IsLocalController()}判断的重点是：\textbf{当前这台机器，是否真正拥有这个 Controller 的控制权}
+\footnote{“真正拥有这个 Controller 的控制权”，本质上指的是：\textbf{哪台机器负责驱动这个 Controller 的决策或输入}。这里的“控制权”不是说“这个对象是不是复制到这台机器上了”，而是说：
+	\begin{itemize}
+		\item 谁来给它喂输入
+		\item 谁决定它下一步做什么
+		\item 谁是这个 Controller 的实际操作者
+	\end{itemize}
+	即：\textbf{是不是这台机器在发号施令。}
+	\begin{itemize}
+		\item \textbf{如果是玩家角色：}	谁的输入在驱动它，谁就有控制权
+		\item \textbf{如果是 AI：}	哪台机器运行 AI 决策，哪台机器就有控制权
+	\end{itemize}	
+}
+，而不是“这个 Controller 是否存在于当前进程中”，
+这里的 ``\emph{local}'' 是网络语义上的“\emph{本地控制端}”，而不是单纯指对象是否在本机内存中存在。
+
+换句话说，这个函数回答的是：	\textbf{这个 Controller 的输入或控制逻辑，是否由当前机器负责。}
+
+\subsection{理解这个函数前需要掌握的概念}
+
+\begin{enumerate}
+	\item \textbf{NetMode}
+	
+	\ci{GetNetMode()} 用于描述当前 World 所处的网络模式，常见值包括：
+	\begin{itemize}
+		\item \ci{NM_Standalone}：单机模式，没有网络通信。
+		\item \ci{NM_Client}：客户端，连接到远程服务器。
+		\item \ci{NM_ListenServer}：监听服务器，既是服务器又有本地玩家。
+		\item \ci{NM_DedicatedServer}：专用服务器，没有本地玩家，只负责服务端逻辑。
+	\end{itemize}
+	
+	NetMode 决定了当前运行环境，是理解 IsLocalController() 的第一层条件。
+	
+	\item \textbf{LocalRole}
+	
+	\ci{GetLocalRole()} 表示：\textbf{这个 Actor 在当前机器上的本地网络角色。}
+	常见值有：
+	\begin{itemize}
+		\item \ci{ROLE_Authority}：当前机器对该 Actor 拥有权威，通常出现在服务器端。
+		\item \ci{ROLE_AutonomousProxy}：当前机器是该 Actor 的自主代理，通常表示这是客户端自己控制的对象。
+		\item \ci{ROLE_SimulatedProxy}：当前机器只是模拟该 Actor，没有实际控制权。
+	\end{itemize}
+	
+	\item \textbf{RemoteRole}
+	
+	\ci{GetRemoteRole() }表示：\textbf{这个 Actor 在远端机器上对应的角色}。它通常要和 \ci{LocalRole} 配合起来看，用于判断“控制权是否在远端”。
+\end{enumerate}
+
+\subsection{源码逐行分析}
+
+\begin{enumerate}
+	\item \textbf{第一种情况：单机模式}
+	
+	\begin{code}
+		if (NetMode == NM_Standalone)
+		{
+			return true;
+		}
+	\end{code}
+	
+	这一分支表示：
+	
+	\begin{itemize}
+		\item 当前是单机模式；
+		\item 没有客户端和服务器的区分；
+		\item 所有 Controller 的控制权天然就在本机。
+	\end{itemize}
+	因此在 \ci{NM_Standalone} 下，\ci{IsLocalController()} 一定返回 true。
+	
+	\item \textbf{第二种情况：客户端上的自主代理}
+	\begin{code}
+		if (NetMode == NM_Client && GetLocalRole() == ROLE_AutonomousProxy)
+		{
+			return true;
+		}
+	\end{code}
+	这表示：
+	\begin{itemize}
+		\item 当前运行环境是客户端；
+		\item 该 Controller 在客户端上的本地角色是 \ci{ROLE_AutonomousProxy}。
+	\end{itemize}
+	
+	在虚幻引擎的网络模型中，\texttt{AutonomousProxy} 通常意味着：	\textbf{当前客户端对这个对象拥有自主控制权。}
+	最典型的例子就是：客户端自己的 PlayerController 或自己控制的 Pawn 所关联的控制链路。
+	
+	因此这个分支的含义可以概括为：\textbf{如果当前机器是客户端，并且这个 Controller 是本机自主控制的代理，那么它就是本地 Controller。}
+	
+	\item \textbf{第三种情况：服务器本地拥有控制权}
+	
+	\begin{code}
+		if (GetRemoteRole() != ROLE_AutonomousProxy && GetLocalRole() == ROLE_Authority)
+		{
+			return true;
+		}
+	\end{code}
+	这一段是整个函数中最关键、也最容易误解的部分。它包含两个条件：
+	\begin{itemize}
+		\item \ci{GetLocalRole() == ROLE_Authority}
+		\item \ci{GetRemoteRole() != ROLE_AutonomousProxy}
+	\end{itemize}
+	第一个条件说明：\textbf{当前机器对该 Controller 拥有权威，通常意味着当前机器是服务器。}
+	
+	第二个条件说明：\textbf{远端没有一个客户端以 AutonomousProxy 的方式控制它。}
+	
+	把两者结合起来，实际含义就是：	\textbf{当前机器虽然是服务器，但只有在“控制权没有交给远端客户端”时，才认为这个 Controller 是本地控制的。}
+	
+	这可以正确覆盖如下场景：
+	
+	\begin{itemize}
+		\item 服务器上的 \ci{AIController}；
+		\item Listen Server 上本地玩家的 Controller；
+		\item 一些只在服务器本地驱动的控制器。
+	\end{itemize}
+	\begin{marker}\small
+		我认为这里需要\ci{LocalRole}和\ci{RemoteRole}结合判断的原因在于：\ci{NetRole}是一个枚举类型，对于Listen Server，有一个主机玩家既是服务端又是自治代理，枚举类型没办法赋两个不同的值，只好采用这个变通的方法：服务端为大，设置为\ci{Authority}，然后远端设置为\emph{模拟}(\ci{GetRemoteRole() != ROLE_AutonomousProxy})。
+	\end{marker}
+\end{enumerate}
+
+\subsection{排除 \texttt{RemoteRole == ROLE\_AutonomousProxy}的原因}
+这一点是理解整个函数设计意图的关键。如果只写成：
+\begin{code}
+	if (GetLocalRole() == ROLE_Authority)
+	{
+		return true;
+	}
+\end{code}
+
+那么服务器上的所有 Controller 都会被当成 local。但这显然不对。因为在网络游戏中，服务器虽然对很多 Actor 都拥有 Authority，但并不意味着服务器就是它们的“本地控制端”。例如：
+\begin{itemize}
+	\item 某个远程客户端玩家的 PlayerController；
+	\item 在服务器上它通常仍然具有 Authority；
+	\item 但真正输入控制它的是远端客户端，而不是服务器。
+\end{itemize}
+
+所以 Unreal 在这里额外判断：
+\begin{code}
+	GetRemoteRole() != ROLE_AutonomousProxy
+\end{code}
+如果远端是 AutonomousProxy，就说明：	\textbf{真正拥有这个 Controller 控制权的是远端客户端。}
+因此服务器不应把它认定为 local。
+
+\subsection{整体逻辑的直观总结}
+
+这个函数可以等价理解为如下伪代码：
+
+\begin{code}
+	if (单机)
+	return true;
+	else if (当前是客户端，并且本机自主控制它)
+	return true;
+	else if (当前是服务器，并且没有远端客户端在自主控制它)
+	return true;
+	else
+	return false;
+\end{code}
+
+用一句更口语化的话说就是：\textbf{哪台机器真正拥有这个 Controller 的控制权（发号施令），在那台机器上它就是 local。}
+
+\subsection{典型场景分析}
+
+\begin{enumerate}
+	\item \textbf{单机游戏}
+	
+	条件：
+	\begin{itemize}
+		\item \ci{NetMode == NM_Standalone}
+	\end{itemize}
+	
+	结果：
+	\begin{itemize}
+		\item \ci{IsLocalController() == true}
+	\end{itemize}
+	
+	原因：
+	\begin{itemize}
+		\item 单机模式没有远端控制者，所有控制权都在本机。
+	\end{itemize}
+	
+	\item \textbf{联网客户端上的自己}
+	
+	条件：
+	\begin{itemize}
+		\item 当前运行在客户端；
+		\item \ci{LocalRole == ROLE_AutonomousProxy}
+	\end{itemize}
+	
+	结果：
+	\begin{itemize}
+		\item \ci{IsLocalController() == true}
+	\end{itemize}
+	
+	原因：
+	\begin{itemize}
+		\item 当前客户端就是这个 Controller 的实际控制者。
+	\end{itemize}
+	
+	\item \textbf{联网客户端上的其他玩家}
+	
+	条件：
+	
+	\begin{itemize}
+		\item 当前运行在客户端；
+		\item 该对象通常不是 \ci{ROLE_AutonomousProxy}，而更可能是 \ci{ROLE_SimulatedProxy}
+	\end{itemize}
+	
+	结果：
+	
+	\begin{itemize}
+		\item \ci{IsLocalController() == false}
+	\end{itemize}
+	
+	原因：
+	
+	\begin{itemize}
+		\item 这些对象只是远端同步到本机的表现，并不由当前客户端控制。
+	\end{itemize}
+	
+	\item \textbf{服务器上的 AIController}
+	
+	条件：
+	
+	\begin{itemize}
+		\item 当前机器是服务器；
+		\item \ci{LocalRole == ROLE_Authority}
+		\item \ci{RemoteRole != ROLE_AutonomousProxy}
+	\end{itemize}
+	
+	结果：
+	
+	\begin{itemize}
+		\item \ci{IsLocalController() == true}
+	\end{itemize}
+	
+	原因：
+	
+	\begin{itemize}
+		\item AI 的控制逻辑在服务器本地执行，因此它对服务器来说是 local。
+	\end{itemize}
+	
+	\item \textbf{服务器上的远端玩家 Controller}
+	
+	条件：
+	
+	\begin{itemize}
+		\item 当前机器是服务器；
+		\item \ci{LocalRole == ROLE_Authority}
+		\item 但远端客户端拥有自主控制权，因此 \ci{RemoteRole == ROLE_AutonomousProxy}
+	\end{itemize}
+	
+	结果：
+	
+	\begin{itemize}
+		\item \ci{IsLocalController() == false}
+	\end{itemize}
+	
+	原因：
+	
+	\begin{itemize}
+		\item 虽然服务器拥有权威，但真正控制该 Controller 的是远端客户端。
+	\end{itemize}
+	
+	\subsection{Listen Server 下的理解}
+	
+	Listen Server 同时具备两种身份：
+	
+	\begin{itemize}
+		\item 它是服务器；
+		\item 它又承载一个本地玩家。
+	\end{itemize}
+	
+	因此在 Listen Server 中，\ci{IsLocalController()} 能很好地区分两类 Controller。
+	
+	\item \textbf{Listen Server 上的本地玩家 Controller}
+	
+	此时：
+	
+	\begin{itemize}
+		\item 当前机器是服务器，因此本地角色通常是 \ci{ROLE_Authority}；
+		\item 这个 Controller 不是由远端客户端自主控制的；
+		\item 因而满足第三个分支。
+	\end{itemize}
+	
+	结果：
+	
+	\begin{itemize}
+		\item \ci{IsLocalController() == true}
+	\end{itemize}
+	
+	\item \textbf{Listen Server 上的远端客户端玩家 Controller}
+	
+	此时：
+	
+	\begin{itemize}
+		\item 服务器对其具有 \ci{Authority}；
+		\item 但远端客户端才是真正的控制端；
+		\item 因此 \ci{RemoteRole == ROLE_AutonomousProxy}。
+	\end{itemize}
+	
+	结果：
+	
+	\begin{itemize}
+		\item \ci{IsLocalController() == false}
+	\end{itemize}
+	
+	这样就实现了精确区分：
+	
+	\begin{itemize}
+		\item 监听服务器上的本地玩家：local；
+		\item 连接进来的远端客户端玩家：not local。
+	\end{itemize}
+\end{enumerate}
+
+\subsection{Dedicated Server 下的理解}
+
+Dedicated Server 没有本地人类玩家，但并不意味着 \ci{IsLocalController()} 一定总是 false。
+
+\begin{enumerate}
+	\item \textbf{Dedicated Server 上的 AIController}
+	
+	结果通常是：
+	
+	\begin{itemize}
+		\item \ci{IsLocalController() == true}
+	\end{itemize}
+	因为 AI 的控制逻辑运行在服务器本地。
+	
+	\item \textbf{Dedicated Server 上的远端玩家 Controller}
+	
+	结果通常是：
+	\begin{itemize}
+		\item \ci{IsLocalController() == false}
+	\end{itemize}
+	
+	因为服务器虽然有权威，但玩家输入来自远端客户端。
+	
+	因此在 Dedicated Server 中可以概括为：
+	
+	\begin{itemize}
+		\item AIController 往往是 local；
+		\item 远程玩家的 Controller 往往不是 local。
+	\end{itemize}
+\end{enumerate}
+
+\subsection{常见误区}
+
+\begin{enumerate}
+	\item \textbf{误区一：IsLocalController() 等价于“本地玩家控制器”}\cuo 
+	
+	这是最常见的误解。
+	
+	IsLocalController() 并不专门判断“是不是本地人类玩家”，因为：
+	
+	\begin{itemize}
+		\item AIController 也可能返回 true；
+		\item Listen Server 上的服务器本地控制器也可能返回 true；
+		\item Dedicated Server 上服务器驱动的 AI 也可能返回 true。
+	\end{itemize}
+	
+	所以它更准确的含义是：\textbf{这个 Controller 是否由当前机器本地驱动。}
+	
+	\textbf{而不是}：\emph{这个 Controller 是否代表一个本地人类玩家。}
+	
+	\item \textbf{误区二：服务器上有 Authority 就一定是 local}\cuo 
+	
+	
+	
+	在 Unreal 的网络体系里，Authority 只说明服务器拥有权威状态，并不等价于“服务器就是这个对象的本地控制端”。
+	
+	对于远端客户端玩家对应的 Controller 来说：
+	
+	\begin{itemize}
+		\item 服务器有 Authority；
+		\item 但输入和控制权属于客户端；
+		\item 因此它依然不是 local。
+	\end{itemize}
+\end{enumerate}
+
+\subsection{函数适用场景}
+
+IsLocalController() 常用于判断是否应该执行仅限本地控制端的逻辑，例如：
+\begin{itemize}
+	\item 是否处理输入；
+	\item 是否驱动摄像机逻辑；
+	\item 是否执行本地专属反馈；
+	\item 是否在控制端运行某些行为。
+\end{itemize}
+但使用时要特别注意：	\emph{如果你的逻辑只想对“本地人类玩家”生效，仅靠 IsLocalController() 还不够。}因为它可能也会让 AIController 满足条件。这时通常还需要结合 \ci{APlayerController}、\ci{IsPlayerController()}、或者 LocalPlayer 等信息进一步判断。
+
+例如，概念上更接近“本地玩家控制器”的判断通常会写成：
+\begin{code}
+	APlayerController* PC = Cast<APlayerController>(Controller);
+	if (PC && PC->IsLocalController())
+	{
+		// 更接近“本地玩家控制器”
+	}
+\end{code}
+
+\subsection{最终结论}
+
+AController::IsLocalController() 的实现可以概括为三句话：
+
+\begin{enumerate}
+	\item 单机模式下，所有 Controller 都是 local。
+	\item 客户端上，只有本机自主控制的 AutonomousProxy Controller 才是 local。
+	\item 服务器上，只有那些控制权没有交给远端客户端的 Controller 才是 local。
+\end{enumerate}
+
+因此，这个函数本质上不是在判断：	\emph{“这个对象是不是存在于当前机器上？”}
+
+而是在判断：	\emph{“当前机器是不是这个 Controller 的实际控制端？”}
+
+
+
+
+
+
+
+
+
+\section{\texttt{IsLocalController()}、\texttt{IsLocalPlayerController() }与 \\ \texttt{IsLocallyControlled() }的区别}
+在 Unreal Engine 的网络与控制体系中，\ci{local} 这个词很容易引起误解。它通常并不是指：
+\emph{“这个对象是否存在于当前机器上”}
+而更接近于：	\emph{“当前这台机器，是否是这个对象的实际控制端”}
+
+也就是说，判断重点是“谁在驱动它”，而不是“谁能看见它”。
+
+本文统一比较三个常见判断：
+\begin{itemize}
+	\item \ci{AController::IsLocalController()}
+	\item \ci{APlayerController::IsLocalPlayerController()}
+	\item \ci{APawn::IsLocallyControlled()}
+\end{itemize}
+
+并结合项目中的 \ci{ACCharacter::IsLocallyControlledByPlayer()} 说明它们的实际用法。
+
+\subsection{先给出一句话版本}
+这三个判断可以先用最短的话概括为：
+\begin{itemize}
+	\item \ci{IsLocalController()}：\\
+	这个 \textbf{Controller} 的控制权是否属于当前机器。
+	
+	\item \ci{IsLocalPlayerController()}：\\
+	这个 \textbf{PlayerController} 是否是当前机器上的\textbf{本地玩家控制器}。
+	
+	\item \ci{IsLocallyControlled()}：\\
+	这个 \textbf{Pawn/Character} 是否被一个\textbf{本地 Controller} 控制。
+\end{itemize}
+
+它们的关系本质上是：
+$
+\texttt{Pawn 是否本地控制}
+\;\Longleftarrow\;
+\texttt{Controller 是否本地}
+$
+
+而 \ci{IsLocalPlayerController()} 则是在 \ci{Controller} 里进一步限定：
+$
+\texttt{本地 Controller}
+\;+\;
+\texttt{必须是 PlayerController}
+$
+
+\subsection{三者的核心区别总表}
+
+\begin{center}\footnotesize\itshape
+	\renewcommand{\arraystretch}{1.5}
+	\begin{tabular}{|p{3.3cm}|p{3.2cm}|p{4.6cm}|p{4.8cm}|}
+		\hline
+		\textbf{函数} & \textbf{所属类型} & \textbf{核心含义} & \textbf{典型用途} \\
+		\hline
+		\texttt{IsLocalController()} & \texttt{AController} & 当前机器是否\dotuline{真正拥有}这个 Controller 的控制权 & 判断控制逻辑是否应在当前机器执行；既可能对玩家，也可能对 AI 成立 \\
+		\hline
+		\texttt{IsLocalPlayerController()} & \texttt{APlayerController} & 当前 Controller 是否是本地玩家控制器 & 判断是否是“我自己这个玩家”的控制器，常用于输入、UI、镜头 \\
+		\hline
+		\texttt{IsLocallyControlled()} & \texttt{APawn} / \texttt{ACharacter} & 当前 Pawn 是否被一个本地 Controller 控制 & 判断这个角色是不是“本机正在控制的角色” \\
+		\hline
+	\end{tabular}
+\end{center}
+
+\subsection{最重要的思维区别：看得见，不等于能控制}
+
+在多人游戏中，一个远端玩家的角色常常也会出现在当前客户端上。因此：
+
+\begin{itemize}
+	\item 你\textbf{能看见}这个角色；
+	\item 你本机也\textbf{有这个角色对象的副本}；
+	\item 但你\textbf{不能给它输入}；
+	\item 你也\textbf{不能决定它下一步做什么}。
+\end{itemize}
+
+因此，“对象存在于本机”并不等于“对象由本机控制”。
+
+这正是这三个函数存在的意义：它们不是判断“有没有副本”，而是在判断“控制权归属”。
+
+\subsection{\texttt{AController::IsLocalController()}}
+
+\subsubsection*{1. 语义}
+
+\ci{IsLocalController()} 的含义是：
+\textbf{当前机器是否是这个 Controller 的实际控制端。}
+
+这里的控制端既可能是：
+\begin{itemize}
+	\item 本地玩家；
+	\item 也可能是服务器上的 AI 逻辑。
+\end{itemize}
+
+所以这个函数的范围是最广的，它不要求必须是玩家，也不要求必须是 \ci{PlayerController}。
+
+\subsubsection*{2. 关键特点}
+
+\ci{IsLocalController()} 关注的是“控制权归属”，而不是“对象类型”。因此：
+
+\begin{itemize}
+	\item 本地玩家控制器可能返回 \ci{true}；
+	\item 服务器本地驱动的 AIController 也可能返回 \ci{true}；
+	\item 远端客户端玩家对应的 Controller 在当前机器上通常返回 \ci{false}。
+\end{itemize}
+
+\subsubsection*{3. 易错点}
+
+很多人会把 \ci{IsLocalController()} 误解成：
+“\emph{是不是本地玩家控制器}”
+这是不准确的，因为它对 AI 也可能成立。更准确地说，它是在问：
+\emph{“\dashuline{是不是我这台机器在负责控制它}”}
+而不是：
+\emph{“它是不是我这个玩家”}
+
+\subsection{\texttt{APlayerController::IsLocalPlayerController()}}
+
+\subsubsection*{1. 语义}
+
+\ci{IsLocalPlayerController()} 的含义是：
+\emph{这个 Controller 不仅是 local，而且它还必须是本地玩家对应的 \ci{PlayerController}。}
+
+它比 \ci{IsLocalController()} 更严格，因为它增加了一个条件：
+\begin{itemize}
+	\item 必须是 \ci{PlayerController}
+	\item 并且必须是本地玩家对应的那个控制器
+\end{itemize}
+
+\subsubsection*{2. 关键特点}
+
+它适用于以下场景：
+
+\begin{itemize}
+	\item 只对“我这个玩家”执行输入绑定；
+	\item 只给本地玩家显示 HUD；
+	\item 只为本地玩家驱动摄像机；
+	\item 只在本地玩家端创建一些 UI 逻辑。
+\end{itemize}
+
+也就是说，它的语义已经不再是“广义的本地控制”，而是：
+
+\begin{quote}
+	“是不是本机这个真实玩家自己”
+\end{quote}
+
+\subsubsection*{3. 与 \texttt{IsLocalController()} 的区别}
+
+二者的关系可以简化理解为：
+
+\framebox[.9\linewidth]{
+	$
+	\texttt{IsLocalPlayerController()}
+	\approx
+	\texttt{IsLocalController()}
+	\;+\;
+	\texttt{必须是 PlayerController}
+	$
+}
+
+所以：
+\begin{itemize}
+	\item AIController 可以 \ci{IsLocalController() == true}
+	\item 但 AIController 不可能 \ci{IsLocalPlayerController() == true}
+\end{itemize}
+
+\subsection{六、\texttt{APawn::IsLocallyControlled()}}
+
+\subsubsection*{1. 语义}
+
+\ci{IsLocallyControlled()} 不是问 Controller，而是问 Pawn：
+
+\begin{quote}
+	这个 Pawn 是否被一个本地 Controller 控制。
+\end{quote}
+
+因此它的关注点是“角色是否被本地控制”，而不是“控制器自身是否本地”。
+
+\subsubsection*{2. 直观理解}
+
+如果把 \ci{Controller} 理解为“驾驶员”，把 \ci{Pawn} 理解为“车”，那么：
+
+\begin{itemize}
+	\item \ci{IsLocalController()} 问的是：驾驶员是否在我这里；
+	\item \ci{IsLocallyControlled()} 问的是：这辆车是否由我这里的驾驶员在开。
+\end{itemize}
+
+\subsubsection*{3. 依赖关系}
+
+它通常依赖该 Pawn 的 Controller 是否是本地 Controller。因此可以近似理解为：
+
+$
+\texttt{Pawn->IsLocallyControlled()}
+\approx
+(\texttt{Pawn->GetController()} \neq \texttt{nullptr})
+\land
+\texttt{Pawn->GetController()->IsLocalController()}
+$
+
+因此它很适合写角色侧逻辑，例如：
+
+\begin{itemize}
+	\item 本地角色才处理某些输入反馈；
+	\item 本地角色才更新第一人称镜头；
+	\item 只有当前控制的角色才执行某些客户端预测逻辑。
+\end{itemize}
+
+\subsection{七、三者之间的层级关系}
+
+这三个判断的逻辑关系可以画成如下示意图：
+
+\begin{center}
+	\begin{code}
+		+-----------------------------------------+
+		|   AController::IsLocalController()      |
+		|  当前机器是否拥有控制权                    |
+		+-----------------------------------------+
+		|
+		| 如果这个 Controller 是 PlayerController
+		v
+		+----------------------------------------------+
+		| APlayerController::IsLocalPlayerController() |
+		| 是否是本地玩家控制器                    |
+		+----------------------------------------------+
+		
+		Pawn / Character 侧：
+		
+		Pawn->IsLocallyControlled()
+		= 这个 Pawn 是否被“本地 Controller”控制
+	\end{code}
+\end{center}
+
+也可以把它们关系概括为：
+$
+\texttt{Pawn 是否本地控制}
+\Longrightarrow
+\texttt{它的 Controller 必须是本地的}
+$
+
+而：
+$
+\texttt{本地 Controller}
+\not\Longrightarrow
+\texttt{一定是本地玩家 Controller}
+$
+
+因为 AIController 就是最典型的反例。
+
+\subsection{典型场景矩阵}
+
+下面用一个场景表统一比较三者的返回倾向。
+
+\begin{center}\footnotesize
+	\renewcommand{\arraystretch}{1.5}
+	\begin{tabular}{|p{4.2cm}|c|c|c|}
+		\hline
+		\textbf{场景} & \texttt{IsLocalController()} & \texttt{IsLocalPlayerController()} & \texttt{Pawn->IsLocallyControlled()} \\
+		\hline
+		单机模式下的玩家角色 & true & true & true \\
+		\hline
+		联网客户端上自己的玩家角色 & true（对应本地 PC） & true & true \\
+		\hline
+		联网客户端上其他玩家角色 & false（对其控制器而言） & false & false \\
+		\hline
+		Listen Server 上本地玩家 & true & true & true \\
+		\hline
+		服务器上的远端客户端玩家 & false（通常） & false（通常） & false（通常） \\
+		\hline
+		服务器上的 AIController 控制角色 & true & false & true \\
+		\hline
+		客户端上同步过来的 AI 角色 & false（通常） & false & false（通常） \\
+		\hline
+	\end{tabular}
+\end{center}
+
+注意，这个表表达的是\textbf{语义倾向和典型情况}，重点是帮助建立理解框架。
+
+\subsection{九、结合你项目中的代码理解}
+
+你的项目 \ci{CCharacter.cpp} 中定义了：
+\begin{code}
+	bool ACCharacter::IsLocallyControlledByPlayer() const
+	{
+		return GetController() && GetController()->IsLocalPlayerController();
+	}
+\end{code}
+
+这个函数并没有用 \ci{IsLocalController()}，而是用了更严格的 \ci{IsLocalPlayerController()}。这说明你的意图不是判断：
+
+\begin{quote}
+	“这个角色是否由本地机器控制”
+\end{quote}
+
+而是判断：
+
+\begin{quote}
+	“这个角色是否由本地玩家控制”
+\end{quote}
+
+这两者是有区别的。
+
+例如服务器上的 AI：
+
+\begin{itemize}
+	\item 它可能是 local controlled；
+	\item 但它绝不是 local player controlled。
+\end{itemize}
+
+所以你的这个封装函数语义非常明确：
+
+$
+\texttt{IsLocallyControlledByPlayer()}
+\iff
+\texttt{GetController() 存在}
+\land
+\texttt{GetController()->IsLocalPlayerController()}
+$
+
+也就是说：	\textbf{这个 \ci{ACCharacter} 必须被当前机器上的本地玩家控制，函数才返回 \ci{true}。}
+
+\subsection{为什么你的 \texttt{BeginPlay()} 这样写是合理的}
+
+你在 \ci{BeginPlay()} 中：
+\begin{code}
+	IsLocallyControlledByPlayer()
+	? OverHeadStatsWidgetComponent->SetHiddenInGame(true)
+	: ConfigureOverHeadStatsWidget();
+\end{code}
+
+这个逻辑含义非常清楚：
+
+\begin{itemize}
+	\item 如果这个角色是“我自己控制的本地玩家角色”，就隐藏头顶状态条；
+	\item 否则，说明它是别人、或者 AI、或者至少不是“我自己”，就配置头顶状态条。
+\end{itemize}
+
+这里你之所以不用 \ci{IsLocalController()}，正是因为它太宽了。假如用它，某些 AI 在服务器语义下也可能算 local，这并不是你这里想表达的“本地玩家自己”。
+
+因此你这里使用 \ci{IsLocalPlayerController()} 是比 \ci{IsLocalController()} 更精确的选择。
+
+\subsection{三个函数分别适合在什么地方用}
+
+\subsubsection*{1. 适合用 \ci{IsLocalController()} 的场景}
+
+适用于你只关心“控制权是否在当前机器”，而不关心是玩家还是 AI 的情况：
+
+\begin{itemize}
+	\item 控制逻辑分发；
+	\item 某些 Controller 级别的行为；
+	\item AI 与玩家统一看作“控制端”的逻辑。
+\end{itemize}
+
+\subsubsection*{2. 适合用 \texttt{IsLocalPlayerController()} 的场景}
+
+适用于你明确只关心“本地玩家自己”的情况：
+
+\begin{itemize}
+	\item HUD / Widget 显示；
+	\item 本地输入；
+	\item 镜头控制；
+	\item 本地玩家专属表现。
+\end{itemize}
+
+\subsubsection*{3. 适合用 \texttt{IsLocallyControlled()} 的场景}
+
+适用于角色侧逻辑，也就是站在 Pawn / Character 本身的视角判断：
+
+\begin{itemize}
+	\item 这个角色是不是当前机器正在操纵的那个角色；
+	\item 某些角色本地反馈；
+	\item 动画、转向、客户端预测等需要区分本地/非本地角色的逻辑。
+\end{itemize}
+
+\subsection{一个最实用的判断口诀}
+
+可以记下面这个口诀：
+
+\begin{center}
+	\renewcommand{\arraystretch}{1.4}
+	\begin{tabular}{|p{4cm}|p{9cm}|}
+		\hline
+		\textbf{如果你想判断……} & \textbf{优先考虑……} \\
+		\hline
+		“这个 Controller 是否由当前机器控制？” & \texttt{IsLocalController()} \\
+		\hline
+		“这是不是我这个本地玩家的 Controller？” & \texttt{IsLocalPlayerController()} \\
+		\hline
+		“这个角色是不是我当前在控制的角色？” & \texttt{IsLocallyControlled()} \\
+		\hline
+	\end{tabular}
+\end{center}
+
+进一步压缩成一句话就是：
+
+\begin{itemize}
+	\item 看 Controller 控制权：\texttt{IsLocalController()}
+	\item 看本地玩家控制器：\texttt{IsLocalPlayerController()}
+	\item 看角色是否被本地控制：\texttt{IsLocallyControlled()}
+\end{itemize}
+
+\subsection{最终总结}
+
+这三个判断虽然都带有 \texttt{local}，但关注点并不一样：
+
+\begin{enumerate}
+	\item \texttt{IsLocalController()}\\
+	关注的是 \textbf{Controller 的控制权} 是否属于当前机器；范围最广，AI 也可能成立。
+	
+	\item \texttt{IsLocalPlayerController()}\\
+	关注的是 \textbf{本地玩家控制器}；比前者更严格，只对本地玩家有意义。
+	
+	\item \texttt{IsLocallyControlled()}\\
+	关注的是 \textbf{Pawn/Character 是否正被本地 Controller 控制}；适合角色侧逻辑。
+\end{enumerate}
+
+如果一定要用一句最直观的话来区分它们，可以写成：
+
+\begin{itemize}
+	\item \texttt{IsLocalController()} 问“这个驾驶员是不是在我这里”；\\
+	\item \texttt{IsLocalPlayerController()} 问“这个驾驶员是不是我这个本地玩家”；\\
+	\item \texttt{IsLocallyControlled()} 问“这辆车是不是由我这里的驾驶员在开”。
+\end{itemize}
+
+
+
+\section{\texttt{APlayerController::IsLocalController() const} 与\\ \texttt{AController::IsLocalController() const}对比}
+
+\ci{APlayerController::IsLocalController() const} 的实现如下：
+
+\begin{code}
+	bool APlayerController::IsLocalController() const
+	{
+		// Never local on dedicated server. IsServerOnly() is checked at compile time and optimized out appropriately.
+		if (FPlatformProperties::IsServerOnly())
+		{
+			checkSlow(!bIsLocalPlayerController);
+			return false;
+		}
+		
+		// Fast path if we have this bool set.
+		if (bIsLocalPlayerController)
+		{
+			return true;
+		}
+		
+		ENetMode NetMode = GetNetMode();
+		if (NetMode == NM_DedicatedServer)
+		{
+			// This is still checked for the PIE case, which would not be caught in the IsServerOnly() check above.
+			checkSlow(!bIsLocalPlayerController);
+			return false;
+		}
+		
+		// If the NetDriver is already gone (e.g., seamless travel back to standalone/PIE teardown),
+		// classify "local" by presence of a ULocalPlayer on this machine. Remote clients' PCs on a listen
+		// server do NOT have a ULocalPlayer, but true clients and the listen host do.
+		if (GetNetDriver() == nullptr)
+		{
+			const bool bHasLocalPlayer = Cast<ULocalPlayer>(Player) != nullptr;
+			if (bHasLocalPlayer)
+			{
+				bIsLocalPlayerController = true;
+				return true;
+			}
+			return false;
+		}
+		
+		if (NetMode == NM_Client || NetMode == NM_Standalone)
+		{
+			// Clients or Standalone only receive their own PC. We are not ROLE_AutonomousProxy until after PostInitializeComponents so we can't check that.
+			bIsLocalPlayerController = true;
+			return true;
+		}
+		
+		return bIsLocalPlayerController;
+	}
+\end{code}
+
+\subsection{核心结论}
+
+这个函数的核心语义可以直接概括为：
+\textbf{这个 \ci{PlayerController} 是否属于当前机器上的本地玩家。}
+
+和基类 \ci{AController::IsLocalController()} 相比，它不再使用“角色权限推断控制权”的通用思路，而是改为围绕 \ci{PlayerController} 的玩家语义做判断。
+
+因此它的结论更接近：
+\textbf{“这是不是当前机器自己的玩家控制器”}
+而不是更抽象的：	\emph{“当前机器是否拥有某个 Controller 的控制权”}
+
+\subsection{源码分支精简解析}
+
+\subsubsection*{1. Dedicated Server 上一定不是 local}
+
+\begin{code}
+	if (FPlatformProperties::IsServerOnly())
+	{
+		return false;
+	}
+	...
+	if (NetMode == NM_DedicatedServer)
+	{
+		return false;
+	}
+\end{code}
+
+这一段表达得非常明确：
+\textbf{专用服务器上不存在“本地玩家控制器”。}
+
+原因很简单：Dedicated Server 没有本地玩家，因此 \ci{APlayerController} 在这里即使存在，也只是代表远端玩家的连接，不应被视为 local。
+
+这和 \ci{AController::IsLocalController()} 的最大差别之一就在这里：
+
+\begin{itemize}
+	\item \ci{APlayerController::IsLocalController()} 在 Dedicated Server 上直接认为 \textbf{一定不是 local}；
+	\item 但 \ci{AController::IsLocalController()} 对 AIController 在服务器上可能仍然返回 \ci{true}。
+\end{itemize}
+
+\subsubsection*{2. \ci{bIsLocalPlayerController} 是缓存和快速路径}
+
+\begin{code}
+	if (bIsLocalPlayerController)
+	{
+		return true;
+	}
+\end{code}
+
+这里说明 \ci{APlayerController} 内部维护了一个布尔缓存：	\textbf{如果已经确认这是本地玩家控制器，就直接走快速路径返回 \ci{true}。}
+
+这是一种典型的性能优化，同时也说明该函数的语义非常稳定：一旦某个 \ci{PlayerController} 被确认是本地玩家控制器，后续无需反复复杂判断。
+
+\subsubsection*{3. \ci{NetDriver == nullptr} 时退化为检查 \ci{ULocalPlayer}}
+
+\begin{code}
+	if (GetNetDriver() == nullptr)
+	{
+		const bool bHasLocalPlayer = Cast<ULocalPlayer>(Player) != nullptr;
+		if (bHasLocalPlayer)
+		{
+			bIsLocalPlayerController = true;
+			return true;
+		}
+		return false;
+	}
+\end{code}
+
+这是这个实现里很重要的一点。
+
+当 \ci{NetDriver} 已经不存在时，例如：
+\begin{itemize}
+	\item Seamless Travel 过程中；
+	\item PIE 结束或销毁阶段；
+	\item 网络系统正在拆除；
+\end{itemize}
+
+此时已经不适合再依赖网络角色去判断“local”。所以 Unreal 改用了一个更直接的标准：
+\textbf{当前 \ci{PlayerController} 是否挂着一个本机的 \ci{ULocalPlayer}。}
+
+如果有 \ci{ULocalPlayer}，就认为：
+\textbf{这是当前机器自己的玩家控制器。}
+这说明 \ci{APlayerController::IsLocalController()} 的判断核心其实是“本机玩家归属”，而不是纯粹的网络角色。
+
+\subsubsection*{4. Client / Standalone 上直接返回 true}
+
+\begin{code}
+	if (NetMode == NM_Client || NetMode == NM_Standalone)
+	{
+		bIsLocalPlayerController = true;
+		return true;
+	}
+\end{code}
+
+这里的注释也很关键：
+\begin{code}
+	Clients or Standalone only receive their own PC.
+	We are not ROLE_AutonomousProxy until after PostInitializeComponents so we can't check that.
+\end{code}
+
+含义是：
+\begin{itemize}
+	\item 在客户端或单机环境下，当前机器拿到的 \ci{PlayerController} 本来就是自己的；
+	\item 因此可以直接把它认定为本地玩家控制器；
+	\item 不需要像基类那样去依赖 \ci{ROLE_AutonomousProxy} 判断。
+\end{itemize}
+
+这一点也体现出它和 \ci{AController::IsLocalController()} 的设计区别：
+
+\begin{itemize}
+	\item 基类版本依赖网络角色推断；
+	\item 玩家版本直接利用 \ci{PlayerController} 的分发规则来判断。
+\end{itemize}
+
+\subsubsection*{5. 最后的返回值}
+
+\begin{code}
+	return bIsLocalPlayerController;
+\end{code}
+
+到了这里，函数不再试图做额外推断，而是直接相信当前缓存状态。
+
+这通常意味着：
+
+\begin{itemize}
+	\item 在 Listen Server 等场景下；
+	\item 是否是本地玩家控制器已经在别处被标记过；
+	\item 这里直接读取结论即可。
+\end{itemize}
+
+\subsection{与 \ci{AController::IsLocalController() const} 的核心对比}
+
+\ci{AController::IsLocalController()} 的基类实现更偏向“通用控制权判断”，其典型逻辑是：
+
+\begin{itemize}
+	\item 单机：返回 \ci{true}
+	\item 客户端上的 \ci{ROLE_AutonomousProxy}：返回 \ci{true}
+	\item 服务器上拥有 \ci{Authority} 且远端不是 \ci{AutonomousProxy}：返回 \ci{true}
+\end{itemize}
+
+它的本质是在问：	\textbf{当前机器是不是这个 Controller 的实际控制端。}
+
+而 \ci{APlayerController::IsLocalController()} 的本质更接近：
+\textbf{这个 \ci{PlayerController} 是否属于当前机器上的本地玩家。}
+
+两者最核心的区别如下。
+
+\begin{center}\footnotesize
+	\renewcommand{\arraystretch}{1.5}
+	\begin{tabular}{|p{6cm}|p{5.1cm}|p{5.1cm}|}
+		\hline
+		\textbf{函数} & \textbf{判断核心} & \textbf{适用范围} \\
+		\hline
+		\texttt{AController::IsLocalController()} & 当前机器是否拥有控制权 & 所有 Controller，包括 AI 和玩家 \\
+		\hline
+		\texttt{APlayerController::IsLocalController()} & 当前机器是否拥有这个本地玩家控制器 & 仅 \texttt{PlayerController}，强调本地玩家语义 \\
+		\hline
+	\end{tabular}
+\end{center}
+
+\subsection{两者在设计思路上的差异}
+
+\subsubsection*{1. 基类版本是“网络角色推断”}
+
+\ci{AController::IsLocalController()} 更像一个抽象层工具函数，它并不知道当前对象一定是玩家控制器，因此只能根据：
+
+\begin{itemize}
+	\item \ci{NetMode}
+	\item \ci{LocalRole}
+	\item \ci{RemoteRole}
+\end{itemize}
+
+来推断控制权归属。
+
+也正因此，它既适用于玩家，也适用于 AI。
+
+\subsubsection*{2. 玩家版本是“本地玩家归属判断”}
+
+\ci{APlayerController::IsLocalController()} 已经知道自己是 \ci{PlayerController}，因此它不再需要从“控制权”抽象地推导“玩家归属”，而是直接围绕：
+
+\begin{itemize}
+	\item 是否是 Dedicated Server；
+	\item 是否有 \ci{ULocalPlayer}；
+	\item 当前是否在 Client / Standalone；
+	\item 缓存标记 \ci{bIsLocalPlayerController}；
+\end{itemize}
+
+来判断。
+
+所以它的语义更具体，也更符合玩家层代码的直觉。
+
+\subsection{五、最关键的一条对比结论}
+
+最值得记住的一点是：
+
+\begin{quote}
+	\ci{AController::IsLocalController()} 的 “local” 是广义的控制权概念；\\
+	\ci{APlayerController::IsLocalController()} 的 “local” 是狭义的本地玩家概念。
+\end{quote}
+
+因此：
+
+\begin{itemize}
+	\item\textbf{ 服务器上的 AIController：}	基类版本可能是 \ci{true}，玩家版本不适用；
+	\item \textbf{Dedicated Server 上的 PlayerController：}
+	基类层面未必能直接表达“本地玩家不存在”，但玩家版本会明确返回 \ci{false}；
+	\item \textbf{客户端自己的 PlayerController：}
+	两者通常都认为是 \ci{true}，但玩家版本的理由更直接。
+\end{itemize}
+
+\subsection{典型场景对照}
+
+\begin{center}\footnotesize
+	\renewcommand{\arraystretch}{1.5}
+	\begin{tabular}{|p{4.6cm}|c|c|}
+		\hline
+		\textbf{场景} & \texttt{AController::IsLocalController()} & \texttt{APlayerController::IsLocalController()} \\
+		\hline
+		单机玩家 & true & true \\
+		\hline
+		客户端上的自己 & true & true \\
+		\hline
+		客户端上的其他玩家 Controller & false & false \\
+		\hline
+		Listen Server 上本地玩家 & true & true \\
+		\hline
+		Dedicated Server 上远端玩家的 PlayerController & 不强调“本地玩家不存在”这一点 & 明确 false \\
+		\hline
+		服务器上的 AIController & true（可能） & 不适用 \\
+		\hline
+	\end{tabular}
+\end{center}
+
+\subsection{最终总结}
+
+可以用下面这组话记忆两者的区别：
+
+\begin{itemize}
+	\item \texttt{AController::IsLocalController()}：\\
+	当前机器是不是这个 Controller 的控制端。
+	
+	\item \texttt{APlayerController::IsLocalController()}：\\
+	当前机器是不是这个 \texttt{PlayerController} 所属的本地玩家端。
+\end{itemize}
+
+因此在工程实践中：
+
+\begin{itemize}
+	\item 如果你站在抽象控制层思考，优先理解 \ci{AController::IsLocalController()}；
+	\item 如果你站在玩家逻辑、输入、UI、HUD 的角度思考，\ci{APlayerController::IsLocalController()} 往往更符合实际语义。
+\end{itemize}
+
+
+
+
+\subsection{一句话总结}
+
+\begin{itemize}
+	\item \ci{AController::IsLocalController()}：判断\textbf{当前机器是不是这个 Controller 的控制端}。
+	\item \ci{APlayerController::IsLocalController()}：判断\textbf{当前机器是不是这个 PlayerController 所属的本地玩家端}。
+\end{itemize}
+
+\subsection{核心区别}
+
+\begin{center}\footnotesize
+	\renewcommand{\arraystretch}{1.5}
+	\begin{tabular}{|p{6cm}|p{4.8cm}|p{4.8cm}|}
+		\hline
+		\textbf{函数} & \textbf{关注点} & \textbf{特点} \\
+		\hline
+		\texttt{AController::IsLocalController()} & 控制权是否在当前机器 & 通用；适用于玩家和 AI \\
+		\hline
+		\texttt{APlayerController::IsLocalController()} & 是否是当前机器的本地玩家控制器 & 更具体；只适用于 \texttt{PlayerController} \\
+		\hline
+	\end{tabular}
+\end{center}
+
+\subsection{\texttt{APlayerController::IsLocalController()} 的源码结论}
+
+它的实现可以压缩成以下几点：
+
+\begin{enumerate}
+	\item \textbf{Dedicated Server 上永远返回 false}，因为专用服务器没有本地玩家。
+	\item 如果 \ci{bIsLocalPlayerController} 已经为真，直接返回 true，这是缓存优化。
+	\item 如果 \ci{NetDriver == nullptr}，则退化为检查是否存在 \ci{ULocalPlayer}：
+	\begin{itemize}
+		\item 有 \ci{ULocalPlayer}，说明它属于本机玩家；
+		\item 没有则不是本地玩家控制器。
+	\end{itemize}
+	\item 在 \ci{NM_Client} 或 \ci{NM_Standalone} 下直接返回 true，因为客户端或单机通常只持有自己的 \ci{PlayerController}。
+\end{enumerate}
+
+\subsection{与基类版本的本质差异}
+
+\begin{itemize}
+	\item 基类 \ci{AController::IsLocalController()} 依赖 \ci{NetMode}、\ci{LocalRole}、\ci{RemoteRole} 去\textbf{推断控制权}。
+	\item \ci{APlayerController::IsLocalController()} 则更多依赖：
+	\begin{itemize}
+		\item 是否有本地玩家对象 \ci{ULocalPlayer}
+		\item 是否是客户端/单机
+		\item 是否已被标记为本地玩家控制器
+	\end{itemize}
+	去\textbf{判断本地玩家归属}。
+\end{itemize}
+
+\subsection{最关键的记忆点}
+
+\begin{quote}
+	\ci{AController::IsLocalController()} 的 local 是“广义控制权”；\\
+	\ci{APlayerController::IsLocalController()} 的 local 是“本地玩家归属”。
+\end{quote}
+
+\subsection{典型场景表}
+
+\begin{center}\footnotesize
+	\renewcommand{\arraystretch}{1.5}
+	\begin{tabular}{|p{4.8cm}|c|c|}
+		\hline
+		\textbf{场景} & \texttt{AController::IsLocalController()} & \texttt{APlayerController::IsLocalController()} \\
+		\hline
+		单机玩家 & true & true \\
+		\hline
+		客户端自己的玩家 & true & true \\
+		\hline
+		客户端上的其他玩家 & false & false \\
+		\hline
+		Listen Server 上本地玩家 & true & true \\
+		\hline
+		Dedicated Server 上远端玩家的 \texttt{PlayerController} & 不强调本地玩家语义 & false \\
+		\hline
+		服务器上的 AIController & true（可能） & 不适用 \\
+		\hline
+	\end{tabular}
+\end{center}
+
+\subsection{最后一句}
+
+如果你想判断：
+
+\begin{itemize}
+	\item “\textbf{谁在控制这个 Controller}” $\rightarrow$ 用 \ci{AController::IsLocalController()}
+	\item “\textbf{这是不是本地玩家的 PlayerController}” $\rightarrow$ 用 \ci{APlayerController::IsLocalController()}
+\end{itemize}
+
+\chapter{实现GA}
+
+\section{\texttt{ActivateAbility}、\texttt{CommitAbility} 与 \texttt{EndAbility} 的语义及调用流程}
+
+在 Unreal Engine 的 \texttt{Gameplay Ability System}（\textbf{GAS}）中，\ci{UGameplayAbility} 用于封装一段可被激活的游戏逻辑。根据 \texttt{GameplayAbility.h} 中的接口与注释，Ability 的生命周期并不是单一的“触发一次逻辑”过程，而是由一组职责明确、彼此衔接的接口共同构成。其中，\ci{ActivateAbility}、\ci{CommitAbility} 与 \ci{EndAbility} 是最核心的三个环节；理解它们之间的差异，对于正确编写 GAS 技能逻辑具有基础性意义。
+
+从直观含义上看，\ci{Activate} 可以翻译为“激活”或“开始执行”。然而在 GAS 中，\ci{Activate} 并不仅仅表示某个开关被打开，而是特指 Ability 从“可尝试使用”进入“实际执行技能逻辑”的阶段。因此，\ci{ActivateAbility} 更准确的理解应当是：系统已经确认该 Ability 可以被触发，并开始运行其具体行为。
+
+围绕这一阶段，`GameplayAbility.h` 中声明了一组具有层次关系的接口，包括 \ci{CanActivateAbility}、\ci{TryActivateAbility}、\ci{CallActivateAbility}、\ci{ActivateAbility}、\ci{CommitAbility}、\ci{CancelAbility} 以及 \ci{EndAbility}。这些术语可以先做如下概括：
+
+\begin{itemize}
+	\item \ci{CanActivateAbility}：检查当前是否允许激活该 Ability；
+	\item \ci{TryActivateAbility}：发起一次激活尝试；
+	\item \ci{ActivateAbility}：开始执行 Ability 的核心逻辑；
+	\item \ci{CommitAbility}：正式提交资源消耗与冷却；
+	\item \ci{EndAbility}：结束当前 Ability 的生命周期；
+	\item \ci{CancelAbility}：中断或取消当前 Ability。
+\end{itemize}
+
+如果用更加简洁的方式总结，则可以记为：
+
+\begin{itemize}
+	\item \ci{CanActivate}：能不能释放；
+	\item \ci{Activate}：开始释放；
+	\item \ci{Commit}：确认本次释放成立，并支付代价；
+	\item \ci{End}：本次技能执行结束；
+	\item \ci{Cancel}：技能在外部干预下被中断。
+\end{itemize}
+
+\subsection{\texttt{ActivateAbility} 的语义}
+
+在 \texttt{GameplayAbility.h} 的注释中，\ci{ActivateAbility()} 被描述为 “What the abilities does”，也即“Ability 实际执行的内容”。这说明 \ci{ActivateAbility} 并不是一个纯粹的状态切换接口，而\textbf{是技能逻辑的主要执行入口}。
+
+对于一个火球术、冲刺、治疗、引导类法术或者瞄准型技能而言，真正的行为——例如播放动画、启动粒子特效、创建投射物、等待目标数据、响应输入确认——都应当围绕 \ci{ActivateAbility} 展开。
+
+从实现层次上说，\texttt{GameplayAbility.h} 中与“激活”最直接相关的接口包括：
+
+\begin{itemize}
+	\item \ci{UGameplayAbility::CanActivateAbility(...)}
+	\item \ci{UGameplayAbility::CallActivateAbility(...)}
+	\item \ci{UGameplayAbility::ActivateAbility(...)}
+	\item \ci{UGameplayAbility::K2\_ActivateAbility()}
+\end{itemize}
+
+其中，\ci{CanActivateAbility} 负责进行条件检查，\ci{CallActivateAbility} 负责组织前置调用过程，\ci{ActivateAbility} 是 C++ 语义上的正式执行入口，而 \ci{K2\_ActivateAbility} 则是 Blueprint 中最常见的技能逻辑编写位置。因而，在 GAS 语境下，说某个 Ability 被 “activated”，其准确含义不是“被启用”，而是“开始进入自身的技能执行流程”。
+
+\subsection{\ci{ActivateAbility}、\ci{CommitAbility} 与 \ci{EndAbility} 的职责划分}
+
+尽管这三个接口都位于同一个 Ability 生命周期中，但它们处理的是三个不同层面的事务。
+
+首先，\ci{ActivateAbility} 表示“开始执行技能逻辑”。当系统进入这一阶段时，Ability 已经从“可尝试激活”过渡为“正在运行”。此时常见的处理包括播放动画、计算目标、触发特效、启动 Ability Task、等待异步回调等。因此，\ci{ActivateAbility} 的核心特征在于：它定义的是“这个技能到底做什么”。
+
+其次，\ci{CommitAbility} 表示“正式提交这次施法”。这一步并不等同于“开始执行”，而是意味着系统确认本次施法已经成立，并据此施加资源代价与冷却效果。\texttt{GameplayAbility.h} 中给出的注释非常关键：\ci{ActivateAbility()} must call this! 这说明在一般设计下，Ability 的执行逻辑应当在合适时机调用 \ci{CommitAbility}，以便完成诸如扣除法力值、体力值，施加冷却效果，以及执行最后一轮提交前检查等操作。换言之，\ci{CommitAbility} 所回答的问题并不是“技能做什么”，而是“\textbf{这次技能是否正式生效，以及其代价何时被支付}”。
+
+最后，\ci{EndAbility} 表示“结束当前 Ability 的生命周期”。它的职责是将 Ability 从运行状态中正确地退出，并触发必要的清理逻辑，包括收尾任务、解除占用状态、更新 Ability 的活跃标记以及同步结束状态。若说 \ci{ActivateAbility} 代表“开始工作”，\ci{CommitAbility} 代表“正式结算成本”，那么 \ci{EndAbility} 便代表“本次执行流程完成并归档”。
+
+因此，这三者可以分别概括为：
+
+\begin{itemize}
+	\item \ci{ActivateAbility}：定义技能行为并启动执行；
+	\item \ci{CommitAbility}：确认技能成立并提交消耗；
+	\item \ci{EndAbility}：结束技能并清理生命周期状态。
+\end{itemize}
+
+\subsection{以火球术为例理解 Ability 生命周期}
+
+考虑一个最常见的火球术技能。整个流程可以清晰地映射到上述几个接口上。
+
+在第一阶段，系统首先通过 \ci{CanActivateAbility} 判断当前是否允许释放火球术。例如，它会检查角色当前法力值是否足够、技能是否处于冷却中、角色是否处于沉默状态、是否满足标签约束等。如果这些条件不满足，那么 Ability 将停留在“不可释放”状态，不会进入后续逻辑。
+
+在第二阶段，当 Ability 通过检查后，系统进入 \ci{ActivateAbility} 阶段。在这个阶段中，技能开始实际执行。例如，可以播放施法动画、播放吟唱特效、锁定目标点、创建火球实体，或者等待某个输入或目标确认事件。换言之，这一阶段体现的是“技能正在做什么”。
+
+在第三阶段，需要在合适的时机调用 \ci{CommitAbility}。如果设计上要求“只要开始吟唱就立刻扣蓝并进入冷却”，那么 \ci{CommitAbility} 会在技能刚开始时执行；如果设计上希望“只有当火球真正发射出去时才算施法成功”，那么也可以将 \ci{CommitAbility} 放在投射物生成之后。无论具体策略如何，\ci{CommitAbility} 的本质都是确认本次施法的成立，并执行代价结算。
+
+在第四阶段，当火球已经完成发射、动画与任务都已结束时，Ability 应调用 \ci{EndAbility}。此时系统便知道本次 Ability 生命周期已经结束，从而可以释放相关状态，并允许后续逻辑继续进行。
+
+\subsection{从 \ci{TryActivateAbility} 到 \ci{ActivateAbility} 的调用链}
+
+从\texttt{GameplayAbility.h} 注释中可以清楚看出一个典型的主流程，即：
+\begin{itemize}
+	\item \ci{TryActivateAbility()}
+	\item \ci{CanActivateAbility()}
+	\item \ci{CallActivateAbility()}
+	\item \ci{PreActivate()}
+	\item \ci{ActivateAbility()}
+	\item \ci{CommitAbility()}
+	\item \ci{EndAbility()}
+\end{itemize}
+
+这条调用链体现了 GAS 对 Ability 生命周期的分层组织方式。
+
+\ci{TryActivateAbility} 是一次激活请求的入口。它通常由外部系统触发，例如玩家按下技能键、AI 作出施法决策、或者 Ability System Component 收到事件后请求发动某个 Ability。它本身并不直接承担技能行为，而是代表“尝试启动一项 Ability”。
+
+随后，系统调用 \ci{CanActivateAbility} 进行条件审查。这一步用于判断当前上下文是否允许 Ability 被激活。如果条件不满足，激活流程在此终止；若条件满足，则继续进入后续阶段。
+
+接下来，系统通过 \ci{CallActivateAbility} 将流程推进到正式执行阶段。根据 \texttt{GameplayAbility.h} 中的注释，该接口负责执行 \ci{PreActivate} 和 \ci{ActivateAbility}。因此，它可以被视作一个“组织型”接口，用于串接前置初始化与实际执行逻辑。
+
+其中，\ci{PreActivate} 的作用是为真正的 Ability 执行准备运行上下文。例如，当前的 \ci{Handle}、\ci{ActorInfo}、\ci{ActivationInfo} 可能会在此阶段被写入 Ability 实例，Ability 的活跃状态与相关回调也可能在此建立。简言之，\ci{PreActivate} 是“正式执行前的环境搭建”。
+
+待这些准备完成后，系统才真正进入 \ci{ActivateAbility}，由它承担能力行为本身的执行。
+
+\subsection{Blueprint 中的典型写法}
+
+对于 Blueprint Ability 而言，开发者通常不会直接覆写 C++ 版本的 \ci{ActivateAbility(...)}，而是在 Ability Blueprint 中实现 \ci{K2\_ActivateAbility()} 或 \ci{K2\_ActivateAbilityFromEvent(...)}。这意味着，在实际项目中，最常见的写法不是“手动实现整条底层调用链”，而是在 Blueprint 图中围绕 \ci{Event ActivateAbility} 编排技能逻辑。
+
+一个最典型的 Blueprint 模式可以概括为：
+
+\begin{code}
+	Event ActivateAbility
+	-> CommitAbility
+	-> 执行技能逻辑
+	-> EndAbility
+\end{code}
+
+例如，一个冲刺技能的蓝图逻辑可以被组织为：
+
+\begin{code}
+	Event ActivateAbility
+	-> CommitAbility
+	-> 施加冲刺移动
+	-> 播放冲刺特效
+	-> Delay 0.3 秒
+	-> EndAbility
+\end{code}
+
+在这种模式下，\ci{Event ActivateAbility} 对应“技能开始执行”，\ci{CommitAbility} 对应“确认代价与冷却”，而 \ci{EndAbility} 则对应“技能逻辑结束并正确退出生命周期”。Blueprint 编写中的关键不在于是否立刻结束，而在于应当在逻辑完成时显式结束。
+
+\subsection{为何很多 GAS 技能必须显式调用 \ci{EndAbility}}
+
+\texttt{GameplayAbility.h} 中对 \ci{K2\_ActivateAbility} 的注释明确指出：该图应调用 \ci{CommitAbility}，也应调用 \ci{EndAbility}。这一点在 GAS 实践中极为重要，因为 Ability 并不会在所有场景下自动结束。换句话说，Ability 生命周期的收尾，通常由 Ability 自身负责。
+
+如果一个 Ability 在逻辑完成后没有调用 \ci{EndAbility}，首先会导致该 Ability 持续处于活跃状态。系统可能仍然认为它正在运行，因此角色无法再次释放同一技能，或与该 Ability 相关的运行标志一直得不到清除。
+
+其次，如果该 Ability 在激活时施加了激活标签、阻塞标签或占用状态，那么这些状态也可能因为 Ability 未结束而持续存在。例如，\ci{ActivationOwnedTags} 可能仍然附着在角色身上，\ci{BlockAbilitiesWithTag} 可能持续阻止其他技能激活，进而表现为角色“卡在施法中”或者其他技能无法正常使用。
+
+再次，许多 Ability Task 都是依附于 Ability 生命周期存在的，例如等待动画结束、等待目标数据、等待延迟、等待 Gameplay Event 等。如果 Ability 没有被正确结束，那么这些任务的清理与回调链也可能受到影响，从而产生逻辑滞留、状态不同步乃至内在行为异常。
+
+最后，在网络环境下，GAS 还涉及预测、确认与复制。如果 Ability 生命周期没有被正确闭合，那么客户端与服务端可能对该 Ability 的状态产生不一致认识。例如客户端认为技能已结束，而服务端仍认为其处于激活状态，或者反之。这会进一步影响后续 Ability 的激活、取消与状态同步。
+
+因此，从系统设计角度看，\ci{EndAbility} 的意义不仅仅是“告诉系统我结束了”，更是 Ability 生命周期闭环的必要步骤。
+
+\subsection{何时调用 \ci{EndAbility}}
+
+调用 \ci{EndAbility} 的原则不是“越早越好”，而是“当技能逻辑在语义上真正完成时”。这一原则在不同类型的技能中表现不同。
+
+对于瞬发型技能，例如一次性治疗或立即生效的 Buff，通常会在进入 \ci{ActivateAbility} 后很快完成逻辑，并立即结束：
+
+\begin{code}
+	ActivateAbility(...)
+	{
+		CommitAbility(...);
+		执行治疗或施加效果;
+		EndAbility(...);
+	}
+\end{code}
+
+对于持续型或引导型技能，例如持续喷射火焰、引导激光、维持护盾等，Ability 在调用 \ci{CommitAbility} 之后会保持一段运行时间，直到玩家松开按键、持续时间结束或者被打断时再调用 \ci{EndAbility}：
+
+\begin{code}
+	ActivateAbility(...)
+	{
+		CommitAbility(...);
+		开始持续效果;
+		等待玩家松手 / 时间结束 / 被中断;
+		EndAbility(...);
+	}
+\end{code}
+
+对于任务驱动型技能，例如依赖动画回调或异步任务的 Ability，则往往会在任务完成回调中结束：
+
+\begin{code}
+	ActivateAbility(...)
+	{
+		CommitAbility(...);
+		播放 Montage;
+		等待 Montage 结束;
+		EndAbility(...);
+	}
+\end{code}
+
+因此，不应将 \ci{EndAbility} 理解为“进入 \ci{ActivateAbility} 后立刻执行的固定结尾语句”，而应当将其理解为“在技能语义完成时显式关闭 Ability 生命周期”的机制。
+
+\subsection{\ci{CancelAbility} 与 \ci{EndAbility} 的区别}
+
+\ci{CancelAbility} 与 \ci{EndAbility} 虽然都意味着 Ability 不再继续运行，但两者的语义并不相同。
+
+\ci{EndAbility} 用于表达 Ability 的正常完成。也就是说，技能按照预期执行完毕，或者能力逻辑自行决定结束当前生命周期。与之相对，\ci{CancelAbility} 用于表达 Ability 在外部干预下被中断，例如角色被击飞、眩晕、打断施法，或系统因某种限制条件取消当前技能。
+
+例如，若火球术成功吟唱并发射完成，那么应当调用 \ci{EndAbility}；若火球术在吟唱过程中被敌人的控制效果打断，则更符合 \ci{CancelAbility} 的语义。
+
+因此，两者的区别可以概括为：
+
+\begin{itemize}
+	\item \ci{EndAbility}：Ability 正常收尾；
+	\item \ci{CancelAbility}：Ability 被外部原因中止。
+\end{itemize}
+
+\subsection{一个统一的心智模型}
+
+为了更稳定地理解 GAS Ability 的这组接口，可以将一个 Ability 视作“具有完整生命周期的任务对象”。
+
+在这个模型下：
+
+\begin{itemize}
+	\item \ci{TryActivateAbility}：相当于申请启动任务；
+	\item \ci{CanActivateAbility}：相当于审批任务是否允许启动；
+	\item \ci{PreActivate}：相当于初始化任务上下文；
+	\item \ci{ActivateAbility}：相当于任务正式开始执行；
+	\item \ci{CommitAbility}：相当于确认任务成立并扣除预算；
+	\item \ci{EndAbility}：相当于任务完成归档；
+	\item \ci{CancelAbility}：相当于任务被外部中断。
+\end{itemize}
+
+这种理解方式的优点在于，它能够将看似零散的接口统一到同一个生命周期框架中，从而避免只记忆函数名而忽略其在系统中的职责。
+
+\subsection{Ability 编写中的常见模板}
+
+在实际编写 GAS 技能时，一个最常见、也最容易建立正确心智的模板如下：
+
+\begin{code}
+	ActivateAbility(...)
+	{
+		// 1. 做开始逻辑
+		
+		// 2. CommitAbility
+		//    扣资源 / 上冷却
+		
+		// 3. 执行技能内容
+		//    播动画 / 发射物 / 上效果 / 等事件
+		
+		// 4. 在技能逻辑完成时 EndAbility
+	}
+\end{code}
+
+对应到 Blueprint，也通常表现为：
+
+\begin{code}
+	Event ActivateAbility
+	-> CommitAbility
+	-> 执行技能逻辑
+	-> 在合适时机 EndAbility
+\end{code}
+
+这里最重要的并不是固定顺序本身，而是开发者应当明确地区分三件事：什么时候开始执行技能、什么时候正式支付技能代价、什么时候结束技能生命周期。
+
+\subsection{小结}
+
+综合 \texttt{GameplayAbility.h} 中的接口设计与注释说明，可以将 \ci{UGameplayAbility} 的生命周期理解为一个结构清晰的执行流程：系统先通过 \ci{TryActivateAbility} 发起激活请求，经由 \ci{CanActivateAbility} 检查条件，再由 \ci{CallActivateAbility} 与 \ci{PreActivate} 完成上下文准备，随后进入 \ci{ActivateAbility} 执行具体逻辑，并在适当时机调用 \ci{CommitAbility} 提交资源与冷却，最终通过 \ci{EndAbility} 结束生命周期，或在异常情况下通过 \ci{CancelAbility} 中断流程。
+
+若只保留最核心的一句话，则可以表述为：
+\begin{marker}
+	在 GAS 中，\ci{ActivateAbility} 表示技能开始执行，\ci{CommitAbility} 表示本次技能正式成立并支付代价，而 \ci{EndAbility} 则表示该技能的生命周期被正确结束。
+\end{marker}
+
+
+\section{\texttt{FGameplayAbilityActivationInfo} 与 \texttt{FGameplayAbilityActorInfo} 的结构}
+
+在 GAS 中，\ci{UGameplayAbility::ActivateAbility(...)} 的函数签名通常如下：
+\begin{code}
+	virtual void ActivateAbility(
+	const FGameplayAbilitySpecHandle Handle,
+	const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayAbilityActivationInfo ActivationInfo,
+	const FGameplayEventData* TriggerEventData);
+\end{code}
+
+其中，\ci{FGameplayAbilityActorInfo} 与 \ci{FGameplayAbilityActivationInfo} 是理解 Ability 执行上下文时最重要的两个结构。前者回答的是“谁在使用这个 Ability，以及与该使用者相关的运行对象有哪些”；后者回答的是“这次 Ability 激活在网络和执行语义上处于什么状态”。二者一个偏向“参与者与宿主对象”，一个偏向“本次激活实例的状态信息”，共同构成了 GAS 在运行期传递 Ability 上下文的核心。
+
+在你当前的 \ci{GA_Combo.cpp} 中，这两个参数已经直接出现在 \ci{UGA_Combo::ActivateAbility(...)} 的实现中：
+
+\begin{code}
+	void UGA_Combo::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, 	const FGameplayEventData* TriggerEventData)
+	{
+		Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+		
+		const bool CanCommittedAbility = CommitAbility(Handle, ActorInfo, ActivationInfo);
+		if (!CanCommittedAbility)
+		{
+			EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
+			return;
+		}
+		
+		const bool bAuthority = HasAuthority(&ActivationInfo);
+		FString Msg = FString::Printf(TEXT("在%s上激活GA_Combo技能!"), bAuthority ? TEXT("服务器") : TEXT("客户端"));
+		UE_LOG(LogTemp, Warning, TEXT("%s"), *Msg);
+		
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
+	}
+\end{code}
+
+从这个例子已经可以看出：\ci{ActorInfo} 主要被传给 \ci{CommitAbility(...)} 这类需要访问使用者上下文的函数，而 \ci{ActivationInfo} 则被传给 \ci{CommitAbility(...)}、\ci{EndAbility(...)}、\ci{HasAuthority(...)} 这类需要判断本次激活状态、权限或预测信息的函数。
+
+\subsection{\ci{FGameplayAbilityActorInfo} 的定位：Ability 的“宿主上下文”}
+
+\ci{FGameplayAbilityActorInfo} 可以理解为 Ability 运行时所依附的“参与者信息包”。它的核心任务不是描述技能本身，而是描述“是谁在使用这个技能，以及系统已经为这个使用者缓存了哪些关键对象”。因此，它本质上是一个运行期上下文结构，而不是一个单纯的数据配置结构。
+
+在 GAS 中，一个 Ability 并不是孤立执行的。它总是附着在某个 \ci{ASC}（技能组件，Ability System Component） 上，而这个组件又与特定 Actor 体系相关联。为了避免 Ability 每次执行时都自行查找 Owner、Avatar、Controller、AnimInstance、MovementComponent 等对象，GAS 会把这些常用对象\textbf{缓存}进 \ci{FGameplayAbilityActorInfo} 中，并在 Ability 执行时将它传入。因此，这个结构的核心价值是：为 Ability 提供一个统一、稳定、低成本访问的“宿主对象入口”。
+
+从语义上看，\ci{FGameplayAbilityActorInfo} 中通常会包含如下几类信息\footnote{具体成员名称会随引擎版本略有差异，但语义基本稳定}：
+\begin{itemize}
+	\item \ci{OwnerActor}：Ability 的拥有者，即逻辑上的归属对象；
+	\item \ci{AvatarActor}：Ability 当前所驱动或附着的实体对象，通常是具有物理表现的 Actor；
+	\item \ci{PlayerController}：若由玩家控制，则这里可能缓存对应控制器；
+	\item \ci{ASC}：当前 Ability 所属的 ASC；
+	\item \ci{AnimInstance}：与 Avatar 相关联的动画实例；
+	\item \ci{MovementComponent}：与移动相关的组件；
+	\item 其他与角色执行能力相关的缓存对象。
+\end{itemize}
+
+这里最需要区分的是 \ci{OwnerActor} 与 \ci{AvatarActor}。
+
+\ci{OwnerActor} 表示“谁拥有这个 Ability”。它更强调逻辑归属。例如，一个玩家状态对象、控制器对象或者某个逻辑宿主可能是 Ability 的 Owner。相对地，\ci{AvatarActor} 表示“谁在世界中实际表现和执行这个 Ability”。对于人物技能来说，\ci{AvatarActor} 往往就是角色本体；而在一些复杂系统中，Owner 和 Avatar 可以不是同一个对象。
+
+因此，可以用如下方式理解：
+
+\begin{itemize}
+	\item \ci{OwnerActor}：逻辑归属者；
+	\item \ci{AvatarActor}：物理执行者 / 世界中的表现体。
+\end{itemize}
+
+在 \ci{GameplayAbility.h} 中，这种区分也直接体现在若干辅助函数上，例如：
+
+\begin{code}
+	AActor* GetOwningActorFromActorInfo() const;
+	AActor* GetAvatarActorFromActorInfo() const;
+	UAbilitySystemComponent* GetAbilitySystemComponentFromActorInfo() const;
+	USkeletalMeshComponent* GetOwningComponentFromActorInfo() const;
+\end{code}
+
+这说明 \ci{FGameplayAbilityActorInfo} 的设计目标之一，就是让 Ability 能以统一接口访问运行时上下文，而不是手动从不同对象中层层查找。
+
+\subsection{为什么 \ci{ActorInfo} 在 Ability 中如此重要}
+\ci{FGameplayAbilityActorInfo} 的重要性在于，Ability 的大部分实际行为最终都要落到“谁来执行”和“对谁施加影响”上。例如：
+
+\begin{itemize}
+	\item 判断当前角色是否由本地玩家控制；
+	\item 获取当前角色的骨骼网格，用于播放动画或取 Socket；
+	\item 获取 \ci{ASC} 以施加 GameplayEffect；
+	\item 获取角色当前位置、朝向、控制器或移动组件；
+	\item 区分逻辑拥有者与世界中的执行体。
+\end{itemize}
+
+如果没有 \ci{ActorInfo}，那么每一个 Ability 在激活时都必须自行解析这些对象，不仅代码冗长，而且容易出现上下文不一致的问题。通过 \ci{ActorInfo}，GAS 将这些高频访问对象统一封装进一个上下文结构中，从而使 Ability 的实现更接近“面向能力逻辑编写”，而非“面向宿主结构查找编写”。
+
+在你的 \ci{GA_Combo.cpp} 中，\ci{CommitAbility(Handle, ActorInfo, ActivationInfo)} 就是一个很典型的例子。之所以 \ci{CommitAbility} 需要接收 \ci{ActorInfo}，就是因为它在执行资源消耗、冷却应用、标签检查等逻辑时，必须知道“是谁在提交这次技能”，以及“应当通过哪个 ASC、哪个宿主上下文来完成这些操作”。
+
+\subsection{\texttt{FGameplayAbilityActivationInfo} 的定位：本次激活的“执行状态包”}
+如果说 \ci{FGameplayAbilityActorInfo} 描述的是“参与执行的对象是谁”，那么 \ci{FGameplayAbilityActivationInfo} 描述的就是“这次 Ability 激活事件本身处于什么状态”。
+
+它关注的重点不是宿主对象，而是 Ability 作为一次激活行为，在当前网络环境与执行流程中具有什么语义。例如：
+
+\begin{itemize}
+	\item 这次激活是预测执行还是权威执行；
+	\item 当前是否已经获得确认；
+	\item 是否带有有效的预测 Key；
+	\item 本次激活在复制与同步层面处于何种模式。
+\end{itemize}
+
+因此，\ci{FGameplayAbilityActivationInfo} 可以理解为一次 Ability 激活实例的“\emph{元信息}描述”。它不告诉你角色是谁，但它告诉你：这次技能是以什么方式被激活的，这对权限判断、预测回滚、客户端-服务器同步都有决定性影响。
+
+从语义上看，这个结构通常围绕以下几类概念组织：
+
+\begin{itemize}
+	\item \ci{ActivationMode}：本次激活所处的模式；
+	\item \ci{PredictionKeyWhenActivated}：激活时关联的预测 Key；
+	\item 与服务器确认、客户端预测、本地执行有关的状态信息。
+\end{itemize}
+
+在 GAS 的网络模型中，Ability 激活并不总是单纯的“服务器立即执行”。根据 Ability 的网络策略，它有可能：
+
+\begin{itemize}
+	\item 由服务器权威执行；
+	\item 由客户端进行预测执行，随后等待服务器确认；
+	\item 由本地直接执行；
+	\item 在远端副本上以同步状态继续存在。
+\end{itemize}
+
+这些信息都不会写在 \ci{ActorInfo} 中，因为它们并不属于“谁在使用技能”的宿主语义，而属于“这次激活在网络和执行层面是什么性质”的语义。因此，GAS 将它们放进 \ci{ActivationInfo}。
+
+\subsection{如何理解 \ci{ActivationMode}}
+
+虽然具体枚举定义可能位于引擎其他头文件中，但从设计上说，\ci{ActivationMode} 可以理解为“本次 Ability 激活当前处于哪一种执行状态”。常见的理解方式包括：
+
+\begin{itemize}
+	\item 权威激活：由服务器作为真正权威来执行；
+	\item 预测激活：客户端先行执行，等待服务器确认；
+	\item 确认后的继续执行：原本是预测激活，随后被服务器确认；
+	\item 非激活状态或无效状态：当前并不处于一次有效激活中。
+\end{itemize}
+
+其本质作用是帮助 GAS 区分：当前 Ability 的执行是否具有服务器权威、是否是客户端预测、以及在后续逻辑中应如何处理复制与回滚。
+
+这也是为什么在你的 \ci{GA_Combo.cpp} 中，\ci{HasAuthority(\&ActivationInfo)} 需要读取 \ci{ActivationInfo} 的原因。因为“是否具有权威”并不是简单看某个对象是不是服务器就够了，还要结合这次 Ability 激活的上下文状态来判断。也就是说，\ci{ActivationInfo} 参与描述的是“这次激活在当前网络语义上是否被视为权威执行”。
+
+\subsection{\ci{PredictionKey} 的意义}
+
+\ci{FGameplayAbilityActivationInfo} 的另一个关键概念是预测 Key。它的用途在于支持 GAS 的客户端预测机制。
+
+在网络游戏中，如果每次技能释放都严格等待服务器确认后才开始表现，那么本地玩家会明显感受到输入延迟。为了解决这一问题，GAS 允许客户端在某些策略下先行预测执行 Ability，例如先播放动画、先显示特效、先进入局部技能状态，然后再等待服务器返回确认结果。
+
+但客户端的“先做一步”必须能够被追踪，否则系统无法知道哪些行为是“预测结果”，哪些行为已经被服务器正式认可。预测 Key 正是用来标识这一过程的关键数据。它可以让客户端和服务器在后续同步时对上“同一次预测激活”，从而完成确认、修正或回滚。
+
+因此，从语义上说：
+
+\begin{itemize}
+	\item \ci{ActorInfo} 解决的是“谁在执行”；
+	\item \ci{ActivationInfo} 中的 \ci{PredictionKey} 解决的是“这次激活如何在网络中被追踪与确认”。
+\end{itemize}
+
+\subsection{\ci{ActorInfo} 与 \ci{ActivationInfo} 的根本区别}
+
+这两个结构最容易混淆的地方在于：它们都会作为 \ci{ActivateAbility(...)} 的参数传入，而且都属于“上下文”。但实际上，它们属于两个完全不同的维度。
+
+\ci{FGameplayAbilityActorInfo} 面向的是“宿主对象与执行参与者”。它关注的是角色、控制器、ASC、动画实例、移动组件等运行对象。换句话说，它提供的是“对象上下文”。
+
+而 \ci{FGameplayAbilityActivationInfo} 面向的是“这次激活本身的状态”。它关注的是本次 Ability 激活处于什么网络语义、是否预测、是否确认、带有什么预测 Key。换句话说，它提供的是“激活状态上下文”。
+
+可以用一个非常简洁的对照来总结：
+
+\begin{itemize}
+	\item \ci{ActorInfo}：谁在放技能；
+	\item \ci{ActivationInfo}：这次技能是以什么方式被放出来的。
+\end{itemize}
+
+或者更完整一点：
+
+\begin{itemize}
+	\item \ci{ActorInfo} 回答“参与者是谁、有哪些对象可用”；
+	\item \ci{ActivationInfo} 回答“这次激活在网络与执行语义上是什么状态”。
+\end{itemize}
+
+\subsection{在 \ci{GA_Combo.cpp} 中这两个参数分别在做什么}
+
+回到你当前的 \ci{GA_Combo.cpp}，函数实现如下：
+
+\begin{code}
+	const bool CanCommittedAbility = CommitAbility(Handle, ActorInfo, ActivationInfo);
+	if (!CanCommittedAbility)
+	{
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
+		return;
+	}
+	
+	const bool bAuthority = HasAuthority(&ActivationInfo);
+\end{code}
+
+这里可以非常清楚地看到二者职责的分工。
+
+首先，\ci{CommitAbility(...)} 同时需要 \ci{ActorInfo} 和 \ci{ActivationInfo}。这是因为提交技能时既需要知道“谁在提交这次技能”（例如通过哪个 ASC 去扣资源、施加冷却、查询标签），又需要知道“这次提交是在什么激活语义下进行的”（例如当前是否具有合法的预测上下文、是否允许作为本次激活的一部分被正式提交）。
+
+其次，\ci{HasAuthority(\&ActivationInfo)} 只显式使用了 \ci{ActivationInfo}。这反映出权限判断在 Ability 语义里并不只是“拿到一个 Actor 看它是不是服务器控制的”这么简单，而是要结合当前激活实例的执行模式来判断这次 Ability 的权威性。
+
+最后，\ci{EndAbility(Handle, ActorInfo, ActivationInfo, true, false)} 同样同时需要二者。结束 Ability 时，系统既要知道“结束的是谁的 Ability”，也要知道“结束的是哪一种激活状态下的 Ability 实例”。这再次体现了对象上下文与激活状态上下文是并行存在、互相配合的。
+
+\subsection{如何把这两个结构记牢}
+
+学习这两个结构时，最有效的方式不是死记成员，而是建立稳定的语义映射。
+
+可以把 \ci{FGameplayAbilityActorInfo} 记成：	\textbf{Ability 所依附角色体系的一组缓存对象。}
+它偏向“对象层面”，描述的是宿主、执行者、控制器、ASC、动画实例、移动组件等。
+
+可以把 \ci{FGameplayAbilityActivationInfo} 记成：	\textbf{本次 Ability 激活行为在网络与执行层面的状态描述。}
+它偏向“状态层面”，描述的是激活模式、预测信息、确认语义等。
+
+如果再进一步压缩为最实用的记忆方式，那么就是：
+
+\begin{itemize}
+	\item \ci{ActorInfo}：对象上下文；
+	\item \ci{ActivationInfo}：激活状态上下文。
+\end{itemize}
+
+\subsection{一个简化的结构理解图}
+
+如果用概念图来表示，两者可以粗略理解为：
+
+\begin{code}
+	Ability Execute Context
+	├── ActorInfo
+	│   ├── OwnerActor
+	│   ├── AvatarActor
+	│   ├── PlayerController
+	│   ├── AbilitySystemComponent
+	│   ├── AnimInstance
+	│   └── MovementComponent
+	└── ActivationInfo
+	├── ActivationMode
+	├── PredictionKey
+	└── 网络/确认相关状态
+\end{code}
+
+这个图并不是引擎源码中的严格字段定义，而是一个非常适合记忆的“语义分层图”。它能帮助你快速判断：某个逻辑到底应当从 \ci{ActorInfo} 里取，还是从 \ci{ActivationInfo} 里取。
+
+\subsection{在实际编写 Ability 时的使用原则}
+
+在实践中，可以遵循如下原则。
+
+当你关心的是“\emph{当前 Ability 的宿主是谁、控制器是谁、角色本体是谁、ASC 是谁、动画实例是谁}”时，应优先考虑 \ci{ActorInfo}。例如：
+\begin{itemize}
+	\item 获取当前角色；
+	\item 获取控制器；
+	\item 获取骨骼组件；
+	\item 获取 AbilitySystemComponent；
+	\item 获取本地控制状态。
+\end{itemize}
+
+当你关心的是“\emph{这次 Ability 激活是否具有权威、是否为预测执行、是否拥有合法的预测 Key、这次激活当前处于什么模式}”时，应优先考虑 \ci{ActivationInfo}。例如：
+\begin{itemize}
+	\item 判断本次 Ability 是否在权威端执行；
+	\item 判断客户端预测是否合法；
+	\item 让 \ci{CommitAbility}、\ci{EndAbility} 等函数在正确的激活上下文中执行；
+	\item 处理客户端预测与服务器确认的关系。
+\end{itemize}
+
+\subsection{小结}
+\ci{FGameplayAbilityActorInfo} 与 \ci{FGameplayAbilityActivationInfo} 分别承担了 GAS Ability 运行时上下文中的两个核心维度。
+
+\ci{FGameplayAbilityActorInfo} 提供的是对象层面的执行上下文：谁拥有 Ability，谁在世界中执行 Ability，AbilitySystemComponent 是什么，控制器、动画实例与移动组件分别是什么。它解决的是“谁在用这个 Ability，以及系统已经为 Ability 缓存了哪些宿主对象”。
+
+\ci{FGameplayAbilityActivationInfo} 提供的是状态层面的激活上下文：这次 Ability 激活在网络与执行语义上处于什么模式，是否属于预测执行，是否具有预测 Key，以及是否已经进入被确认的状态。它解决的是“这次 Ability 是以什么执行语义被激活的”。
+
+若用一句话概括二者的区别，则可以写成：
+
+\begin{marker}
+	\ci{FGameplayAbilityActorInfo} 描述“谁在执行技能”，而 \ci{FGameplayAbilityActivationInfo} 描述“这次技能是以什么状态被执行的”。
+\end{marker}
+
+若结合你的 \ci{GA_Combo.cpp} 来理解，则可以进一步概括为：
+
+\begin{marker}
+	\ci{ActorInfo} 让 \ci{CommitAbility(...)} 和 \ci{EndAbility(...)} 知道该作用于哪个宿主体系，\ci{ActivationInfo} 则让这些函数知道本次 Ability 激活在网络与执行层面处于何种语义。
+\end{marker}
+
+
+
+\section{在技能中播放动画蒙太奇}
+
+本节目标，是将前面仅用于打印日志的连招能力（Combo Ability）升级为真正能够播放攻击动画的 Gameplay Ability，并且让该动画在多人联机场景下也能正确同步。整节内容围绕 ``在 GAS 中通过 Ability Task 播放 Animation Montage'' 这一主题展开，同时也补充了动画蓝图、Montage Slot、多播同步以及能力结束时机等一系列关键知识点。
+
+\subsection{目标：让连招能力真正播放动画}
+
+视频开头指出，当前的 Combo Ability 还只是逻辑层面的触发，没有实际表现，因此本节的目标是让角色在触发连招能力时，真正播放一段攻击动画，也就是所谓的 Combo Animation。为此，作者回到 C++ 代码中，准备在连招能力类里新增一个用于保存动画蒙太奇资源的属性。
+
+具体做法是在 Combo Ability 的头文件中新增一个私有成员，并使用 Unreal 的属性系统进行修饰。这个属性类型是 ``UAnimMontage''，变量名为 ``ComboMontage''，使用 ``EditDefaultsOnly'' 暴露给蓝图默认值设置，分类放在 ``Animation'' 下。这样一来，这个能力类本身就具备了引用某个 Montage 资源的能力，后续便可以在蓝图子类中直接指定要播放的具体动画。
+
+\subsection{使用 Ability Task 播放 Montage}
+本节最关键的技术点：在 Gameplay Ability 内，不是直接手写角色播放动画的逻辑，而是通过 GAS 提供的 Ability Task 来完成 Montage 播放。这里使用的任务类是 ``\ci{UAbilityTask\_PlayMontageAndWait}''。
+
+Ability Task：它是在 Ability 激活期间运行的一类任务对象。某些任务是一次性的，而另一些任务可能会在一段时间内持续运行，并监听某些事件。它们最大的优点是生命周期与 Ability 本身绑定，也就是说当 Ability 结束时，这些任务也会自动结束并由系统管理，不需要开发者手动销毁或维护资源。
+
+在实现层面， 函数``\ci{UAbilityTask\_PlayMontageAndWait::CreatePlayMontageAndWaitProxy}'' 用来创建任务实例。这个过程本质上类似工厂模式：通过类上的静态函数生成任务对象，并把传入的参数写入对象内部。这里最基本需要传入的参数包括：
+\begin{itemize}
+	\item 当前 Ability 自身；
+	\item 一个任务实例名（如果不关心可以传 ``NAME\_None''）；
+	\item 要播放的 Montage，也就是前面新增的 ``ComboMontage''。
+\end{itemize}
+
+任务创建出来后，并不会自动开始执行，还必须显式调用 ``ReadyForActivation()''。作者特别强调，这一步非常重要；如果省略，那么任务虽然被创建了，但实际上不会真正开始工作，也就不会有任何动画播放效果。
+
+\subsection{多人联机中的权限与预测处理}
+为了确保这个动画播放逻辑能正确适配多人游戏，加入了网络权限判断。没有仅仅使用简单的 ``HasAuthority()''，而是采用了更适合 GAS 预测机制的 ``\ci{HasAuthorityOrPredictionKey}'' 检查方式。
+
+这个判断需要传入 ``\ci{ActorInfo}'' 和 ``\ci{ActivationInfo}''。由于函数里拿到的 ``ActivationInfo'' 不是指针，因此调用时需要传它的地址。作者解释，这个条件允许动画播放逻辑出现在两个位置：
+\begin{itemize}
+	\item 服务端：服务端具有真正的 Authority，由它发起 Montage 播放后，Ability Task 能够帮助将该播放行为同步到其他客户端；
+	\item 本地预测端：也就是拥有 Prediction Key 的那个客户端，通常是施放技能的本地玩家。这样玩家在本地输入后就可以立刻看到动画，而不用等服务端返回结果再表现，手感会更流畅。
+\end{itemize}
+这里作者也补充了对 Prediction 的看法：预测机制并不适合所有行为，最好只用于那些即使预测错误也不会造成严重问题的内容，尤其是偏表现层、偏 Cosmetic 的东西。播放动画显然属于比较适合预测的一类，因此在这里使用 Prediction Key 是合理的。
+
+\subsection{监听 Montage 结束事件并自动结束 Ability}
+
+仅仅播放动画还不够，Ability 还需要在合适的时间结束。为此，作者进一步给 ``PlayMontageAndWait'' 任务绑定多个委托事件，使得动画一旦结束、取消、被打断或中止，都能触发能力结束。
+
+作者演示了通过 ``AddDynamic'' 将这些事件绑定到 ``K2\_EndAbility''。这里使用的是蓝图包装版本的结束函数，而不是直接使用纯 C++ 的 ``EndAbility''。作者解释说，这些 ``K2'' 系列函数本质上只是对底层逻辑做了一层蓝图友好的封装，内部核心行为基本一致，还带有一些存在性检查，因此直接使用它们也很方便。
+
+绑定的事件包括：
+
+\begin{itemize}
+	\item OnBlendOut：动画开始 Blend Out 时结束 Ability；
+	\item OnCompleted：动画正常播放完成时结束 Ability；
+	\item OnInterrupted：动画被打断时结束 Ability；
+	\item OnCancelled：动画被取消时结束 Ability。
+\end{itemize}
+
+作者说明，这样处理的意义在于，不论 Montage 是自然播完，还是被其他行为打断，例如角色攻击时被打出受击动画，当前连招能力都能被及时结束。这种行为对动作游戏、MOBA 或 ARPG 一类玩法都非常重要，因为技能被打断后，其能力状态也应该同步中止。
+
+\subsection{Ability Task 在动画播放中的便利性}
+
+视频特别强调，使用 ``PlayMontageAndWait'' 的好处远不止是“少写几行代码”。它实际帮开发者处理了很多原本比较麻烦的事情，例如：
+
+\begin{itemize}
+	\item 自动找到目标角色的 Skeletal Mesh；
+	\item 自动接入动画蓝图；
+	\item 自动在联机中同步 Montage 播放；
+	\item 自动随着 Ability 生命周期结束；
+	\item 自动暴露多种播放状态事件，方便衔接 Ability 结束或后续逻辑。
+\end{itemize}
+
+作者指出，如果完全不用 GAS 提供的 Ability Task，而是从底层手写网络同步、RPC、Montage 播放与生命周期管理，那么实现起来会复杂很多。因此这里的做法不仅是“能用”，更是符合 GAS 设计思路的标准方式。
+
+\subsection{编译后创建蓝图能力子类}
+
+完成 C++ 层逻辑后，作者进行编译，并回到 Unreal 编辑器中，准备创建该能力的蓝图子类。因为前面只是在 C++ 中定义了 Montage 属性和播放逻辑，但具体播放哪一个动画资源，还需要在蓝图中赋值。
+
+作者在 Gameplay Ability 相关目录下新建 ``Combo'' 文件夹，然后通过 Gameplay Ability Blueprint 菜单，以 C++ 的 ``GA\_Combo'' 为父类创建蓝图类，命名为类似 ``GA\_Combo\_Crunch\_BP'' 的资源。这样就得到一个具体可配置的 Ability 蓝图实例，可以用于真正挂到角色身上。
+
+随后，作者还将角色或玩家配置中原本引用的旧能力替换成这个新的蓝图能力子类，确保游戏运行时实际使用的是带有动画资源配置的版本，而不是裸的 C++ 类。
+
+\subsection{创建 Animation Montage 资源}
+
+有了 Ability 蓝图之后，下一步就是创建真正要播放的动画蒙太奇资源。作者在内容浏览器中新建 ``Animations'' 文件夹，并基于角色的 Skeleton 创建一个 Animation Montage，命名类似 ``AM\_Combo\_Crunch''。
+
+作者顺带简要解释了 Montage 的概念：它可以理解为一种更高级的动画片段容器，不只是单一动画序列，还支持多个 Section、跳转、切换、混合等能力，非常适合做技能攻击、连招、受击等需要灵活控制的动画逻辑。本节暂时只做最基本使用，即往 Montage 里拖入一个攻击动作片段，例如 ``Ability Combo 1''，让这个 Montage 目前只包含一个动作片段。
+
+这样，前面 Ability 里保存的 ``ComboMontage'' 属性，之后就可以指向这个新建的 Montage 资源。
+
+\subsection{配置动画蓝图中的 Slot}
+
+仅仅创建 Montage 还不能保证动画一定能播出来，因为 Montage 播放依赖动画蓝图中的 Slot 节点。作者指出，当前创建的 Montage 默认使用的是 ``DefaultGroup.DefaultSlot''。当 GAS 或角色逻辑尝试播放这个 Montage 时，会去动画蓝图里寻找对应的 Slot 节点。
+
+如果动画蓝图里没有这个 Slot，那么 Montage 即使被触发，也可能没有正确输出到最终姿势。为了解决这个问题，作者进入角色的 Animation Blueprint，在 Anim Graph 中插入一个 ``Slot'' 节点，并使用默认插槽，然后把它接入原本的姿势流中，位置放在某个控制节点之前。
+
+作者解释，Montage 播放时，本质上就是在这个 Slot 上进行覆盖和混合：系统会将当前已有动画状态机产生的姿势，和 Montage 提供的动画片段进行切换或叠加，等 Montage 播放结束后再平滑 Blend Out 回原本的动画流程。这也是 Montage 非常适合临时播放攻击动作、技能动作的原因。
+
+\subsection{将 Montage 指定给 Ability 并测试效果}
+
+完成以上准备后，作者回到刚创建的 Ability 蓝图中，把 ``ComboMontage'' 属性赋值为前面创建的 ``AM\_Combo\_Crunch''。至此，整个链条就打通了：
+
+\begin{itemize}
+	\item 玩家触发 Combo Ability；
+	\item Ability 内创建 ``PlayMontageAndWait'' 任务；
+	\item 任务播放设定好的 Montage；
+	\item 动画蓝图中的 Slot 接收 Montage 并在角色身上表现出来；
+	\item Montage 播完或被中止时自动结束 Ability。
+\end{itemize}
+
+随后作者运行游戏并测试左键攻击，可以看到角色已经能够正常播放连招攻击动画，不再只是输出日志信息。这说明本节的主要目标已经实现。
+
+\subsection{联机测试：动画能否同步到其他玩家}
+
+为了进一步验证实现是否适合多人游戏，作者切换到 Listen Server 模式并开启多个玩家实例进行测试。测试结果表明：当一个角色触发该 Combo Ability 时，不仅本地能立即看到动画，其他客户端以及服务端视角下也都能看到角色播放该 Montage。
+
+作者再次强调，这种同步效果并不是手写 RPC 实现的，而是 GAS 的 Ability Task 已经帮忙处理了大部分网络同步相关事务。这正好印证了前面关于 ``HasAuthorityOrPredictionKey'' 与 ``PlayMontageAndWait'' 的设计意义：服务端负责权威同步，本地拥有 Prediction Key 的玩家负责即时反馈，两者结合后既兼顾正确性，也兼顾手感。
+
+\subsection{当前实现存在的问题}
+
+虽然现在已经实现了动画播放，但作者也指出当前版本还存在一个明显问题：玩家可以连续快速点击，从而不断重新触发这个 Ability，导致 Montage 反复重启，角色出现一种不自然的“抖动”或“抽搐式”攻击表现。
+
+其根本原因在于，Ability 允许被过快重新激活，而当前 Montage 的 Blend Out 和 Ability End 又会使能力很快进入可再次触发的状态。这样玩家如果不断点击，就会反复打断当前播放并重新开始新的 Montage，最终造成视觉上的异常。
+
+这说明当前只是完成了“能播动画”这一阶段，尚未完成“真正稳定的连招系统”。因此，作者在结尾预告下一节将继续解决两个重要问题：
+
+\begin{itemize}
+	\item 增加阻断机制，防止 Ability 在不合适的时机被立刻重新触发；
+	\item 在 Montage 中加入更多动作片段或后续逻辑，使其真正发展为多段连招，而不是只播一段单独攻击动画。
+\end{itemize}
+
+\subsection{本节的整体意义}
+
+从整节内容来看，这一课的价值不仅在于“给连招加了一个动画”，更在于它搭建起了 GAS 连招能力、Animation Montage、Ability Task、动画蓝图 Slot 以及多人同步之间的完整工作链路。通过这一课，学习者可以理解：
+
+\begin{itemize}
+	\item Gameplay Ability 不只是处理技能判定，也非常适合驱动表现逻辑；
+	\item Ability Task 是 GAS 内实现异步行为、持续行为和事件监听的核心工具；
+	\item Montage 是实现技能动作、攻击动作和连招系统的重要动画载体；
+	\item 动画蓝图中的 Slot 是 Montage 能否生效的关键接点；
+	\item 联机下的 Authority 与 Prediction Key 共同决定了表现的同步与即时性；
+	\item Ability 的结束时机应与动画生命周期紧密绑定，才能保证逻辑一致。
+\end{itemize}
+
+
+
+
+
+
+\section{\texttt{HasAuthorityOrPredictionKey} 的语义、判定逻辑与作用}
+
+在 GAS 中，\ci{HasAuthorityOrPredictionKey} 是一个非常关键、但又特别容易被误解的函数。它的名字表面上看像是在做一个简单的布尔判断：是否“有 Authority 或者有 PredictionKey”。但在真实语义上，它的作用远不止“检查两个条件之一是否为真”，而是用于\emph{回答一个更本质的问题}：\textbf{当前这次 Ability 执行，是否具备“可以合法推进关键游戏逻辑”的资格。}
+
+换句话说，\ci{HasAuthorityOrPredictionKey} 不是单纯在问“我是服务器吗”，也不是单纯在问“我有没有一个 Key”，而是在问：\textbf{当前执行方是否拥有足够的执行权，使它可以安全地进行那些会影响游戏状态的 Ability 逻辑。}
+\begin{code}[caption={函数声明:\texttt{HasAuthorityOrPredictionKey}}]
+	bool HasAuthorityOrPredictionKey(const FGameplayAbilityActorInfo* ActorInfo, 
+	const FGameplayAbilityActivationInfo* ActivationInfo) const;
+\end{code}
+从接口签名就可以看出，它同时依赖两类上下文：
+\begin{itemize}
+	\item \ci{ActorInfo}：描述“是谁在执行 Ability，以及宿主对象是什么”；
+	\item \ci{ActivationInfo}：描述“这次 Ability 激活在网络与执行语义上处于什么状态”。
+\end{itemize}
+
+这说明它并不是一个脱离上下文的全局权限判断，而是一个“基于 Ability 宿主与当前激活状态”的执行资格判断。
+
+\paragraph{为什么不能只检查 \ci{HasAuthority}}
+
+在普通网络编程语境中，很多人会先想到“只要判断当前是不是服务器不就行了吗”。例如：
+\begin{code}
+	if (HasAuthority()) {
+		// 执行逻辑
+	}
+\end{code}
+但 GAS 与普通的纯服务器驱动逻辑不同。GAS 为了改善手感，\emph{支持客户端预测（prediction）}。在某些 Ability 的网络策略下，客户端并不会完全等待服务器批准后再开始技能，而是会先做一部分“预测性执行”。例如：
+
+\begin{itemize}
+	\item 先播放攻击动画；
+	\item 先开始冲刺表现；
+	\item 先进入技能的本地执行状态；
+	\item 先局部创建与技能相关的预测表现。
+\end{itemize}
+
+如果此时仍然只用“是不是服务器”作为唯一准绳，那么客户端预测执行就根本无法开展。因为客户端显然不是 Authority，但它在某些情况下又确实应当被允许执行部分 Ability 逻辑。
+
+于是，GAS 需要一个更精细的判断标准：
+\begin{itemize}
+	\item 如果当前执行方是服务器，那么当然允许推进关键逻辑；
+	\item 如果当前执行方不是服务器，但它拥有一个合法的预测 Key，那么它也应当被允许推进“可预测的那一部分逻辑”。
+\end{itemize}
+
+这正是 \ci{HasAuthorityOrPredictionKey} 存在的根本原因。
+
+\paragraph{函数名如何拆开理解}
+
+函数名 \ci{HasAuthorityOrPredictionKey} 可以拆成两部分理解：
+
+\begin{itemize}
+	\item \ci{HasAuthority}：当前是否处于权威执行侧，通常是服务器；
+	\item \ci{PredictionKey}：当前是否拥有一个合法的预测上下文，使客户端可以作为“预测执行者”继续推进 Ability。
+\end{itemize}
+
+因此，这个函数表达的是：\textbf{只要当前是权威端，或者当前拥有合法预测资格，就允许继续执行后续 Ability 逻辑。}
+
+
+它的逻辑本质不是“二选一的普通布尔条件”，而是“两个都可以成为 Ability 合法执行来源的授权入口”：
+
+\begin{itemize}
+	\item 服务器是正式权威入口；
+	\item 合法预测 Key 是客户端预测入口。
+\end{itemize}
+
+\paragraph{这个函数到底在保护什么}
+\ci{HasAuthorityOrPredictionKey} 的作用，是保护那些“会影响 Ability 关键执行状态”的逻辑，使这些逻辑只在合法执行方发生。这里所谓“关键逻辑”，通常包括：
+
+\begin{itemize}
+	\item 推进技能真正的执行流程；
+	\item 创建 Ability Task 并启动；
+	\item 播放 Ability 相关 Montage；
+	\item 提交技能逻辑中的关键状态；
+	\item 触发会被网络同步或会影响后续流程的 Ability 行为。
+\end{itemize}
+
+换句话说，这个函数不是为了限制所有逻辑，而是为了限制那些“需要合法执行资格才能发生”的逻辑。
+
+可以把它理解成 GAS 中的一道“执行门禁”：	\textbf{只有服务器，或者拥有合法预测资格的客户端，才能通过这道门。}
+
+\paragraph{\texttt{Authority} 与 \texttt{PredictionKey} 各自意味着什么}
+
+\subparagraph{(1) \texttt{Authority}}
+
+\ci{Authority} 表示当前逻辑处于权威执行端。通常来说，这意味着服务器拥有最终决定权。服务器可以：
+
+\begin{itemize}
+	\item 最终确认 Ability 是否成立；
+	\item 最终决定技能效果是否生效；
+	\item 最终同步 Ability 状态给其他端；
+	\item 修正或拒绝客户端的预测结果。
+\end{itemize}
+
+因此，只要当前执行侧是 Authority，那么几乎总可以被认为“有资格推进 Ability 的核心逻辑”。
+
+\subparagraph{(2) \texttt{PredictionKey}}
+
+\ci{PredictionKey} 则是 GAS 客户端预测机制中的关键标识。它表示：\textbf{这次 Ability 的本地执行不是无来源的擅自操作，而是处于一个合法的、可追踪的预测上下文中。}
+
+这很重要。因为客户端如果只是“本地想做什么就做什么”，那会严重破坏网络一致性。预测必须建立在 GAS 认可的预测窗口中，且必须有相应的 Key 供后续服务器确认或回滚时使用。
+
+因此，拥有 \ci{PredictionKey} 的客户端并不等于“和服务器拥有同样的权力”，而是意味着：
+\emph{客户端被暂时授权去推进那些允许预测的 Ability 逻辑，并且这些逻辑在系统中是可追踪、可确认、可修正的。}
+
+\paragraph{为什么函数同时需要 \texttt{ActorInfo} 与 \texttt{ActivationInfo}}
+
+这个函数的两个参数并不是多余的。
+
+\ci{ActorInfo} 描述 Ability 的宿主上下文，例如当前角色、当前 ASC、当前控制状态等。权限判断不可能完全脱离这些对象，因为“谁在执行”会影响 Ability 的执行资格。例如：
+
+\begin{itemize}
+	\item 当前是否由本地控制；
+	\item 当前是否依附于有效的 ASC；
+	\item 当前 Ability 是否运行在合理的宿主上下文中。
+\end{itemize}
+
+而 \ci{ActivationInfo} 则描述这次 Ability 激活本身的状态，例如它是否属于预测激活、是否携带有效预测 Key、当前激活模式如何等。没有这些信息，系统就无法判断“这次 Ability 是否处于合法预测窗口中”。
+
+因此，可以概括为：
+
+\begin{itemize}
+	\item \ci{ActorInfo} 解决“谁在执行”；
+	\item \ci{ActivationInfo} 解决“这次执行在网络语义上是否合法”。
+\end{itemize}
+
+\paragraph{如何从语义上近似理解它的内部逻辑}
+
+即使不直接展开引擎源码，从 GAS 的设计语义上，也可以将 \ci{HasAuthorityOrPredictionKey} 近似理解为如下判断：
+
+\begin{code}
+	bool HasAuthorityOrPredictionKey(ActorInfo, ActivationInfo)
+	{
+		return (当前是权威端 || 当前拥有合法的预测 Key);
+	}
+\end{code}
+
+但真正要强调的是，这个“合法预测 Key”不是随便一个布尔变量，而是与 Ability 激活上下文绑定的预测资格。这意味着：
+
+\begin{itemize}
+	\item 不是所有客户端都能返回真；
+	\item 不是只要本地执行了 Ability 就一定返回真；
+	\item 只有\textbf{处于合法预测窗口}中的客户端 Ability 激活，才可能满足该条件。
+\end{itemize}
+
+因此，这个函数本质上是在判断：
+\textbf{	当前这一端，是否拥有“权威资格”或“受系统承认的预测资格”。}
+
+\paragraph{代码片断解释}
+
+\begin{code}
+	auto PlayComboMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this, NAME_None, ComboMontage);
+	if (HasAuthorityOrPredictionKey(ActorInfo, &ActivationInfo))
+	{
+	}
+\end{code}
+
+这段代码的直觉含义可以理解为：\emph{只有当前 Ability 执行者具备“服务器权威”或“合法预测资格”，才允许继续推进这个连招蒙太奇相关的 Ability 逻辑。}
+
+这里为什么需要这一层判断？因为 Montage 播放虽然看起来像是“纯表现”，但在 Ability 体系中，它往往并不是一个完全无关紧要的视觉行为，而是 Ability 生命周期的重要组成部分：
+
+\begin{itemize}
+	\item 可能影响 Ability Task 的启动与结束；
+	\item 可能影响后续输入窗口；
+	\item 可能影响技能是否进入下一段连招；
+	\item 可能参与预测与服务器确认的同步。
+\end{itemize}
+
+因此，不是任意一端都应该随便推进这段逻辑。只有：
+\begin{itemize}
+	\item 服务器；
+	\item 或者拥有合法 PredictionKey 的本地预测客户端；
+\end{itemize}
+才有资格执行。
+
+\paragraph{与 \texttt{HasAuthority} 的区别}
+适用的语境不同。
+\begin{itemize}
+	\item \ci{HasAuthority} 回答的是：	\emph{当前是否是权威侧。}
+	它更偏向一个“纯权限”判断。
+	
+	\item  \ci{HasAuthorityOrPredictionKey} 回答的是：
+	\emph{当前是否具备合法推进 Ability 核心逻辑的资格。}
+	
+	它更偏向一个“Ability 执行资格”判断。
+	
+\end{itemize}
+因此，两者并不完全等价：
+
+\begin{itemize}
+	\item \ci{HasAuthority} 更严格，只认权威端；
+	\item \ci{HasAuthorityOrPredictionKey} 更符合 GAS 实战，因为它同时承认权威执行与合法预测执行。
+\end{itemize}
+
+可以将它们对比为：
+
+\begin{itemize}
+	\item \ci{HasAuthority}：只有服务器算“正式裁判”；
+	\item \ci{HasAuthorityOrPredictionKey}：服务器是正式裁判，但在特定时刻，持有有效凭证的客户端也可以先临时开工。
+\end{itemize}
+
+\paragraph{哪些场景通常会用到 \ci{HasAuthorityOrPredictionKey}}
+
+这个函数在 GAS 中尤其适合出现在以下场景：
+
+\begin{itemize}
+	\item Ability 激活后，需要推进一段可预测的技能逻辑；
+	\item 启动 Ability Task 前，希望确保当前执行方是合法的；
+	\item 播放 Montage、进入输入窗口、开始持续效果之前；
+	\item 执行既可能在服务器侧发生、也可能在本地预测客户端发生的 Ability 行为。
+\end{itemize}
+
+尤其是“客户端预测 + 服务器确认”的 Ability 里，这个函数几乎就是最典型的门槛判断之一。
+
+\paragraph{什么时候不该把它理解得过头}
+虽然 \ci{HasAuthorityOrPredictionKey} 非常重要，但也不能把它误解成“只要返回真，就什么都能做”。它并不是一个万能许可令。更准确地说：
+
+\begin{itemize}
+	\item 它只是说明当前 Ability 逻辑可以被合法推进；
+	\item 不代表所有网络副作用都一定应当立刻发生；
+	\item 不代表客户端预测出的所有结果都会最终被服务器接受；
+	\item 不代表不需要考虑 Ability 的网络执行策略与复制策略。
+\end{itemize}
+
+也就是说，这个函数保证的是“当前执行资格”，而不是“最终结果必然成立”。
+
+\paragraph{一个最实用的记忆方式}
+
+学习这个函数时，最容易记住的一句话是：
+
+\begin{quote}
+	\ci{HasAuthorityOrPredictionKey} 判断的不是“我是不是服务器”，而是“我现在有没有资格合法地推进这次 Ability 的关键逻辑”。
+\end{quote}
+
+如果再压缩一点，可以直接记成：
+
+\begin{quote}
+	\ci{Authority} 是正式执行资格，\ci{PredictionKey} 是受系统承认的临时预测执行资格。
+\end{quote}
+
+而 \ci{HasAuthorityOrPredictionKey} 就是在判断：
+
+\begin{quote}
+	当前是否至少拥有其中一种资格。
+\end{quote}
+
+\subsection{总结}
+
+\ci{HasAuthorityOrPredictionKey} 是 GAS 中专门服务于网络 Ability 执行资格判断的重要函数。它并不只是简单地组合“是否为服务器”与“是否存在 PredictionKey”两个条件，而是在 Ability 的宿主上下文与当前激活状态之上，判断当前执行方是否具备合法推进关键 Ability 逻辑的资格。
+
+它之所以重要，是因为 GAS 允许客户端预测执行，而客户端预测又必须被严格约束在“合法预测窗口”中。因此，服务器当然可以推进核心逻辑，但拥有合法预测 Key 的客户端在某些情况下也应当被允许推进 Ability 的可预测部分。正是在这个意义上，\ci{HasAuthorityOrPredictionKey} 成为了 GAS 中连接“权威执行”和“预测执行”的关键桥梁。
+
+若结合你当前的 `GA\_Combo.cpp` 来理解，则它的作用可以概括为：
+
+\begin{quote}
+	在启动连招 Montage 及其相关 Ability 流程之前，确认当前这一端是否拥有执行这段 Ability 关键逻辑的合法资格；这个资格要么来自服务器权威，要么来自客户端的合法预测上下文。
+\end{quote}
+
+\section{使用 Gameplay Tags 防止连招能力被重复触发}
+
+这一节主要解决当前连招系统中的一个明显问题：\emph{玩家连续快速点击鼠标左键时，攻击能力会被反复重新触发}，导致角色动作表现不自然，攻击还没真正完成就又开始下一次播放。这样不仅动画看起来很怪，也不符合连招应有的节奏。
+
+视频中先分析了两种解决思路。第一种是加\textbf{冷却时间}（Cooldown），这样能力在短时间内不能再次激活。但这种方式并不理想，因为连招可能有多个阶段，比如第一段、第二段、第三段，每一段持续时间并不完全一样，所以很难给出一个固定且合适的冷却时长。第二种方式是使用 \textbf{Gameplay Tags}，这也是本节最终采用的方法。
+
+Gameplay Tag 可以理解为一种更强的标签系统，它和普通 Tag 类似，都是给对象做标记，但 Gameplay Tag 更适合 GAS 使用。它有两个特点。第一，它支持层级结构，例如 ``\ci{Ability.BasicAttack}'' 中，``Ability'' 是父级，``BasicAttack'' 是子级。第二，它更适合做高效比较和网络传输，因此在能力系统里很常用。
+
+本节的\textbf{核心做法}是：给当前连招能力设置一个自己的标签，例如 ``Ability.BasicAttack''，然后再把同一个标签添加到 ``Block Abilities With Tag'' 中。这样一来，当这个能力已经处于激活状态时，它自己就会带着这个标签；而由于它又会阻止带有相同标签的能力再次触发，因此它实际上就把自己“锁住”了，直到当前能力结束后标签消失，下一次激活才会被允许。这样就实现了“攻击未完成时不能再次攻击”的效果。
+
+视频中先在蓝图里演示了这个机制。作者在能力蓝图的 Tags 分类下，先新增了一个 Gameplay Tag，并把它存到默认的 Gameplay Tags 配置文件中。标签命名为 ``Ability.BasicAttack''。然后将这个标签同时赋给 ``Ability Tags'' 和 ``Block Abilities With Tag''。完成后重新运行游戏，可以看到快速连续点击时，角色不会再不断重复触发攻击，必须等当前攻击结束后才能再次出拳。问题就被解决了。
+
+之后，视频又把这套配置从蓝图移动到了 C++ 中，目的是让逻辑更统一、更方便维护。作者新建了一个静态工具类，用来专门返回常用的 Gameplay Tag。例如定义一个静态函数，返回 ``Ability.BasicAttack'' 这个标签。这个函数内部通过 ``RequestGameplayTag'' 按文本名称获取对应标签。之所以做成函数，而不是直接写成静态变量，是因为 Gameplay Tag 系统需要等引擎相关模块初始化后才能安全获取；如果在静态初始化阶段就直接创建，可能会报错甚至崩溃。
+
+为了让这个工具类更符合 Unreal 的风格，作者最后让它继承自 Blueprint Function Library，并加上了 Unreal 需要的宏和生成头文件。虽然从纯 C++ 角度看，这一步不是绝对必要，但更符合 Unreal Engine 的习惯用法。
+
+接着，作者在 ``GA\_Combo'' 的构造函数里，使用这个静态工具类返回的标签，把同一个 ``Ability.BasicAttack'' 分别添加到 ``AbilityTags'' 和 ``BlockAbilitiesWithTag'' 中。这样能力类本身在 C++ 层就自动带有这些配置，不再依赖蓝图手动设置。重新编译并启动编辑器后，可以在蓝图实例中看到这两个标签已经自动存在，说明 C++ 配置生效了。
+
+本节还特别提醒了一个容易出错的点：代码中请求的 Gameplay Tag 文本，必须和配置文件中已经定义好的标签完全一致。如果配置文件里没有这个标签，或者字符串拼写不一致，那么运行时就会报错，提示找不到对应的 Gameplay Tag。也就是说，这里实际上有两处内容必须一一对应：一处是配置文件里的标签定义，另一处是 C++ 中请求该标签时写下的字符串。
+
+总的来说，这一节完成了一个很实用的优化：通过给能力添加标签并用同样的标签阻止再次激活，成功防止了连招能力在短时间内被重复触发。相比使用固定冷却时间，这种方式更灵活，也更适合多段连招场景。视频最后也预告了下一步要解决的新问题：角色在移动中攻击时会出现下半身滑步，因此下一节会继续处理动画分层，只让上半身播放攻击 Montage。
+
+
+
+
+\section{使用动画通知发送Gameplay 事件}
+\dashuline{核心实现}：自定义一个继承自 AnimNotify 的类，在 Notify 中用 AbilitySystemBlueprintLibrary 发送 Gameplay Event，并用 EventTag 作为监听标识。
+
+目标，是为连招能力建立一个基础的“信号机制”。当前的连招动画被统一放进一个 \ci{Montage} 中，并拆分为 \ci{Combo01} 到 \ci{Combo04} 四个段落。默认情况下，这些 \ci{Section} 会自动顺序衔接，因此角色会一路连续播放下去；先清除这些链接，让每一段默认只播放当前攻击，不自动进入下一段。
+
+\textbf{连招的核心控制思路}：在播放当前段时，预留一个可输入的时间窗口；如果玩家在该窗口内再次点击，就通知系统“下一段应该跳到哪个连招段”。这里需要记录“下一个连招是谁”，并在运行时驱动 \ci{Montage} 跳转，因此必须有一种从动画时间轴向能力系统发送信号的方式。
+
+为此引入了 \ci{Animation Notify}。它本质上是在动画时间轴某一时刻触发的通知点，可以像粒子特效那样在指定时间执行逻辑。本节不使用它播放特效，而是自定义一个新的 C++ 动画通知类 \ci{ANSendGameplayEvent}，专门负责在命中通知点时发送 \ci{Gameplay Event}。
+
+这个 \ci{Gameplay Event} 会先发送给角色，再由角色身上的 \ci{Ability System Component} 处理和广播；任何监听该事件的能力都可以作出反应，其中就包括当前的连招能力。
+
+实现上，这个通知类继承自 \ci{AnimNotify}，并重写 \ci{Notify} 函数；当时间轴执行到该通知时，就调用 \ci{UAbilitySystemBlueprintLibrary::SendGameplayEventToActor}，把事件发给 \ci{MeshComp} 的拥有者。
+
+事件传递的关键标识是 \ci{EventTag}。发送端必须指定一个 \ci{GameplayTag}，监听端也必须监听同一个标签，双方才能正确对接。因此，这个自定义通知类会额外暴露一个 \ci{FGameplayTag EventTag} 属性，供编辑器中配置。除了标签外，\ci{Gameplay Event} 还可以带一个 \ci{FGameplayEventData} 结构，用于传递施加者、来源、目标及其他上下文；不过本节暂时不使用这些附加数据，因为教程计划直接用“段落名”来表达下一个连招目标，后续再把这部分接上。
+
+整体来说，这一节完成的是连招输入驱动链路中的前半部分：先把 \ci{Montage} 分段并取消自动衔接，再创建一个可以在指定动画时刻向 \ci{GAS} 发送事件的动画通知，为后续“监听事件并决定跳转到下一段连招”打下基础。
+
+\textbf{一些想法：}
+\begin{enumerate}
+	\item 可以定义动画状态，因为动画状态有开始时间和结束时间，改写这个两个事件，可以控制下一招必须在规定时间段内完成连击。动画通知只有一个状态。
+	\item 角色动画的同步如果不正常，要保证服务器也运行相应的动画。
+	\begin{code}
+		GetMesh()->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
+	\end{code}
+	对于专业服务器(dedicated server)，因为没有Player，不需要渲染，有可能优化掉动画，因此动画通知有可能不会触发。这里强制在服务器端进行Tick刷新骨架的transform（无论是否渲染）。
+	\begin{marker}
+		做为一种优化，默认是关闭的。
+	\end{marker}	
+\end{enumerate}
+\section{对于蒙太奇的Tick Type 的位置与区别一些补充}
+
+\subsection*{1.\ \ Montage Tick Type 在哪里设置？}
+
+在 \textbf{Anim Montage 编辑器} 里：
+
+\begin{enumerate}[label=\arabic*.]
+	\item 打开你的 \texttt{Montage}
+	\item 在时间轴上选中某个 \texttt{Notify}、\texttt{Notify State} 或 Montage 事件点
+	\item 查看右侧 \texttt{Details} 面板
+	\item 在对应设置里可以看到 \texttt{Montage Tick Type}
+\end{enumerate}
+
+它是 \textbf{这个 Notify 事件本身的属性}，不是整个 Montage 的全局属性。
+
+\subsection*{2.\ \ 底层定义在哪里？}
+
+从引擎代码角度看，它本质上是：
+
+\begin{itemize}
+	\item \texttt{FAnimNotifyEvent} 上的一个字段：\texttt{MontageTickType}
+	\item 类型是一个枚举：\texttt{EMontageNotifyTickType}
+\end{itemize}
+
+你可以把它理解成：
+
+\begin{quote}
+	“这个 Montage 上的 Notify，要按什么时机/方式被触发。”
+\end{quote}
+
+\subsection*{3.\ \ 两个选项有什么区别？}
+
+一般有两个选项：
+\begin{enumerate} 
+	\item \textbf{Queued}:		这是\emph{普通排队触发}。		可以理解为：		\textbf{先在动画评估时把这个 Notify 记下来，随后在 Notify 分发阶段再触发它。}
+	
+	\paragraph{特点}
+	\begin{itemize}
+		\item 更常规
+		\item 开销更低
+		\item 时机不追求绝对精确到那个瞬间
+		\item 更适合：
+		\begin{itemize}
+			\item 音效
+			\item 粒子特效
+			\item 普通提示类事件
+			\item 不要求“这一帧必须立刻执行”的逻辑
+		\end{itemize}
+	\end{itemize}
+	
+	\item \textbf{Branching Point}:	这是\emph{更精确、更同步}的触发方式。	可以理解为：
+	\textbf{播放到这个点时，要更严格地在这个时间点执行，常用于会影响 Montage 分支或关键玩法逻辑的事件。}
+	
+	
+	\paragraph{特点}
+	\begin{itemize}
+		\item 更精确
+		\item 更适合关键逻辑
+		\item 常用于：
+		\begin{itemize}
+			\item \texttt{JumpToSection}
+			\item 连击切段
+			\item 关键窗口开关
+			\item 必须和 Montage 时刻严格对齐的玩法事件
+		\end{itemize}
+	\end{itemize}
+\end{enumerate}
+\subsection*{4.\ \ 一句话区分}
+
+\begin{itemize}
+	\item \texttt{Queued}：偏“\textbf{通知一下}”
+	\item \texttt{Branching Point}：偏“\textbf{这个点必须认真处理}”
+\end{itemize}
+
+\subsection*{5.\ \ 结合当前 Combo 场景怎么理解？}
+
+你现在做的是：
+
+\begin{itemize}
+	\item 动画播放
+	\item Notify 发 \texttt{GameplayEvent}
+	\item Ability 收到事件后决定 \texttt{NextComboSectionName}
+\end{itemize}
+
+这类逻辑已经比较接近：
+
+\begin{quote}
+	\textbf{关键玩法时序}
+\end{quote}
+
+所以如果这个 Notify 是专门用来控制：
+
+\begin{itemize}
+	\item 连击切段
+	\item 下一段是否允许接上
+	\item 某个窗口是否关闭
+\end{itemize}
+
+那么通常更偏向使用 \texttt{Branching Point}。
+
+如果只是：
+
+\begin{itemize}
+	\item 播刀光
+	\item 播音效
+	\item 打日志
+	\item 发一个不那么严格的提示事件
+\end{itemize}
+
+那么 \texttt{Queued} 就够了。
+
+\subsection*{6.\ \ 实际选型建议}
+
+\subsubsection*{适合用 Queued 的情况}
+\begin{itemize}
+	\item 特效
+	\item 音效
+	\item 非关键提示
+	\item 对时机有一点误差也没关系
+\end{itemize}
+
+\subsubsection*{适合用 Branching Point 的情况}
+\begin{itemize}
+	\item 连击切段
+	\item 精确切换 Montage Section
+	\item 关键伤害帧
+	\item 影响后续状态流的事件
+\end{itemize}
+
+\subsection*{7.\ \ 和 Notify Filter Type 的区别}
+
+这两个概念不是一回事：
+
+\begin{itemize}
+	\item \texttt{Notify Filter Type}：更像“\textbf{这个 Notify 对哪些情况生效}”
+	\item \texttt{Montage Tick Type}：更像“\textbf{这个 Notify 何时、以多严格的方式触发}”
+\end{itemize}
+
+\subsection*{8.\ \ 对当前项目的建议}
+
+如果你的 \texttt{ComboChangedEventReceived(...)} 真的是用来驱动：
+
+\begin{code}
+	NextComboSectionName = ...
+\end{code}
+
+那么更建议优先尝试 \texttt{Branching Point}，因为它更符合“连击分段控制点”的用途。
+
+
+
+
+\subsection{FAnimNotifyEvent与UAnimNotify有什么关联与区别？}
+
+\begin{itemize}
+	\item \ci{UAnimNotify} 是“\textbf{通知逻辑类}”
+	\item \ci{FAnimNotifyEvent} 是“\textbf{时间轴上的通知实例数据}”
+\end{itemize}
+
+\paragraph{它们的关联}
+
+\begin{itemize}
+	\item 在动画资源（\ci{AnimSequence}/\ci{Montage}）里，每放一个 Notify 点，就会生成一个 \ci{FAnimNotifyEvent}
+	\item 这个 \ci{FAnimNotifyEvent} 里会引用一个 \ci{UAnimNotify}（或 \ci{UAnimNotifyState}）对象
+	\item 播放到该时间点时，引擎根据 \ci{FAnimNotifyEvent} 去调用对应 \ci{UAnimNotify::Notify(...)}
+\end{itemize}
+
+\paragraph{主要区别}
+
+\begin{enumerate}
+	\item {\ci{UAnimNotify}}
+	
+	\begin{itemize}
+		\item 类型：\ci{UObject} 派生类
+		\item 作用：封装“触发时做什么”的代码
+		\item 你项目里的例子：\ci{UAN\_SendTargetGroup}（在 \ci{AN\_SendTargetGroup.h}）
+	\end{itemize}
+	
+	\item {\ci{FAnimNotifyEvent}}
+	
+	\begin{itemize}
+		\item 类型：普通结构体（非 \ci{UObject}）
+		\item 作用：记录“这个通知在何时、如何触发”的实例信息
+		\item 典型内容：触发时间、持续时长（State）、\ci{Montage Tick Type}、触发阈值、指向 Notify 对象的引用等
+	\end{itemize}
+\end{enumerate}
+
+\paragraph{直观类比}
+
+\begin{itemize}
+	\item \ci{UAnimNotify}：像“函数/脚本模板”
+	\item \ci{FAnimNotifyEvent}：像“时间轴上的一次函数调用记录”
+\end{itemize}
+
+\paragraph{放到你当前工程里理解}
+
+当你在蒙太奇上放一个 \ci{AN\_SendTargetGroup}：
+
+\begin{itemize}
+	\item 编辑器会在时间轴里创建一个 \ci{FAnimNotifyEvent}
+	\item 它引用你的 \ci{UAN\_SendTargetGroup}
+	\item 播放到那一帧时，执行 \ci{UAN\_SendTargetGroup::Notify(...)}
+\end{itemize}
+
+\paragraph{简短总结}
+
+\begin{quote}
+	\ci{UAnimNotify} 负责“做什么”，\ci{FAnimNotifyEvent} 负责“什么时候、以什么参数和模式去做”。
+\end{quote}
+
+\section{UAnimNotify 和 UAnimNotifyState 的区别}
+
+最核心的区别只有一句话：
+
+\begin{itemize}
+	\item \verb|UAnimNotify| 表示 \textbf{一个时刻触发一次} 的通知
+	\item \verb|UAnimNotifyState| 表示 \textbf{一个时间区间内持续存在} 的通知状态
+\end{itemize}
+
+\subsection{1. UAnimNotify 是什么}
+
+\verb|UAnimNotify| 更像一个\textbf{点事件}。
+
+它适合表达：
+
+\begin{itemize}
+	\item 某一帧播放音效
+	\item 某一帧生成特效
+	\item 某一帧发送一次 Gameplay Event
+	\item 某一帧判定“可以接下一段连击”
+\end{itemize}
+
+你可以把它理解成：
+
+\begin{quote}
+	“播到这里时，执行一次。”
+\end{quote}
+
+\subsection{UAnimNotifyState 是什么}
+
+\verb|UAnimNotifyState| 更像一个\textbf{时间段事件}。
+
+它通常有三段生命周期：
+
+\begin{itemize}
+	\item \verb|NotifyBegin|
+	\item \verb|NotifyTick|
+	\item \verb|NotifyEnd|
+\end{itemize}
+
+它适合表达：
+
+\begin{itemize}
+	\item 攻击判定窗口从什么时候开始，到什么时候结束
+	\item 无敌帧持续多久
+	\item 蓄力状态持续多久
+	\item 连击输入窗口开放一段时间
+\end{itemize}
+
+你可以把它理解成：
+
+\begin{quote}
+	“从这里开始生效，一直到那里结束，中间还能每帧更新。”
+\end{quote}
+
+\subsection{直观类比}
+
+\begin{itemize}
+	\item \verb|UAnimNotify|：像按一下门铃，只响一次
+	\item \verb|UAnimNotifyState|：像按住对讲键，一段时间内持续生效
+\end{itemize}
+
+\subsection{代码层面的区别}
+
+从接口上看，二者差别很明显。
+
+\subsubsection{UAnimNotify}
+
+通常只有一次触发入口，核心思想是：
+
+\begin{itemize}
+	\item 到某个时刻
+	\item 调一次 \verb|Notify| 或对应蓝图事件
+\end{itemize}
+
+\subsubsection{UAnimNotifyState}
+
+你贴出来的 \verb|AnimNotifyState.h| 里可以看到它有：
+
+\begin{itemize}
+	\item \verb|Received_NotifyBegin|
+	\item \verb|Received_NotifyTick|
+	\item \verb|Received_NotifyEnd|
+\end{itemize}
+
+这说明它不是单点，而是一个完整区间。
+
+\subsection{在 Montage 里怎么选}
+
+如果你的需求是：
+
+\begin{itemize}
+	\item “到这一帧时切段”
+	\item “到这一帧时发事件”
+	\item “到这一帧时播音效”
+\end{itemize}
+
+优先考虑 \verb|UAnimNotify|。
+
+如果你的需求是：
+
+\begin{itemize}
+	\item “这一段时间都可以输入下一段连击”
+	\item “这一段时间攻击盒持续开启”
+	\item “这一段时间角色无敌”
+\end{itemize}
+
+优先考虑 \verb|UAnimNotifyState|。
+
+\subsection{放到你当前 Combo 场景里}
+
+结合你现在的 \verb|GA_Combo|，可以这样理解：
+
+\begin{itemize}
+	\item 如果你只是想在某个精确时刻发送一次 \verb|Ability.Combo.Change.Combo2| 事件，那么更适合用 \verb|UAnimNotify|
+	\item 如果你想表达“这一小段时间内允许玩家输入并接上下一段”，那么更适合用 \verb|UAnimNotifyState|
+\end{itemize}
+
+也就是：
+
+\begin{itemize}
+	\item \textbf{切点}：更像 \verb|UAnimNotify|
+	\item \textbf{窗口}：更像 \verb|UAnimNotifyState|
+\end{itemize}
+
+\subsection{一句话总结}
+
+\begin{quote}
+	\verb|UAnimNotify| 处理“某一刻发生什么”，\\
+	\verb|UAnimNotifyState| 处理“某一段时间内发生什么”。
+\end{quote}	
+
+\section{使用UAnimNotifyState代替动画通知的尝试}
+%\section{当前文件中 \texttt{BranchingPointNotifyBegin} 和 \texttt{NotifyBegin} 的区别}
+
+最核心的区别是：
+
+\begin{itemize}
+	\item \verb|NotifyBegin| 是\textbf{普通 NotifyState 开始回调}
+	\item \verb|BranchingPointNotifyBegin| 是\textbf{Montage 分支点模式下的开始回调}
+\end{itemize}
+
+\subsection{它们分别在什么情况下触发}
+
+\subsubsection{\texttt{NotifyBegin}}
+
+当这个 \verb|UAnimNotifyState| 作为普通动画通知状态被处理时，会走：
+
+\begin{itemize}
+	\item \verb|NotifyBegin|
+	\item \verb|NotifyTick|
+	\item \verb|NotifyEnd|
+\end{itemize}
+
+它更偏向：
+
+\begin{quote}
+	普通的动画通知生命周期
+\end{quote}
+
+常见于：
+
+\begin{itemize}
+	\item 普通动画序列
+	\item 普通 Montage Notify
+	\item 非 Branching Point 的情况
+\end{itemize}
+
+\subsubsection{\texttt{BranchingPointNotifyBegin}}
+
+当这个 NotifyState 在 \textbf{Montage 中被当作 Branching Point 处理} 时，会走：
+
+\begin{itemize}
+	\item \verb|BranchingPointNotifyBegin|
+	\item \verb|BranchingPointNotifyTick|
+	\item \verb|BranchingPointNotifyEnd|
+\end{itemize}
+
+它更偏向：
+
+\begin{quote}
+	和 Montage 播放时序强绑定的关键分支点回调
+\end{quote}
+
+\subsection{二者最大的实质区别}
+
+\subsubsection{时机语义不同}
+
+\begin{itemize}
+	\item \verb|NotifyBegin|：普通通知开始
+	\item \verb|BranchingPointNotifyBegin|：作为 Montage 分支点，要求更严格、更贴近关键时刻
+\end{itemize}
+
+你可以简单记成：
+
+\begin{itemize}
+	\item \verb|NotifyBegin|：正常通知
+	\item \verb|BranchingPointNotifyBegin|：关键切点通知
+\end{itemize}
+
+\subsubsection{传入参数不同}
+
+\paragraph{\texttt{NotifyBegin} 的参数}
+
+\begin{code}
+	NotifyBegin(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, float TotalDuration, 	const FAnimNotifyEventReference& EventReference)
+\end{code}
+
+它给你的更像是：
+
+\begin{itemize}
+	\item 当前骨骼组件
+	\item 当前动画资源
+	\item 这个 NotifyState 的持续时间
+	\item 当前 Notify 的引用信息
+\end{itemize}
+
+\paragraph{\texttt{BranchingPointNotifyBegin} 的参数}
+
+\begin{code}
+	BranchingPointNotifyBegin(FBranchingPointNotifyPayload& BranchingPointPayload)
+\end{code}
+
+它给你的是一个 \verb|FBranchingPointNotifyPayload|，里面更偏向：
+
+\begin{itemize}
+	\item 当前 Montage 分支点上下文
+	\item 与 Montage 播放流程相关的数据
+\end{itemize}
+
+也就是说，它不是通用动画通知接口，而是更专门服务于 Montage 分支点。
+
+\subsection{为什么 Unreal 要分成两套接口}
+
+因为 \textbf{普通 Notify} 和 \textbf{Montage Branching Point} 在引擎里的定位不同。
+
+\subsubsection{普通 Notify 关注的是}
+
+\begin{itemize}
+	\item 动画播放到这里了
+	\item 顺便触发一个事件
+\end{itemize}
+
+\subsubsection{Branching Point 关注的是}
+
+\begin{itemize}
+	\item 这是一个关键时刻
+	\item 这个点可能影响 Montage 分段、跳转、连击推进
+	\item 需要更严格地和 Montage 时序对齐
+\end{itemize}
+
+所以引擎单独给了 Branching Point 一套回调。
+
+\subsection{放到你这个 \texttt{UAS\_SendGameplayEvent} 里怎么理解}
+
+你当前这个类同时重写了：
+
+\begin{itemize}
+	\item \verb|NotifyBegin / NotifyTick / NotifyEnd|
+	\item \verb|BranchingPointNotifyBegin / BranchingPointNotifyTick / BranchingPointNotifyEnd|
+\end{itemize}
+
+这意味着你的意图大概是：
+
+\begin{quote}
+	无论这个 NotifyState 以后被当成普通 Notify 用，还是被当成 Montage 的 Branching Point 用，我都想接住它。
+\end{quote}
+
+这是可以的，而且对学习阶段很合理。
+
+\subsection{在你的连击场景里怎么选}
+
+如果你这个 \verb|UAS_SendGameplayEvent| 是用来做：
+
+\begin{itemize}
+	\item 连击切段
+	\item 发送关键 Gameplay Event
+	\item 驱动 \verb|NextComboSectionName|
+\end{itemize}
+
+那么更应该关注：
+
+\begin{itemize}
+	\item \verb|BranchingPointNotifyBegin|
+	\item \verb|BranchingPointNotifyEnd|
+\end{itemize}
+
+因为这类逻辑通常属于：
+
+\begin{quote}
+	关键玩法时序控制
+\end{quote}
+
+如果只是：
+
+\begin{itemize}
+	\item 打日志
+	\item 普通提示
+	\item 非关键特效
+\end{itemize}
+
+普通 \verb|NotifyBegin| 就更够用。
+
+\subsection{一句最短总结}
+
+\begin{quote}
+	\verb|NotifyBegin| 是普通动画通知状态的开始回调，\\
+	\verb|BranchingPointNotifyBegin| 是 Montage 以 Branching Point 模式处理时的开始回调。
+\end{quote}
+
+\subsection{对你当前文件的实用建议}
+
+如果你只是为了学习，最简单的理解方式是：
+
+\begin{itemize}
+	\item 先把 \verb|NotifyBegin| 看成“普通入口”
+	\item 再把 \verb|BranchingPointNotifyBegin| 看成“Montage 关键切点入口”
+\end{itemize}
+
+以后只要你看到这个 Notify 在编辑器里用了 \textbf{Branching Point} / 关键 Montage 切点语义，就优先关注后者。
+
+\subsection{如何在 \ci{BranchingPointNotifyBegin} 中拿到动画的 Owner}
+
+可以，\ci{BranchingPointNotifyBegin} 虽然没有单独把 \ci{USkeletalMeshComponent*} 作为参数列出来，但它已经放在
+\ci{FBranchingPointNotifyPayload} 里了。
+
+\subsection{最直接的取法}
+
+\begin{itemize}
+	\item \ci{BranchingPointPayload.SkelMeshComponent} 就是对应的 \ci{USkeletalMeshComponent}
+	\item 通过它再取 \ci{GetOwner()} 即可拿到拥有者
+\end{itemize}
+
+也就是逻辑上等价于：
+
+\[
+\text{Owner} = \text{BranchingPointPayload.SkelMeshComponent} \rightarrow \text{GetOwner()}
+\]
+
+\subsubsection{对应代码写法}
+
+\begin{code}
+	void UAS_SendGameplayEvent::BranchingPointNotifyBegin(FBranchingPointNotifyPayload& BranchingPointPayload)
+	{
+		USkeletalMeshComponent* MeshComp = BranchingPointPayload.SkelMeshComponent;
+		AActor* Owner = MeshComp ? MeshComp->GetOwner() : nullptr;
+		
+		if (!Owner)
+		{
+			return;
+		}
+		
+		// 在这里向 Owner 发送消息
+	}
+\end{code}
+\subsection{为什么可以这样拿}
+因为你刚才贴的引擎源码里，\ci{FBranchingPointNotifyPayload} 明确包含：
+\begin{itemize} \item \ci{USkeletalMeshComponent* SkelMeshComponent;} \item \ci{UAnimSequenceBase* SequenceAsset;} \item \ci{FAnimNotifyEvent* NotifyEvent;} \end{itemize}
+所以：
+\begin{itemize} \item 想拿当前动画资源，用 \ci{SequenceAsset} \item 想拿播放这个动画的组件，用 \ci{SkelMeshComponent} \item 想拿这个组件所属 Actor，用 \ci{SkelMeshComponent->GetOwner()} \end{itemize}
+\subsection{和 \ci{NotifyBegin} 的对应关系}
+你可以把它理解成：
+\begin{itemize} \item \ci{NotifyBegin}：\ci{MeshComp} 直接作为参数给你 \item \ci{BranchingPointNotifyBegin}：\ci{MeshComp} 被包进 \ci{BranchingPointPayload} 里给你 \end{itemize}
+所以二者都能拿到 Owner，只是入口不同。
+\subsection{如果你要发送 Gameplay Event}
+如果你的目标是向这个 Owner 发 \ci{GameplayEvent}，那么常见写法就是先拿到：
+\begin{itemize} \item \ci{USkeletalMeshComponent* MeshComp} \item \ci{AActor* Owner} \end{itemize}
+然后再把事件发给这个 Actor。
+思路上就是：
+\ci{BranchingPointPayload.SkelMeshComponent} $\rightarrow$ \ci{GetOwner()} $\rightarrow$ \text{Send Event} 
+\subsubsection{一个实用提醒}
+这里拿到的 Owner 是：\textbf{这个骨骼网格组件所属的 Actor}
+
+在角色动画场景下，通常就是你的角色本体，例如玩家角色或 NPC。
+所以在你的工程里，这通常正是你想发消息的对象。
+\subsubsection{一句总结}
+\ci{BranchingPointNotifyBegin} 没有单独传入 \ci{MeshComp}，但它已经在 \ci{BranchingPointPayload.SkelMeshComponent} 里了；要拿 Owner，直接：
+[ \ci{BranchingPointPayload.SkelMeshComponent->GetOwner()} ]
+即可。
+
+\section{动画状态类的NotifyBegin多次通知分析}
+
+\begin{itemize}
+	\item 你的判断大体上是对的：在 \ci{listen server} 场景下，如果是\textbf{服务器侧触发}蒙太奇，看到 \textbf{两次} 通常是比较符合预期的
+	\item 而如果是\textbf{客户端侧触发}蒙太奇，出现 \textbf{多次} 也并不奇怪
+	\item 根本原因是：\ci{NotifyBegin} 是按\textbf{动画实例实际评估}来触发的，而不是按“这次技能请求只算一次”来触发的
+\end{itemize}
+
+\subsection{为什么服务器触发时看到两次，通常是合理的}
+
+在 \ci{listen server} 里，主机同时具有两种身份：
+
+\begin{itemize}
+	\item 服务器
+	\item 本地玩家客户端
+\end{itemize}
+
+所以当主机自己触发蒙太奇时，往往会有两层语义同时存在：
+
+\begin{itemize}
+	\item 一层是 \textbf{权威侧} 的播放与评估
+	\item 一层是 \textbf{本地表现侧} 的播放与评估
+\end{itemize}
+
+因此你看到两次 \ci{NotifyBegin}，通常可以理解成：
+
+\begin{quote}
+	同一个玩法动作，被服务器身份和本地显示身份各评估了一次
+\end{quote}
+
+这在 \ci{PIE listen server} 下尤其常见。
+
+\subsection{为什么客户端触发时会出现多次}
+
+这正是关键点。
+
+当\textbf{远程客户端}触发蒙太奇时，通常不止一个地方会播放或评估这段动画。
+
+\subsection{最常见的几层来源}
+
+至少可能包含下面这些：
+
+\begin{enumerate}
+	\item 远程客户端自己的 \textbf{本地预测播放}
+	\item 服务器上的 \textbf{权威播放}
+	\item \ci{listen server} 主机那边为了显示这个远程玩家动作而进行的 \textbf{表现播放}
+\end{enumerate}
+
+所以这时你看到的就不再是简单的“两次”，而可能是三次甚至更多。
+
+\subsection{结合你当前工程里的代码来看}
+
+在你的 \ci{GA_Combo.cpp} 里有这段判断：
+\ci{HasAuthorityOrPredictionKey(ActorInfo, &ActivationInfo)}
+
+
+这意味着：
+
+\begin{itemize}
+	\item 有权威的一侧可以推进逻辑
+	\item 有预测 Key 的客户端也可以先本地推进逻辑
+\end{itemize}
+
+于是当客户端按下攻击时，常见流程就变成：
+
+\begin{enumerate}
+	\item 客户端先本地预测，开始播放蒙太奇
+	\item 服务器随后确认，也会播放或同步这个蒙太奇
+	\item 其他观察到这个角色的实例，也可能为表现而评估该蒙太奇
+\end{enumerate}
+
+而 \ci{NotifyBegin} 是跟着\textbf{动画评估}走的，所以它可能在多个实例上都触发。
+
+\subsection{\texttt{NotifyBegin} 不是“全局唯一事件”}
+
+这一点非常重要。
+
+\ci{NotifyBegin} 的语义更接近：
+
+\begin{quote}
+	“某个 \ci{AnimInstance} 在评估动画时，进入了这个 NotifyState 的起点”
+\end{quote}
+
+而不是：
+
+\begin{quote}
+	“这个技能在整个网络游戏里只发生了一次，所以 Notify 也只应该来一次”
+\end{quote}
+
+所以在联机环境里，尤其是：
+
+\begin{itemize}
+	\item \ci{listen server}
+	\item \ci{GAS prediction}
+	\item 远程客户端触发动作
+\end{itemize}
+
+你看到多次 \ci{NotifyBegin}，本质上是因为：
+
+\begin{quote}
+	有多个地方都真的在播放并评估这段蒙太奇
+\end{quote}
+
+\subsection{为什么你当前的 \texttt{AS\_SendGameplayEvent.cpp} 更容易观察到这个现象}
+
+你现在在 \ci{NotifyBegin} 和 \ci{BranchingPointNotifyBegin} 里做的是：
+
+\begin{enumerate}
+	\item 拿 \ci{MeshComp} 或 \ci{SkelMeshComponent}
+	\item 找到 \ci{Owner}
+	\item 找到 \ci{ASC}
+	\item 打日志
+\end{enumerate}
+
+只要这个动画实例所在的一侧：
+
+\begin{itemize}
+	\item 有有效的 \ci{MeshComp}
+	\item 有有效的 \ci{Owner}
+	\item 有有效的 \ci{ASC}
+\end{itemize}
+
+它就会打印。
+
+所以你看到的“多次”，往往并不是同一个对象在重复乱调，而是：
+
+\begin{quote}
+	多个网络语义不同的实例，都各自合法地触发了一次
+\end{quote}
+
+\subsection{一个更直观的理解方式}
+
+你可以把一次客户端出招，拆成下面这几个“观察者”：
+
+\begin{itemize}
+	\item 出招客户端自己：我要立刻看到动作，所以先播
+	\item 服务器：我要做权威确认，所以也要有对应动作状态
+	\item 主机显示端：我要把这个远程角色的动作显示出来，所以也会评估
+\end{itemize}
+
+如果这些地方都实际评估到了同一个 NotifyState 起点，那么 \ci{NotifyBegin} 就都可能被调用。
+
+\subsection{所以你的预期应该怎样调整}
+
+更稳妥的预期不是：
+
+\begin{quote}
+	“一次攻击 = 一次 \ci{NotifyBegin}”
+\end{quote}
+
+而应该是：
+
+\begin{quote}
+	“一次攻击可能导致多个动画实例分别触发各自的 \ci{NotifyBegin}”
+\end{quote}
+
+在单机里它往往接近一次；在联机尤其是 \ci{listen server} + 客户端预测时，就常常不是一次。
+
+\subsection{如果你想让 Gameplay 逻辑只执行一次，应该怎么做}
+
+关键做法不是依赖 \ci{NotifyBegin} 天然只来一次，而是\textbf{自己加过滤条件}。
+
+常见的过滤思路有：
+
+\begin{itemize}
+	\item 只允许 \textbf{Authority} 执行真正的 Gameplay 逻辑
+	\item 或只允许 \textbf{Locally Controlled} 一侧执行某些本地逻辑
+	\item 或在 \ci{ASC} / Ability 侧做“已处理”判重
+\end{itemize}
+
+也就是说：
+
+\begin{itemize}
+	\item \ci{NotifyBegin} 负责告诉你“这里发生了”
+	\item 你自己决定“这一侧该不该真的发消息/做效果”
+\end{itemize}
+
+\subsection{最推荐的排查方式}
+
+如果你想完全看清楚到底是谁触发了多次，最有用的不是只打一行日志，而是把下面这些信息一起打印出来：
+
+\begin{itemize}
+	\item Owner 名字
+	\item \ci{NetMode}
+	\item \ci{LocalRole}
+	\item 是否 \ci{LocallyControlled}
+	\item 当前触发的是 \ci{NotifyBegin} 还是 \ci{BranchingPointNotifyBegin}
+\end{itemize}
+
+这样你马上就能分清：
+
+\begin{itemize}
+	\item 这是客户端本地预测触发的
+	\item 还是服务器权威触发的
+	\item 还是 \ci{listen server} 主机显示远程角色时触发的
+\end{itemize}
+
+\subsection{一句话总结}
+
+\ci{NotifyBegin} 是按\textbf{动画实例评估}触发的，不是按\textbf{玩法动作全局唯一}触发的；因此在 \ci{listen server} 中，服务器触发常见地会看到两次，而客户端触发因为叠加了\textbf{本地预测 + 服务器权威 + 主机表现评估}，所以更容易出现多次。
+
+\subsection{补一句最实用的建议}
+
+如果你后面要在 \ci{UAS_SendGameplayEvent} 里真正发送 \ci{GameplayEvent}，建议先决定：
+
+\begin{itemize}
+	\item 这个事件是不是只应该由 \textbf{Authority} 发
+	\item 或者是不是只应该由 \textbf{本地控制端} 发
+\end{itemize}
+
+否则联机下很容易出现你现在观察到的“重复触发”现象。
+
+如果你愿意，我下一条可以继续直接用这种格式，专门回答：
+
+\begin{quote}
+	\textbf{在你的 \ci{AS_SendGameplayEvent.cpp} 里，应该加什么网络过滤条件，才能避免重复发送 GameplayEvent？}
+\end{quote}
+
+
+\subsection{如何在你的 \texttt{AS\_SendGameplayEvent.cpp} 里避免重复发送 \ci{GameplayEvent}}
+
+\begin{itemize}
+	\item 目标：让同一个 Notify 不要在联机时被多端重复发消息
+	\item 核心思路：\textbf{先区分“谁看到了 Notify”}，再决定\textbf{只有哪一侧真正发送事件}
+\end{itemize}
+
+\subsection{最常用的过滤策略}
+
+\subsection{策略一：只让服务器发送}
+
+这是最稳的一种。
+
+含义是：
+
+\begin{quote}
+	无论客户端本地看到了几次 Notify，真正发 \ci{GameplayEvent} 的只允许服务器来做
+\end{quote}
+
+这样最适合：
+
+\begin{itemize}
+	\item 真正影响 Gameplay 结果的事件
+	\item 连击推进
+	\item 伤害判定
+	\item 状态切换
+\end{itemize}
+
+\subsection{策略二：只让本地控制端发送}
+
+这是偏表现或预测导向的做法。
+
+含义是：
+
+\begin{quote}
+	只有当前角色的本地拥有者看到 Notify 时，才发送
+\end{quote}
+
+这种做法更适合：
+
+\begin{itemize}
+	\item 本地 UI
+	\item 本地特效
+	\item 本地预测输入反馈
+\end{itemize}
+
+但如果这个事件会影响权威 Gameplay，通常不如“只让服务器发送”稳。
+
+\subsection{对你当前 Combo 场景的建议}
+
+结合你现在的 \ci{GA\_Combo} 和 \ci{UAS\_SendGameplayEvent}，我建议优先采用：
+
+\begin{quote}
+	\textbf{只让服务器发送关键 GameplayEvent}
+\end{quote}
+
+因为你这个事件已经在驱动：
+
+\begin{itemize}
+	\item Combo 切段
+	\item \ci{NextComboSectionName}
+	\item Ability 内部状态推进
+\end{itemize}
+
+这类逻辑更像\textbf{权威玩法逻辑}，不适合多端都发。
+
+\subsection{最直接的判断条件}
+
+在 \ci{NotifyBegin} 里，先拿到 Owner，然后判断：
+
+\begin{itemize}
+	\item \ci{Owner} 是否有效
+	\item \ci{Owner->HasAuthority()} 是否为真
+\end{itemize}
+
+如果不是 Authority，就直接返回。
+
+思路上就是：
+
+\[
+\text{if not Authority} \Rightarrow \text{return}
+\]
+
+\subsection{在你的文件里，逻辑上应该长什么样}
+
+你当前的 \ci{NotifyBegin} 逻辑大致是：
+
+\begin{enumerate}
+	\item 从 \ci{MeshComp} 拿 \ci{Owner}
+	\item 从 \ci{Owner} 拿 \ci{ASC}
+	\item 打日志
+\end{enumerate}
+
+如果要避免重复，应该在中间插入一层：
+
+\begin{enumerate}
+	\item 拿 \ci{Owner}
+	\item 判断 \ci{Owner->HasAuthority()}
+	\item 只有 Authority 才继续拿 \ci{ASC}
+	\item 然后再发送 \ci{GameplayEvent}
+\end{enumerate}
+
+\subsection{\texttt{NotifyBegin} 的推荐思路}
+
+\begin{code}
+	AActor* Owner = MeshComp ? MeshComp->GetOwner() : nullptr;
+	if (!Owner || !Owner->HasAuthority())
+	{
+		return;
+	}
+	UAbilitySystemComponent* ASC =
+	UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Owner);
+	if (!ASC)
+	{
+		return;
+	}
+\end{code}
+
+\subsection{\texttt{BranchingPointNotifyBegin} 也一样}
+在 \ci{BranchingPointNotifyBegin} 里同理。
+先从：
+[ \ci{BranchingPointPayload.SkelMeshComponent} ]
+拿到：
+[ \ci{Owner} ]
+然后一样做：
+[ \ci{Owner->HasAuthority()} ]
+过滤。
+\subsection{对应思路}
+\begin{code}
+	USkeletalMeshComponent* MeshComp = BranchingPointPayload.SkelMeshComponent;
+	AActor* Owner = MeshComp ? MeshComp->GetOwner() : nullptr;
+	if (!Owner || !Owner->HasAuthority())
+	{
+		return;
+	}	
+\end{code}
+\subsection{为什么这样就能减少重复}
+因为你前面观察到的“多次”本质上来自：
+\begin{itemize} \item 客户端本地预测评估 \item 服务器权威评估 \item listen server 主机上的显示评估 \end{itemize}
+但其中真正具备 \ci{Authority} 的只有服务器那一份。
+所以一旦你加了：
+\ci{!Owner->HasAuthority()} $\Rightarrow$ \ci{return} 
+客户端和非权威侧就都不会再真的发消息。
+于是最终只保留：
+\begin{quote} 服务器那一次 \end{quote}
+\subsection{为什么“只打日志”时你会觉得它重复，但“只让服务器发事件”后会正常很多}
+因为日志是在每个触发点都打印的，而权威过滤会让真正的 Gameplay 行为只剩一份。
+也就是说：
+\begin{itemize} \item 日志可能还是能帮助你看出多端都触发了 Notify \item 但真正的 \ci{SendGameplayEventToActor} 或对应 Gameplay 行为只会执行一次 \end{itemize}
+这正是联机里常用的做法。
+\subsection{一个更精确的调试建议}
+你可以把日志先改成包含下面几项：
+\begin{itemize} \item Owner 名字 \item \ci{HasAuthority()} \item 是否本地控制 \item 当前函数名：\ci{NotifyBegin} 还是 \ci{BranchingPointNotifyBegin} \end{itemize}
+这样你会马上看清：
+\begin{itemize} \item 多次调用是不是来自不同网络身份 \item 哪一份才是真正该保留的 \end{itemize}
+\subsection{一句最短建议}
+如果你的 \ci{UAS_SendGameplayEvent} 是为了推进真正的连击 Gameplay 逻辑，那么最简单有效的过滤就是：
+\begin{quote} \textbf{只让 \ci{Authority} 侧发送事件} \end{quote}
+\subsection{再补一句}
+如果你后面发现：
+\begin{itemize} \item 本地手感不够及时 \item 服务器过滤后客户端表现晚半拍 \end{itemize}
+那就再区分成两类：
+\begin{itemize} \item \textbf{表现事件}：本地也可以做 \item \textbf{Gameplay 权威事件}：只让服务器做 \end{itemize}
+这是联机动作游戏里很常见的分层方式。
+
+
+
+
+\section{简洁说明：\texttt{UAbilityTask\_WaitInputPress::WaitInputPress}}
+\ci{WaitInputPress} = 在 Ability 生命周期内挂一个“等下一次按键”的监听器。
+\begin{itemize}
+	\item \ci{WaitInputPress} 是 GAS 里的一个异步任务
+	\item 作用：在 Ability 激活期间，\textbf{等待“再次按下该 Ability 输入”}，按下后触发回调
+	\item 常用于：连击确认、蓄力二段触发、技能内“再次按键继续执行”
+\end{itemize}
+
+
+\ci{UAbilityTask\_WaitInputPress::WaitInputPress} 创建的这个 Task 默认就是\textbf{一次性}的。\textbf{它表示：}
+\begin{itemize}
+	\item 它等待一次“输入按下”
+	\item 触发 \ci{OnPress} 后，这个 Task 就完成并结束
+	\item 如果还想继续等下一次按下，需要再创建一个新的 \ci{WaitInputPress} Task
+\end{itemize}
+
+
+如果希望“按一次处理一次并继续监听”，常见做法是在回调里再次调用重新挂监听。
+
+
+\subsection{函数含义}
+
+典型调用：
+
+\begin{code}
+	UAbilityTask_WaitInputPress::WaitInputPress(this, bTestAlreadyPressed)
+\end{code}
+
+\begin{itemize}
+	\item 第一个参数：当前 Ability（通常就是 \ci{this}）
+	\item 第二个参数 \ci{bTestAlreadyPressed}：
+	\begin{itemize}
+		\item \ci{true}：如果输入此刻已是按下状态，可能立即触发
+		\item \ci{false}：只等“之后的新按下”
+	\end{itemize}
+\end{itemize}
+
+\subsection{最小使用步骤}
+
+\begin{enumerate}
+	\item 创建任务：\ci{WaitInputPress(this, false)}
+	\item 绑定 \ci{OnPress} 委托
+	\item 调用 \ci{ReadyForActivation()}
+\end{enumerate}
+
+\section{结合你当前代码}
+
+你在 \ci{GA\_Combo.cpp} 里这样用是正确方向：
+
+\begin{itemize}
+	\item \ci{SetupWaitComboInputPressed()} 创建了任务
+	\item 绑定了 \ci{OnPress -> InputPressed\_CalBack}
+	\item 调用了 \ci{ReadyForActivation()}
+\end{itemize}
+
+这就意味着：Ability 激活后，玩家再次按攻击键会进入 \ci{InputPressed\_CalBack}。
+\subsection{WaitInputPress VS 输入组件}
+
+\begin{itemize}
+	\item 两者都会“起作用”，但职责不同，不是互斥关系
+	\item 角色输入绑定负责把按键变成 \ci{ASC} 的输入事件
+	\item \ci{WaitInputPress} 负责在\textbf{当前已激活的 Ability 内}等待这个输入事件
+	\item 正常不会天然重复执行同一段逻辑，除非你在多个地方都写了同样处理
+\end{itemize}
+\begin{enumerate}
+	
+	\item \textbf{各自做什么}
+	\begin{itemize}
+		\item \textbf{角色里配置的按键（Enhanced Input / InputComponent）}
+		\begin{itemize}
+			\item 负责“采集玩家按键”
+			\item 通常会进一步调用 GAS 输入接口（如按下/松开）
+		\end{itemize}
+		
+		\item \textbf{\ci{UAbilityTask\_WaitInputPress}}
+		\begin{itemize}
+			\item 不采集硬件按键
+			\item 只监听 Ability 输入流里“这个 Ability 的再次按下”
+		\end{itemize}
+	\end{itemize}
+	
+	\item \textbf{会不会重复}
+	
+	\begin{itemize}
+		\item 如果你只在 Ability 里用 \ci{WaitInputPress} 做“二次按键逻辑”，通常不会重复
+		\item 会重复的常见原因是：
+		\begin{itemize}
+			\item 角色蓝图/C++ 里也手动写了一份相同的连击推进逻辑
+			\item 同一个 Ability 同时创建了多个 \ci{WaitInputPress} Task
+			\item 按键被多个 Ability 同时监听且都满足激活条件
+		\end{itemize}
+	\end{itemize}
+	
+	\item \textbf{一句话记忆：}
+	\emph{角色按键绑定是“信号源”，\ci{WaitInputPress} 是 Ability 内“订阅这个信号”的监听器。}
+\end{enumerate}
+
+\section{根据动画通知显示UI}
+
+\begin{itemize}
+	\item 目标：在 \ci{UAS\_SendGameplayEvent} 的 \ci{Begin/End} 控制 UI 显隐，在 \ci{Tick} 推进进度条
+	\item 建议：\textbf{Notify 只发事件，不直接操作 Widget}
+	\item UI 逻辑放在 \ci{PlayerController/HUD/Widget} 或 \ci{GA\_Combo} 中统一处理
+\end{itemize}
+
+\subsection{为什么这样更合理}
+
+\begin{itemize}
+	\item \ci{AnimNotifyState} 运行在动画层，职责应偏“时序信号”
+	\item 直接在 Notify 里改 UI 容易出现：
+	\begin{itemize}
+		\item 联机多端重复触发
+		\item 非本地角色也改到 UI
+		\item 后续复用困难
+	\end{itemize}
+	\item 你当前项目已在用 \ci{GameplayEvent + GAS}，最自然是继续走事件驱动
+\end{itemize}
+
+\subsection{推荐分层（你可以直接照这个做）}
+\begin{enumerate}
+	\item{ \ci{UAS\_SendGameplayEvent} 负责发三类事件}
+	
+	\begin{itemize}
+		\item \ci{Ability.Combo.Window.Begin}
+		\item \ci{Ability.Combo.Window.Tick}（带进度）
+		\item \ci{Ability.Combo.Window.End}
+	\end{itemize}
+	
+	\item{ \ci{GA\_Combo} 监听并转发到本地 UI}
+	
+	\begin{itemize}
+		\item 收到 Begin：显示进度条
+		\item 收到 Tick：更新百分比
+		\item 收到 End：隐藏进度条
+	\end{itemize}
+	
+	\item{ UI 只在本地玩家端执行}
+	
+	\begin{itemize}
+		\item 例如在 \ci{PlayerController} 或本地 Widget 上执行
+		\item 避免服务器或旁观客户端误改 UI
+	\end{itemize}
+\end{enumerate}
+
+\subsection{Tick 里怎么传进度最稳}
+
+\begin{itemize}
+	\item 在 NotifyState 内保存：
+	\begin{itemize}
+		\item \ci{TotalDuration}（Begin 时拿到）
+		\item \ci{ElapsedTime}（Tick 累加）
+	\end{itemize}
+	\item 每次 Tick 计算：
+\end{itemize}
+
+\[
+\text{Progress} = \mathrm{Clamp}\left(\frac{\text{ElapsedTime}}{\text{TotalDuration}}, 0, 1\right)
+\]
+
+\begin{itemize}
+	\item 把 \ci{Progress} 填到事件 Payload（例如 \ci{EventMagnitude}）
+\end{itemize}
+
+\subsection{网络与重复触发的处理建议}
+
+\begin{itemize}
+	\item Gameplay 关键事件（切段/判定）可走 Authority
+	\item UI 事件只在本地控制端消费
+	\item 如果你已使用 \ci{Branching Point}，继续保持，时序会更稳定
+\end{itemize}
+
+\subsection{你当前项目里的最小实现路径}
+
+\begin{enumerate}
+	\item 在 \ci{AbilityTags} 增加 \ci{Window.Begin/Tick/End} 三个 Tag
+	\item 在 \ci{UAS\_SendGameplayEvent} 的 \ci{NotifyBegin/NotifyTick/NotifyEnd} 发送对应 \ci{GameplayEvent}
+	\item 在 \ci{GA\_Combo} 增加三个接收分支（或一个分支按 Tag 区分）
+	\item 在本地玩家 Widget 暴露三个接口：
+	\begin{itemize}
+		\item \ci{ShowComboWindow()}
+		\item \ci{SetComboWindowProgress(float)}
+		\item \ci{HideComboWindow()}
+	\end{itemize}
+\end{enumerate}
+
+\subsection{一个实用取舍（更轻量）}
+
+如果你不想每帧发 \ci{GameplayEvent}（Tick 太频繁），可以：
+
+\begin{itemize}
+	\item Begin 发一次“开始时间 + 总时长”
+	\item End 发一次“结束”
+	\item 进度条在 Widget 自己本地 Tick 推进
+\end{itemize}
+
+这通常更省、也更顺滑。
+
+\subsection{小结}
+
+对你当前项目，最合理的是：\textbf{NotifyState 负责时序信号，GA/Controller 负责路由，Widget 负责显示；UI 不直接绑在 Notify 里。}
+
+\section{对敌施加伤害}
+
+本节主要讨论近战攻击中的\textbf{伤害检测与目标方向判定}思路，并比较了几种常见实现方式及其优缺点。
+\begin{enumerate}
+	
+	\item \textbf{传统碰撞体重叠检测的问题}：
+	一种常见做法是在角色手臂或武器上挂载碰撞体（如 Capsule），持续检测重叠目标，再将结果传给技能系统处理伤害。其主要问题有：
+	\begin{itemize}
+		\item 需要管理左右手或不同攻击部位的碰撞体，逻辑较繁琐；
+		\item 检测效果高度依赖帧率；
+		\item 近战动画速度很快，若帧率较低，可能在较大的时间间隔内才检测一次，从而漏判目标。
+	\end{itemize}
+	
+	\item \textbf{线性 Sweep 的改进与局限} ： 
+	另一种方式是从起点到终点做一次 Sweep 检测。它比单纯重叠检测更稳定，因为：
+	\begin{itemize}
+		\item 不完全依赖帧率；
+		\item 能检测路径上的命中结果。
+	\end{itemize}
+	但它仍有不足：
+	\begin{itemize}
+		\item Sweep 通常是从一个点到另一个点的直线检测；
+		\item 而真实的手臂挥动轨迹通常是弧线，因此直线 Sweep 不能准确反映实际攻击路径。
+	\end{itemize}
+	
+	\item \textbf{本节提出的核心方案}：
+	为了解决上述问题，视频提出了一个更适合当前项目的方案：
+	\begin{itemize}
+		\item 将近战检测设计为\textbf{一次性触发}（one-off）；
+		\item 在特定时刻由一次动画通知触发检测，而不是跨多个帧持续判断；
+		\item 这样可以基本消除帧率对检测结果的影响。
+	\end{itemize}
+	
+	\item \textbf{用多个位置点逼近挥击轨迹}：
+	为了更接近真实挥击弧线，不采用单条直线，而是：
+	\begin{itemize}
+		\item 预先定义多个关键位置点；
+		\item 在这些点之间依次执行多次 Sweep；
+		\item 例如从位置 1 到位置 2，再从位置 2 到位置 3，必要时继续细分更多点。
+	\end{itemize}
+	这种方式的优点是：
+	\begin{itemize}
+		\item 能更好逼近手臂挥动的弧线轨迹；
+		\item 检测更精细，不易漏判；
+		\item Sweep 结果还能提供命中方向、法线等信息，便于生成粒子特效等反馈。
+	\end{itemize}
+	
+	\item \textbf{关键位置点的定义方式}：
+	这些轨迹点的定义方式也尽量简单、通用：
+	\begin{itemize}
+		\item 在角色骨骼上建立若干 Socket；
+		\item 例如 upper left、upper right、lower left、lower right、center 等；
+		\item 不同攻击动作只需指定经过哪些 Socket，即可形成大致挥击轨迹。
+	\end{itemize}
+	这样做的优势包括：
+	\begin{itemize}
+		\item 在编辑器中直接可视化配置；
+		\item 不需要编写复杂的编辑工具；
+		\item 轨迹定义灵活，便于为不同攻击动作复用。
+	\end{itemize}
+	
+	\item \textbf{总结}
+	本节的核心思想是：
+	\begin{quote}
+		用\textbf{一次动画通知触发的多段 Sweep}，替代持续碰撞检测或单次直线 Sweep；再通过\textbf{预定义 Socket 点}近似挥击弧线，从而在保证实现简单的同时，提高近战命中检测的稳定性、准确性和可扩展性。
+	\end{quote}
+\end{enumerate}
+
+\section{使用动画通知发送扫描位置}
+
+\begin{enumerate}
+	\item 本节的目标是实现近战检测机制中的“信号发送”部分：通过动画通知（Animation Notify）把一组用于 Sweep 的位置数据发送出去，为后续技能系统中的命中检测做准备。
+	
+	\item 实现方式是在动画模块中新建一个自定义 Notify 类，用于在动画播放到指定时机时触发逻辑，并将一组目标位置作为事件数据传递给角色的 Gameplay Ability System。
+	
+	\item 这些位置数据并不是直接手写坐标，而是通过一组 Socket 名称来定义。做法是：
+	\begin{enumerate}
+		\item 在 Notify 中声明一个可在编辑器中配置的 Socket 名称数组；
+		\item 运行时根据这些名称到角色 Mesh 上查询对应 Socket 的世界坐标；
+		\item 将这些坐标组织成若干段 Sweep 的起点和终点。
+	\end{enumerate}
+	
+	\item 代码中加入了若干必要的校验，以避免无效触发：
+	\begin{enumerate}
+		\item 如果 Mesh 组件为空，则直接返回；
+		\item 如果拥有者不存在，则直接返回；
+		\item 如果找不到 Ability System Component，则直接返回；
+		\item 如果 Socket 数组元素个数小于等于 1，则直接返回。
+	\end{enumerate}
+	之所以要求至少两个 Socket，是因为 Sweep 本质上必须由“起点”和“终点”组成，单个位置无法形成一次有效检测。
+	
+	\item 当基础校验通过后，Notify 会准备发送 Gameplay Event。与之前简单事件不同，这次不仅要发送事件标签（Event Tag），还要构造 Gameplay Event Data，将 Sweep 所需的位置数据打包进去。
+	
+	\item 位置数据的组织方式采用了 Ability System 中现成的数据结构：\texttt{GameplayAbilityTargetData\_LocationInfo}。这个结构天然包含一对位置：
+	\begin{enumerate}
+		\item \texttt{SourceLocation}：表示 Sweep 起点；
+		\item \texttt{TargetLocation}：表示 Sweep 终点。
+	\end{enumerate}
+	因而非常适合用来表达一次从起点到终点的轨迹检测。
+	
+	\item 遍历 Socket 数组时，逻辑并不是孤立读取每个点，而是把相邻两个点配成一组：
+	\begin{enumerate}
+		\item 上一个 Socket 的位置作为起点；
+		\item 当前 Socket 的位置作为终点；
+		\item 每一对相邻点构成一次 Sweep。
+	\end{enumerate}
+	例如若有 4 个 Socket，则可形成 3 段连续 Sweep，从而近似角色手臂或武器挥动的轨迹。
+	
+	\item 每一段 Sweep 都会被封装成一个 \texttt{LocationInfo} 对象，并加入到 \texttt{GameplayEventData} 的 \texttt{TargetData} 数组中。这里特别强调了一点：事件中的 \texttt{TargetData} 并不是单个对象，而是可以保存一个数组，因此非常适合存储多段 Sweep 信息。
+	
+	\item 在内存管理上，\texttt{LocationInfo} 需要使用 \texttt{new} 动态分配。这是因为 Ability System 内部会用共享指针机制接管该对象：
+	\begin{enumerate}
+		\item 这里应传入原始指针；
+		\item 不应自己手动删除；
+		\item 也不应提前手动包装成共享指针，否则可能造成引用计数管理冲突，甚至导致崩溃。
+	\end{enumerate}
+	
+	\item 中途编译时还修正了一个小错误：构造完事件数据后，需要确保真正把该数据对象传入发送事件的接口，否则虽然位置数据生成了，但不会被 Gameplay Event 正确携带出去。
+	
+	\item 本节最后对整体流程进行了回顾：先在 Notify 中配置 Socket 名称数组，再在运行时读取对应坐标，把相邻坐标转换为多组 \texttt{LocationInfo}，统一放入 Gameplay Event Data 并发送给角色。这样后续能力系统只需要遍历这些 Target Data，就可以逐段执行 Sweep 检测。
+	
+	\item 当前这一节主要完成了“数据发送结构”的搭建，还没有真正开始测试命中效果。下一步将进入编辑器中配置角色骨骼上的 Socket 位置，并在 Ability System 与 Combo Ability 中消费这些数据，真正完成近战轨迹检测。
+\end{enumerate}
+
+\section{课程42：客户端也绘制图形的问题分析}
+
+\begin{itemize}
+	\item 你看到的现象\textbf{不表示} \ci{DoDamage} 在客户端执行了
+	\item 更大的可能是：\ci{UKismetSystemLibrary::SphereTraceMultiForObjects(..., EDrawDebugTrace::ForDuration, ...)} 的调试绘制并不等同于“只在本机本地画”
+	\item 在网络游戏里，尤其是角色由服务端权威驱动、客户端都拥有该世界表现时，\textbf{调试绘制可能在所有相关世界实例上都可见}
+\end{itemize}
+
+\subsection{你当前现象的关键点}
+
+你已经确认两件事：
+
+\begin{itemize}
+	\item \ci{DoDamage} 的事件侦听只在 Server 发生
+	\item 日志也证明 \ci{GetHitResultsFromSweepLocationTargetData(...)} 是在 Server 逻辑路径上调用
+\end{itemize}
+
+但你又观察到：
+
+\begin{itemize}
+	\item Dedicated Server 下，两个客户端都看到了 \ci{SphereTraceMultiForObjects} 的调试线
+\end{itemize}
+
+这说明：
+
+\begin{quote}
+	\textbf{“看到调试线”} 和 \textbf{“客户端执行了伤害逻辑”} 不是同一件事。
+\end{quote}
+
+\subsection{为什么会这样}
+\begin{enumerate}
+	
+	\item \textbf{ \ci{EDrawDebugTrace} 只是调试绘制选项，不是网络权限开关}
+	
+	你这里的代码本质是：
+	
+	\begin{code}
+		UKismetSystemLibrary::SphereTraceMultiForObjects(
+		this,
+		StartLoc,
+		EndLoc,
+		SphereSweepRadius,
+		...,
+		DebugType,
+		OutResults,
+		true,
+		FLinearColor::Green,
+		FLinearColor::Red,
+		5.f);
+	\end{code}
+	
+	其中：
+	
+	\[
+	\text{DebugType} = \text{EDrawDebugTrace::ForDuration}
+	\]
+	
+	这个参数的含义只是：
+	
+	\begin{quote}
+		“这次 Trace 要不要画调试图形，以及画多久”
+	\end{quote}
+	
+	它不是：
+	
+	\begin{quote}
+		“只允许 Server 画，客户端绝不能看到”
+	\end{quote}
+	
+	\item \textbf {Dedicated Server 下客户端看到的，往往是服务端世界调试结果被同步/镜像出来的表现}
+	
+	在 UE 的网络调试里，\textbf{有些调试绘制并不是严格意义上的纯本地屏幕画线}。
+	
+	尤其是：
+	
+	\begin{itemize}
+		\item Trace Debug
+		\item 某些 DrawDebug 系列
+		\item PIE/编辑器联机调试环境
+	\end{itemize}
+	
+	你看到的更像是：
+	
+	\begin{quote}
+		服务端执行了 Trace，并把这个世界中的调试可视化反映到了客户端所见的游戏世界里
+	\end{quote}
+	
+	也就是说：
+	
+	\begin{itemize}
+		\item 逻辑在 Server
+		\item 线条也由 Server 这次 Trace 产生
+		\item 但客户端能“看见”这份调试结果
+	\end{itemize}
+	
+	\item \textbf{ \ci{UKismetSystemLibrary} 的 Trace Debug 更偏“调试工具行为”，不是“严格网络隔离表现”}
+	
+	这是最容易误解的一点。
+	
+	很多人会下意识觉得：
+	
+	\begin{quote}
+		“这段 C++ 在 Server 调用，所以画线就只会在 Server 可见。”
+	\end{quote}
+	
+	但 \ci{KismetSystemLibrary} 里的 Trace Debug 是为了\textbf{方便开发期观察}，不一定遵守你对“只在当前进程窗口画”的直觉。
+	
+	所以你看到两个客户端都能看到，并不反常。
+	
+	\item \textbf {你这里的 \ci{this} 不是客户端上下文隔离的依据}
+	
+	你传入的是：
+	
+	\begin{code}
+		UKismetSystemLibrary::SphereTraceMultiForObjects(this, ...)
+	\end{code}
+	
+	这里的 \ci{this} 是当前 \ci{UCGameplayAbility} 对象，仅用于 World Context 等用途，不意味着：
+	
+	\begin{itemize}
+		\item 只绑定某一个本地屏幕
+		\item 只绑定某一个网络端画线
+	\end{itemize}
+	
+	所以不要把它理解成“在哪个对象上调用，就只在哪个客户端画”。
+\end{enumerate}
+\subsection{为什么 Dedicated Server 下两个客户端都能看到}
+
+对你这个现象，最合理的解释是：
+
+\begin{enumerate}
+	\item Server 执行了 \ci{GetHitResultsFromSweepLocationTargetData}
+	\item Server 在这次 \ci{SphereTraceMultiForObjects} 中启用了 \ci{ForDuration} 调试绘制
+	\item 这个调试绘制在当前联机调试环境中，对连接到该世界的客户端都可见
+\end{enumerate}
+
+所以结果是：
+
+\begin{itemize}
+	\item 两个客户端都看到线
+	\item 但真正的伤害判定仍只在 Server
+\end{itemize}
+
+这两件事并不矛盾。
+
+\subsection{你真正该怎么判断“逻辑是否只在 Server 执行”}
+
+不要用“客户端是否看见调试线”来判断。  
+更可靠的是看：
+
+\begin{itemize}
+	\item 日志里 \ci{HasAuthority()}
+	\item \ci{NetMode}
+	\item \ci{LocalRole}
+	\item 伤害应用代码是否真的只在 Server 调用
+\end{itemize}
+
+也就是说：
+
+\begin{quote}
+	\textbf{看日志和伤害结果判断权限，不要看调试线是否可见。}
+\end{quote}
+
+\subsection{如果你想做到“只在 Server 自己画，客户端完全看不到”}
+
+更稳的做法不是依赖 \ci{SphereTraceMultiForObjects} 的内建调试绘制，而是：
+
+\begin{itemize}
+	\item 把 \ci{DebugType} 设成 \ci{None}
+	\item 然后你自己在明确的 \ci{HasAuthority()} 分支里调用自定义 \ci{DrawDebugLine} / \ci{DrawDebugSphere}
+\end{itemize}
+
+并根据你自己的需求进一步限制：
+
+\begin{itemize}
+	\item 只在 Server 进程画
+	\item 只在某个 NetMode 下画
+	\item 只在编辑器调试时画
+\end{itemize}
+
+\subsection{一句实用建议}
+
+如果你想验证这个推断，可以做一个最小实验：
+
+\begin{itemize}
+	\item 保持伤害逻辑不变
+	\item 把 \ci{SphereTraceMultiForObjects} 的 \ci{DebugType} 改成 \ci{None}
+	\item 再手动在 \ci{HasAuthority()} 条件下调用一次 \ci{DrawDebugSphere}
+\end{itemize}
+
+如果这时客户端不再看到同样行为，你就能确认：
+
+\begin{quote}
+	问题不在于客户端执行了伤害逻辑，而在于 \ci{Kismet Trace Debug} 的可视化行为本身
+\end{quote}
+
+\subsection{一句总结}
+
+\ci{GetHitResultsFromSweepLocationTargetData} 很可能确实只在 Server 执行；你之所以在 Dedicated Server 下让两个客户端都看到了调试线，不是因为客户端也执行了伤害逻辑，而是因为 \ci{SphereTraceMultiForObjects} 的 \ci{EDrawDebugTrace} 绘制行为本身并不等同于“只在 Server 本地可见”。
+
+\subsection{再补一个你当前代码里的小提醒}
+
+你现在的函数在 \ci{CGameplayAbility.cpp} 中是：
+
+\begin{itemize}
+	\item 先遍历 \ci{TargetDataHandle}
+	\item 再调用 \ci{SphereTraceMultiForObjects}
+	\item 最后把结果放进 \ci{OutResults}
+\end{itemize}
+
+因此只要你想把“权限逻辑”和“调试显示逻辑”彻底分开，最干净的方式就是：
+
+\begin{itemize}
+	\item Trace 保持服务端权威
+	\item Debug Draw 自己单独控制
+\end{itemize}
+
+这样以后你就不会再被“客户端也看到了线”这种现象误导。
+\subsection{listen server符合预期}
+
+\begin{itemize}
+	\item 你现在观察到：
+	\begin{itemize}
+		\item \ci{listen server}：只在 server 侧看到绘制，客户端不看到
+		\item \ci{dedicated server}：两个客户端都看到绘制
+	\end{itemize}
+	\item 这更说明差异来自 \textbf{调试绘制在不同网络运行模式下的表现方式}，而不是 \ci{DoDamage} 在客户端偷偷执行了
+\end{itemize}
+
+\subsection{为什么 \ci{listen server} 和 \ci{dedicated server} 会不一样}
+\begin{itemize}
+	
+	\item \textbf{\ci{listen server}}
+	
+	\begin{itemize}
+		\item Server 和一个本地玩家共享同一个进程/世界上下文
+		\item 很多调试绘制的观感更接近“只在主机这一侧可见”
+		\item 远程客户端通常不会自动共享这份调试可视化结果
+	\end{itemize}
+	
+	所以你看到：
+	
+	\begin{quote}
+		Server 画了，远程客户端没看到
+	\end{quote}
+	
+	这很正常。
+	
+	\item \textbf{\ci{dedicated server}}
+	
+	\begin{itemize}
+		\item Server 不带本地玩家视口
+		\item 所有可见玩家都在客户端
+		\item 某些调试绘制/Trace Debug 的表现，在这种模式下会更像“把服务端调试可视化反映到客户端世界中”
+	\end{itemize}
+	
+	于是你就看到：
+	
+	\begin{quote}
+		虽然逻辑在 Server，但两个客户端都能看见调试线
+	\end{quote}
+\end{itemize}
+\subsection{为什么这两种现象并不矛盾}
+
+因为你现在比较的是两件不同层面的东西：
+
+\begin{itemize}
+	\item \textbf{逻辑执行权限}：谁真正调用了 \ci{GetHitResultsFromSweepLocationTargetData}
+	\item \textbf{调试可视化传播}：谁最终看到了画出来的线
+\end{itemize}
+
+\ci{listen server} 和 \ci{dedicated server} 对第二件事的表现可以不同，但第一件事仍然相同。
+
+也就是说：
+
+\begin{itemize}
+	\item 逻辑：都可能只在 Server
+	\item 显示：两种模式下不一定一致
+\end{itemize}
+
+\subsection{你现在这个现象反而是“合理的”}
+
+如果你的日志已经证明：
+
+\begin{itemize}
+	\item \ci{DoDamage} 只在 Server 触发
+	\item \ci{GetHitResultsFromSweepLocationTargetData} 只在 Server 路径调用
+\end{itemize}
+
+那么：
+
+\begin{itemize}
+	\item \ci{listen server} 下“只有 server 看到”是合理的
+	\item \ci{dedicated server} 下“客户端也看到”也仍可能是合理的
+\end{itemize}
+
+因为差异点不在 Gameplay 权限，而在 \ci{Kismet Trace Debug} 的可视化行为。
+
+\subsection{最关键的一句判断}
+
+\begin{quote}
+	\textbf{如果日志和伤害结果都证明逻辑只在 Server，那么客户端能否看见调试线，不足以推翻这一点。}
+\end{quote}
+
+\section{为什么 Dedicated Server 更容易暴露这个现象}
+
+因为 Dedicated Server 没有自己的玩家视口，所以“调试可视化最终由谁看见”这件事，天然更依赖客户端显示层。
+
+换句话说：
+
+\begin{itemize}
+	\item \ci{listen server}：Server 自己就有窗口，很多调试更像“画给主机看”
+	\item \ci{dedicated server}：Server 没窗口，调试结果更容易体现在客户端视图里
+\end{itemize}
+
+所以你观察到两者不一致，恰恰是正常现象。
+
+\subsection{你现在最稳的结论应该是}
+
+\begin{itemize}
+	\item 不要把“客户端看到线”理解成“客户端执行了伤害判定”
+	\item 你的 Server-only 伤害逻辑大概率仍然是对的
+	\item 你遇到的是 \ci{EDrawDebugTrace} 在不同网络模式下可视化表现不一致
+\end{itemize}
+
+\subsection{一句总结}
+
+\ci{listen server} 下“只在 server 看到调试线”、\ci{dedicated server} 下“客户端也能看到调试线”，这两者可以同时成立；它们说明的是 \textbf{调试显示机制在不同网络模式下的差异}，而不是 \textbf{客户端也执行了你的伤害逻辑}。
+
+\section{PreAttributeChange VS PreAttributeBaseChange}
+\subsection{PreAttributeChange}
+\begin{code}[caption={声明及注释}]
+	/**
+	* 在属性即将发生任何修改之前调用。
+	* 这一层级比 PreAttributeModify / PostAttributeModify 更底层。
+	*
+	* 这里不会提供额外的上下文信息，因为任何事情都可能触发它：
+	* 例如执行型效果（Executed effects）、持续时间型效果（duration based effects）、
+	* 效果被移除、免疫生效、叠加规则变化等。
+	*
+	* 这个函数的设计目的，是用来强制约束属性值，
+	* 比如“Health = Clamp(Health, 0, MaxHealth)”这样的逻辑，
+	* 而不是处理“如果受到了伤害，就额外触发某个事件”之类的游戏玩法逻辑。
+	*
+	* NewValue 是一个可修改的引用，
+	* 所以你可以在这里直接对即将应用的新值进行 Clamp 或修正。
+	*/
+	virtual void PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue) { }	
+\end{code}
+\begin{enumerate}
+	\item \textbf{作用}
+	\ci{PreAttributeChange} 会在属性值\textbf{即将发生变化之前}被调用，用于对新值做最后的修正。
+	
+	\item \textbf{典型用途：} 它主要用于\textbf{数值约束}，例如：
+	\[
+	Health = \mathrm{Clamp}(Health,\, 0,\, MaxHealth)
+	\]
+	也就是说，可以在这里限制血量、蓝量、移速等属性不要越界。
+	
+	\item \textbf{不适合:}处理具体玩法事件，例如：
+	\begin{itemize}
+		\item 受到伤害时触发特效
+		\item 播放死亡动画
+		\item 根据技能来源执行不同逻辑
+	\end{itemize}
+	因为这里通常\textbf{没有足够的上下文信息}来判断属性变化的具体来源。
+	
+	\item \textbf{为什么可以修改新值}
+	参数 \ci{float& NewValue} 是一个\textbf{可修改引用}，因此可以直接改写即将生效的值，例如：
+	\[
+	NewValue = \mathrm{Clamp}(NewValue,\, 0,\, MaxHealth)
+	\]
+	
+	\item \textbf{总结}
+	\ci{PreAttributeChange} 的核心职责是：\textbf{在属性真正更新前，对新值进行合法性检查和约束。}
+\end{enumerate}
+\subsection{PreAttributeBaseChange}
+\ci{PreAttributeBaseChange} 会在\textbf{属性的基础值（Base Value）即将发生变化之前}被调用，前提是该属性存在 attribute aggregator。
+
+这个函数应当用于执行\textbf{数值钳制（clamping）}，也就是说，如果你希望基础值和最终值都被限制在合法范围内，就应当在这里处理基础值的约束。
+
+这个函数\textbf{不应该}触发任何 gameplay 相关事件或回调；这类逻辑应当放在 `PreAttributeChange()` 中，因为它会在属性的\textbf{最终值}真正发生变化之前被调用。
+
+\begin{enumerate}
+	\item \ci{PreAttributeBaseChange} 的关注点不是属性的最终显示值，而是它的\textbf{基础值}。  
+	在 GAS 中：
+	\[
+	CurrentValue = BaseValue + \text{Modifiers}
+	\]
+	因此，这个函数适合处理的是对 `BaseValue` 本身的限制，例如：
+	\[
+	BaseHealth = \mathrm{Clamp}(BaseHealth,\, 0,\, MaxHealth)
+	\]
+	
+	\item \textbf{典型用途}
+	\begin{itemize}
+		\item 限制基础生命值不能小于 $0$
+		\item 限制基础蓝量不能超过最大值
+		\item 保证基础属性始终处于合法范围
+	\end{itemize}
+	
+	\item \textbf{不适合做什么}
+	这个函数不适合处理玩法事件，例如：
+	\begin{itemize}
+		\item 受伤后播放特效
+		\item 死亡判定
+		\item 触发 UI 刷新事件
+	\end{itemize}
+	因为它的职责只是\textbf{约束基础值}，而不是处理完整的 gameplay 语义。
+	
+	\item \textbf{一句话总结}
+	\ci{PreAttributeBaseChange} 的核心职责是：\textbf{在属性基础值改变前，对 BaseValue 做合法性检查和范围约束。}
+\end{enumerate}
+
+
+\paragraph{GAS 中三个常用属性回调的区别}
+
+\begin{center}
+	\renewcommand{\arraystretch}{1.2}
+	\footnotesize
+	\begin{longtable}{|p{3.6cm}|p{3.2cm}|p{4.2cm}|p{4.2cm}|}
+		\hline
+		\textbf{函数} & \textbf{作用对象} & \textbf{适合做什么} & \textbf{不适合做什么} \\
+		\hline
+		\endfirsthead
+		
+		\hline
+		\textbf{函数} & \textbf{作用对象} & \textbf{适合做什么} & \textbf{不适合做什么} \\
+		\hline
+		\endhead
+		
+		\hline
+		\endfoot
+		
+		\hline
+		\endlastfoot
+		\texttt{PreAttributeChange}
+		& 属性的最终值（Current Value）
+		& 对最终属性值做限制，例如血量、蓝量、移速的 Clamp
+		& 依赖具体来源的玩法逻辑，例如受击特效、死亡事件、技能来源判断 \\
+		\hline
+		
+		\texttt{PreAttributeBaseChange}
+		& 属性的基础值（Base Value）
+		& 对基础值做限制，保证 BaseValue 合法
+		& 触发 gameplay 事件、UI 逻辑或其他高层语义处理 \\
+		\hline
+		
+		\texttt{PostGameplayEffectExecute}
+		& Execute 后对属性造成的实际结果
+		& 处理受伤、回血、护盾结算、死亡判定等具体玩法逻辑
+		& 单纯的底层 Clamp（这类工作更适合放在前两个函数中） \\
+		\hline
+		
+	\end{longtable}	
+\end{center}
+
+\paragraph{进一步理解}
+在 GAS 中，可以粗略理解为：
+\[
+CurrentValue = BaseValue + Modifiers
+\]
+
+因此：
+
+\begin{itemize}
+	\item `PreAttributeBaseChange`：管的是 `BaseValue`
+	\item `PreAttributeChange`：管的是最终生效的值
+	\item `PostGameplayEffectExecute`：管的是数值变化之后的玩法结果
+\end{itemize}
+
+\paragraph{推荐分工}
+\begin{itemize}
+	\item 若要限制属性范围，例如
+	\[
+	Health = \mathrm{Clamp}(Health, 0, MaxHealth)
+	\]
+	应优先放在 `PreAttributeChange` 或 `PreAttributeBaseChange` 中。
+	
+	\item 若要处理“掉血后是否死亡”、“回血后刷新状态”、“伤害结算后触发事件”等，
+	应放在 `PostGameplayEffectExecute` 中。
+\end{itemize}
+
+\paragraph{一句话总结}
+\begin{itemize}
+	\item `PreAttributeChange`：限制\textbf{最终值}
+	\item `PreAttributeBaseChange`：限制\textbf{基础值}
+	\item `PostGameplayEffectExecute`：处理\textbf{变化后的玩法逻辑}
+\end{itemize}
+
+
+
+
+
+
+
+
+
+\chapter{GAS属性杂记}
+\section{GAS 中 AttributeSet 常用回调与 GameplayEffect 类型总结}
+
+\paragraph{属性值关系}
+在 GAS 中，可粗略理解为：$CurrentValue = BaseValue + Modifiers$
+%测试这一行
+其中：
+\begin{itemize}
+	\item \texttt{BaseValue}：基础值，表示\uwave{永久性}或\uwave{已结算}的属性值；
+	\item \texttt{CurrentValue}：当前值，表示基础值叠加各种修饰器后的结果。
+\end{itemize}
+
+\paragraph{\texttt{execute} 的含义}
+这里的 \texttt{execute} 不是单指某个函数名，而是指 GameplayEffect 的一种
+\textbf{立即结算}语义，即直接把结果写入属性的 \texttt{BaseValue}。
+
+典型例子：
+\begin{itemize}
+	\item 一次伤害
+	\item 一次治疗
+	\item 一次性加血/扣蓝
+\end{itemize}
+
+与之相对，持续型 Buff 往往只是把修饰器挂到目标身上，通常影响的是聚合后的结果，而不是立刻改写 \texttt{BaseValue}。
+
+\paragraph{三个常用回调的职责}
+\begin{center}
+	\footnotesize
+	
+	\renewcommand{\arraystretch}{1.15}
+	
+	\begin{longtable}{|p{4cm}|p{2cm}|p{4.2cm}|p{4.2cm}|}
+		\hline
+		\textbf{函数} & \textbf{作用对象} & \textbf{适合做什么} & \textbf{不适合做什么} \\
+		\hline
+		\endfirsthead
+		
+		\hline
+		\textbf{函数} & \textbf{作用对象} & \textbf{适合做什么} & \textbf{不适合做什么} \\
+		\hline
+		\endhead
+		
+		\hline
+		\endfoot
+		
+		\hline
+		\endlastfoot
+		
+		\texttt{PreAttributeChange}
+		& 最终值（\texttt{CurrentValue}）
+		& 对最终属性值做约束，如生命、蓝量、移速的 Clamp
+		& 依赖具体上下文的玩法逻辑，如受击特效、技能来源判断 \\
+		\hline
+		
+		\texttt{PreAttributeBaseChange}
+		& 基础值（\texttt{BaseValue}）
+		& 对基础值做约束，保证 \texttt{BaseValue} 合法
+		& 触发 gameplay 事件、UI 刷新、死亡判定等高层逻辑 \\
+		\hline
+		
+		\texttt{PostGameplayEffectExecute}
+		& execute 结算后的结果
+		& 处理伤害、治疗、护盾、死亡判定等玩法逻辑
+		& 单纯的底层 Clamp 或前置数值限制 \\
+		\hline
+		
+	\end{longtable}
+\end{center}
+
+\paragraph{三个回调的简要理解}
+\begin{itemize}
+	\item \texttt{PreAttributeChange}：在最终值变化前调用，适合约束 \texttt{CurrentValue}。
+	\item \texttt{PreAttributeBaseChange}：在基础值变化前调用，适合约束 \texttt{BaseValue}。
+	\item \texttt{PostGameplayEffectExecute}：在 execute 修改完成后调用，适合处理结算结果。
+\end{itemize}
+
+\paragraph{最常见的分工}
+\begin{itemize}
+	\item Clamp 数值：放在 \texttt{PreAttributeChange} 或 \texttt{PreAttributeBaseChange}
+	\item 处理伤害、治疗、死亡：放在 \texttt{PostGameplayEffectExecute}
+\end{itemize}
+
+例如：
+$Health = \mathrm{Clamp}(Health,\, 0,\, MaxHealth)
+$
+
+\paragraph{四种 GameplayEffect 与 \texttt{PostGameplayEffectExecute} 的关系}
+\begin{center}
+	\footnotesize
+	\begin{longtable}{|p{2cm}|p{3.5cm}|p{3.0cm}|p{4.8cm}|}
+		\hline
+		\textbf{类型} & \textbf{是否触发 \texttt{PostGameplayEffectExecute}} & \textbf{主要影响} & \textbf{说明} \\
+		\hline
+		\endfirsthead
+		
+		\hline
+		\textbf{类型} & \textbf{是否触发 \texttt{PostGameplayEffectExecute}} & \textbf{主要影响} & \textbf{说明} \\
+		\hline
+		\endhead
+		
+		\hline
+		\endfoot
+		
+		\hline
+		\endlastfoot
+		
+		\texttt{Instant}
+		& 通常会
+		& \texttt{BaseValue}
+		& 立即结算一次属性修改，如瞬时伤害、瞬时治疗，典型属于 execute。 \\
+		\hline
+		
+		\texttt{Duration}
+		& 通常不会
+		& 多为 \texttt{CurrentValue}
+		& 持续一段时间挂载修饰器，通常不直接改写 \texttt{BaseValue}。 \\
+		\hline
+		
+		\texttt{Infinite}
+		& 通常不会
+		& 多为 \texttt{CurrentValue}
+		& 长期挂载修饰器，逻辑上与 Duration 类似，通常不是一次 execute 结算。 \\
+		\hline
+		
+		\texttt{Periodic}
+		& 每个周期通常会
+		& 周期结算结果通常写入 \texttt{BaseValue}
+		& 虽然它依附于 Duration 或 Infinite 存在，但每次周期执行通常都像一次 Instant/execute。 \\
+		\hline
+		
+	\end{longtable}
+\end{center}
+
+\paragraph{快速记忆}
+\begin{itemize}
+	\item \texttt{Instant}：通常触发
+	\item \texttt{Duration}：通常不触发
+	\item \texttt{Infinite}：通常不触发
+	\item \texttt{Periodic}：每个周期通常触发
+\end{itemize}
+
+\paragraph{一句话总结}
+\begin{itemize}
+	\item \texttt{PreAttributeChange}：限制最终值
+	\item \texttt{PreAttributeBaseChange}：限制基础值
+	\item \texttt{PostGameplayEffectExecute}：处理 execute 结算后的玩法结果
+\end{itemize}
+
+\section{UCAttributeSet 中 \texttt{GetHealth()} 与 \texttt{SetHealth()} 的含义}
+
+\paragraph{结论}
+在当前写法中：
+
+\begin{itemize}
+	\item \texttt{GetHealth()} 读取的是 \texttt{CurrentValue}
+	\item \texttt{SetHealth()} 设置的是 \texttt{BaseValue}
+	\item \texttt{InitHealth()} 会同时设置 \texttt{BaseValue} 和 \texttt{CurrentValue}
+\end{itemize}
+
+\paragraph{属性值关系}
+在 GAS 中，可粗略理解为：
+
+\[
+CurrentValue = BaseValue + Modifiers
+\]
+
+其中：
+
+\begin{itemize}
+	\item \texttt{BaseValue}：基础值，表示已经结算后的底层属性值
+	\item \texttt{CurrentValue}：当前值，表示基础值叠加各种修饰器后的结果
+\end{itemize}
+
+\subsection{为什么 \texttt{GetHealth()} 读的是 \texttt{CurrentValue}}
+
+在你的 \texttt{CAttributeSet.h} 中，使用了：
+
+\begin{code}[language=C++]
+	ATTRIBUTE_ACCESSORS_BASIC(ThisClass, Health)
+\end{code}
+
+其中 \texttt{GetHealth()} 对应的宏展开逻辑是：
+
+\begin{code}[language=C++]
+	#define GAMEPLAYATTRIBUTE_VALUE_GETTER(PropertyName) \
+	inline float Get##PropertyName() const \
+	{ \
+		return PropertyName.GetCurrentValue(); \
+	}
+\end{code}
+
+因此：
+
+\begin{code}[language=C++]
+	GetHealth()
+\end{code}
+
+本质上等价于：
+
+\begin{code}[language=C++]
+	Health.GetCurrentValue()
+\end{code}
+
+所以它读取的是：\texttt{CurrentValue}
+
+
+\subsection{为什么 \texttt{SetHealth()} 改的是 \texttt{BaseValue}}
+
+同样地，\texttt{SetHealth()} 的宏展开逻辑是：
+
+\begin{code}[language=C++]
+	#define GAMEPLAYATTRIBUTE_VALUE_SETTER(PropertyName) \
+	inline void Set##PropertyName(float NewVal) \
+	{ \
+		UAbilitySystemComponent* AbilityComp = GetOwningAbilitySystemComponent(); \
+		if (ensure(AbilityComp)) \
+		{ \
+			AbilityComp->SetNumericAttributeBase(Get##PropertyName##Attribute(), NewVal); \
+		}; \
+	}
+\end{code}
+
+关键在于：	\ci{AbilityComp->SetNumericAttributeBase(...)}
+
+这个接口设置的是属性的：\textbf{\texttt{BaseValue}}。
+
+
+因此：	\ci{SetHealth(NewVal)}并不是直接修改 \texttt{CurrentValue}，而是通过 ASC 把 \texttt{Health} 的基础值改为 \texttt{NewVal}。
+
+\subsection{\texttt{InitHealth()} 又是什么}
+
+同一组宏里，\texttt{InitHealth()} 的逻辑通常是：
+
+\begin{code}[language=C++]
+	#define GAMEPLAYATTRIBUTE_VALUE_INITTER(PropertyName) \
+	inline void Init##PropertyName(float NewVal) \
+	{ \
+		PropertyName.SetBaseValue(NewVal); \
+		PropertyName.SetCurrentValue(NewVal); \
+	}
+\end{code}
+
+所以：
+
+\begin{itemize}
+	\item \texttt{SetHealth(NewVal)}：主要设置 \texttt{BaseValue}
+	\item \texttt{InitHealth(NewVal)}：同时初始化 \texttt{BaseValue} 和 \texttt{CurrentValue}
+\end{itemize}
+
+\subsection{结合 \texttt{CAttributeSet.cpp} 理解}
+
+你当前的实现如下：
+
+\begin{code}[language=C++]
+	void UCAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)
+	{
+		if (Attribute == GetHealthAttribute())
+		{
+			NewValue = FMath::Clamp(NewValue, 0.f, GetMaxHealth());
+		}
+		else if (Attribute == GetManaAttribute())
+		{
+			NewValue = FMath::Clamp(NewValue, 0.f, GetMaxMana());
+		}
+	}
+	
+	void UCAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data)
+	{
+		if (Data.EvaluatedData.Attribute == GetHealthAttribute())
+		{
+			SetHealth(FMath::Clamp(GetHealth(), 0.f, GetMaxHealth()));
+		}
+		else if (Data.EvaluatedData.Attribute == GetManaAttribute())
+		{
+			SetMana(FMath::Clamp(GetMana(), 0.f, GetMaxMana()));
+		}
+	}
+\end{code}
+
+\paragraph{\texttt{PreAttributeChange} 在做什么}
+这一步发生在属性的\textbf{最终值即将变化之前}。
+
+例如：
+
+\begin{code}[language=C++]
+	NewValue = FMath::Clamp(NewValue, 0.f, GetMaxHealth());
+\end{code}
+
+表示如果这次将要修改的是 \texttt{Health}，那么先把即将写入的值限制在：
+$
+[0, \texttt{MaxHealth}]
+$之间。
+也就是说，\texttt{PreAttributeChange} 的职责是：
+\textbf{在属性真正变化前，对最终值做约束。}
+
+\paragraph{\texttt{PostGameplayEffectExecute} 在做什么}
+这一阶段表示一次 execute 型修改已经完成，属性值已经被结算了。
+例如：
+\begin{code}[language=C++]
+	SetHealth(FMath::Clamp(GetHealth(), 0.f, GetMaxHealth()));
+\end{code}
+
+这句可以拆成三步理解：
+\begin{enumerate}
+	\item \texttt{GetHealth()} 读取当前生命值，即读取 \texttt{CurrentValue}
+	\item \texttt{FMath::Clamp(...)} 计算出一个合法范围内的值
+	\item \texttt{SetHealth(...)} 将这个值写回 \texttt{BaseValue}
+\end{enumerate}
+
+因此，这段代码的准确含义是：	\textbf{先读取当前生命值，再把 Clamp 后的结果回写为生命属性的基础值。}
+
+\subsection{为什么两个地方都要 \texttt{Clamp}}
+
+这是 GAS 中非常常见的一种写法，因为两个回调关注的层次不同。
+
+\paragraph{1. \texttt{PreAttributeChange} 的 Clamp}
+这一层处理的是：
+
+\begin{quote}
+	\textbf{最终值变化前的约束}
+\end{quote}
+
+它主要用于保证：
+
+\begin{itemize}
+	\item 当前生命值不会小于 0
+	\item 当前生命值不会超过 \texttt{MaxHealth}
+	\item 当前法力值不会越界
+\end{itemize}
+
+\paragraph{2. \texttt{PostGameplayEffectExecute} 的 Clamp}
+这一层处理的是：
+
+\begin{quote}
+	\textbf{execute 结算完成后的收口}
+\end{quote}
+
+因为 execute 型 GameplayEffect 往往会直接修改 \texttt{BaseValue}，所以在结算完之后再做一次 Clamp，可以确保：
+
+\begin{itemize}
+	\item 基础值本身也保持合法
+	\item 即使某次 execute 直接把值推到了非法范围，也能在这里修正回来
+\end{itemize}
+
+\paragraph{为什么不是重复，而是互补}
+两处 Clamp 看起来相似，但职责不同：
+
+\begin{itemize}
+	\item \texttt{PreAttributeChange}：保护\textbf{最终值}
+	\item \texttt{PostGameplayEffectExecute}：修正\textbf{结算后的基础值}
+\end{itemize}
+
+所以它们通常不是互相替代，而是分别从两个层面确保属性安全。
+
+\subsection{对你这段代码的最终理解}
+
+你的这段实现可以概括为：
+
+\begin{itemize}
+	\item \texttt{Health} 和 \texttt{Mana} 在变化前，先通过 \texttt{PreAttributeChange} 限制最终值范围
+	\item 如果是 execute 型修改完成后，再通过 \texttt{PostGameplayEffectExecute} 把结果回写并收口到合法区间
+	\item \texttt{GetHealth()} 和 \texttt{GetMana()} 读取的是当前值
+	\item \texttt{SetHealth()} 和 \texttt{SetMana()} 修改的是基础值
+\end{itemize}
+
+\paragraph{一句话总结}
+
+\begin{itemize}
+	\item \texttt{GetHealth()}：读 \texttt{CurrentValue}
+	\item \texttt{SetHealth()}：写 \texttt{BaseValue}
+	\item \texttt{PreAttributeChange}：在变化前 Clamp 最终值
+	\item \texttt{PostGameplayEffectExecute}：在 execute 后 Clamp 并收口基础值
+\end{itemize}
+
+\section{动画蒙太奇中\texttt{Group} 的作用}
+在 Unreal 的动画蒙太奇系统中，\ci{Slot} 依附于某个 \ci{Group}。  
+\ci{Group} 的主要作用是管理不同 \ci{Montage} 之间的\textbf{并行关系与互斥关系}。
+
+更具体地说：
+
+\begin{itemize}
+	\item 处于\textbf{同一个} \ci{Group} 的 \ci{Slot}，其上的 \ci{Montage} 通常会互相竞争；
+	\item 处于\textbf{不同} \ci{Group} 的 \ci{Slot}，其上的 \ci{Montage} 通常可以并行播放；
+	\item 但最终能否同时表现出来，还取决于 \ci{AnimGraph} 中是否存在对应的 \ci{Slot} 节点，以及混合逻辑是否允许。
+\end{itemize}
+
+\paragraph{\ci{Slot} 与 \ci{Group} 的区别}
+可以将两者理解为：
+
+\begin{itemize}
+	\item \ci{Slot}：决定 \ci{Montage} 的姿势输出到哪里；
+	\item \ci{Group}：决定该 \ci{Slot} 上的 \ci{Montage} 会和谁互斥，或能与谁并行。
+\end{itemize}
+即：$
+\text{Slot} = \text{插到哪里}
+\qquad
+\text{Group} = \text{和谁互斥}
+$
+\begin{enumerate}
+	\item \textbf{同组时的效果}
+	若两个 \ci{Slot} 属于同一个 \ci{Group}，例如：
+	
+	\begin{itemize}
+		\item \ci{FullBody} 属于 \ci{DefaultGroup}
+		\item \ci{UpperBody} 也属于 \ci{DefaultGroup}
+	\end{itemize}
+	
+	那么这两个 \ci{Slot} 上播放的 \ci{Montage} 通常会互相打断。  
+	后播放的 \ci{Montage} 往往会覆盖先前播放的 \ci{Montage}。
+	
+	\item \textbf{不同组时的效果}
+	若两个 \ci{Slot} 分别属于不同的 \ci{Group}，例如：
+	
+	\begin{itemize}
+		\item \ci{FullBody} 属于 \ci{FullBodyGroup}
+		\item \ci{UpperBody} 属于 \ci{UpperBodyGroup}
+	\end{itemize}
+	
+	则这两个 \ci{Montage} 通常可以并行存在。  
+	
+	
+	例如一个全身动作和一个上半身攻击动作可以同时播放。
+	
+	不过，最终结果仍需满足以下条件：
+	
+	\begin{itemize}
+		\item \ci{AnimGraph} 中有对应的 \ci{Slot} 节点；
+		\item 使用了正确的混合方式，例如按骨骼分层混合；
+		\item 动画蓝图的姿势流向允许多个 \ci{Slot} 同时参与最终输出。
+	\end{itemize}
+	
+	\item \textbf{典型示例}
+	假设有两个 \ci{Montage}：
+	
+	\begin{enumerate}
+		\item 翻滚动作：
+		\begin{itemize}
+			\item \ci{Slot}：\ci{FullBody}
+			\item \ci{Group}：\ci{LocomotionGroup}
+		\end{itemize}
+		
+		\item 挥刀动作：
+		\begin{itemize}
+			\item \ci{Slot}：\ci{UpperBody}
+			\item \ci{Group}：\ci{CombatGroup}
+		\end{itemize}
+	\end{enumerate}
+	
+	若二者属于不同 \ci{Group}，则它们有机会同时存在；  
+	若二者都属于同一个 \ci{Group}，则后播放的动作通常会打断前者。
+	
+	\item \textbf{需要区分的概念}
+	\ci{Montage Slot Group} 不等同于 \ci{Sync Group}。
+	
+	\begin{itemize}
+		\item \ci{Montage Slot Group}：管理 \ci{Montage} 之间的互斥与并行；
+		\item \ci{Sync Group}：管理多个动画片段在时间节奏上的同步。
+	\end{itemize}
+	
+	因此二者的用途不同，不能混为一谈。
+	
+	\item \textbf{实践中的常见划分}
+	项目中通常会按功能将 \ci{Slot} 分组，例如：
+	
+	\begin{itemize}
+		\item \ci{FullBodyGroup}：管理全身动作；
+		\item \ci{UpperBodyGroup}：管理上半身技能动作；
+		\item \ci{FacialGroup}：管理面部表情动作。
+	\end{itemize}
+	
+	这样做的好处是：
+	
+	\begin{itemize}
+		\item 同类动作彼此互斥；
+		\item 不同类别的动作可以分开控制；
+		\item 动画系统的并行关系更清晰。
+	\end{itemize}
+	
+	\item \textbf{一句话总结}
+	\ci{Slot} 决定 \ci{Montage} 的输出位置，  
+	\ci{Group} 决定该 \ci{Montage} 与其他 \ci{Montage} 是互斥还是可并行。
+\end{enumerate}
+
+\chapter{HasAuthority及相关}
+\section{\texttt{HasAuthority()} 的作用}
+
+\texttt{HasAuthority()} 用于判断当前 \texttt{Actor} 在本机上是否具有网络权威。  
+它本质上等价于判断：
+
+\[
+\texttt{GetLocalRole() == ROLE\_Authority}
+\]
+
+因此，\texttt{HasAuthority()} 判断的并不是“当前程序是否一定是服务器进程”，而是：
+
+\begin{quote}
+	当前这个 \texttt{Actor} 在本机上是否是权威副本。
+\end{quote}
+
+\section{\texttt{HasAuthority()} 能否判断当前是否位于服务器端}
+
+在大多数联网 Gameplay 代码中，\texttt{HasAuthority()} 通常可以近似理解为：
+
+\begin{quote}
+	当前这段逻辑是否运行在服务器拥有权威的那一侧。
+\end{quote}
+
+这是因为在标准的 Unreal 联网模型中：
+
+\begin{itemize}
+	\item 服务器上的 \texttt{Actor} 通常具有 \texttt{Authority}
+	\item 客户端上的复制 \texttt{Actor} 通常不具有 \texttt{Authority}
+\end{itemize}
+
+所以很多时候可以写：
+
+\begin{code}
+	if (HasAuthority())
+	{
+		// 服务端权威逻辑
+	}
+\end{code}
+
+例如：
+
+\begin{itemize}
+	\item 施加伤害
+	\item 授予 \texttt{Ability}
+	\item 应用 \texttt{GameplayEffect}
+	\item 改变角色状态
+	\item 处理死亡结算
+\end{itemize}
+
+\section{\texttt{HasAuthority()} 的严格含义}
+
+虽然在很多场景下可以把 \texttt{HasAuthority()} 当作“服务器判断”，但更严格地说，它判断的是：
+
+\begin{quote}
+	这个 \texttt{Actor} 是否具有权威
+\end{quote}
+
+而不是：
+
+\begin{quote}
+	当前进程是否一定是服务器
+\end{quote}
+
+因此，\texttt{HasAuthority()} 是 \texttt{Actor} 级别的判断，而不是进程级别、世界级别的判断。
+
+\section{为什么它不完全等于“是不是服务器”}
+
+一个典型例子是单机模式（\texttt{Standalone}）。
+
+在单机模式下：
+
+\begin{itemize}
+	\item 没有真正的 Client / Server 分离
+	\item 但 \texttt{Actor} 依然通常具有 \texttt{Authority}
+\end{itemize}
+
+因此：
+
+\begin{code}
+	HasAuthority()
+\end{code}
+
+在单机中也通常会返回 \texttt{true}。
+
+这说明：
+
+\begin{quote}
+	\texttt{HasAuthority()} 不是专门用来判断“当前是否是联网服务器进程”的，
+	而是判断当前 \texttt{Actor} 是否具有权威。
+\end{quote}
+
+\section{如果要严格判断当前是不是服务器环境，应该看什么}
+
+如果你真正想判断的是：
+
+\begin{quote}
+	当前这个世界 / 进程 是 \texttt{Server} 还是 \texttt{Client}
+\end{quote}
+
+那么更适合使用：
+
+\begin{code}
+	GetWorld()->GetNetMode()
+\end{code}
+
+常见的 \texttt{NetMode} 有：
+
+\begin{itemize}
+	\item \texttt{NM\_Standalone}
+	\item \texttt{NM\_ListenServer}
+	\item \texttt{NM\_DedicatedServer}
+	\item \texttt{NM\_Client}
+\end{itemize}
+
+例如：
+
+\begin{code}
+	const ENetMode NetMode = GetWorld()->GetNetMode();
+	const bool bIsServer = NetMode != NM_Client;
+\end{code}
+
+若需要更细分，也可以写：
+
+\begin{code}
+	const bool bIsDedicatedServer = NetMode == NM_DedicatedServer;
+	const bool bIsListenServer = NetMode == NM_ListenServer;
+\end{code}
+
+\section{\texttt{HasAuthority()} 与 \texttt{NetMode} 的区别}
+
+\texttt{HasAuthority()} 更适合判断：
+
+\begin{itemize}
+	\item 这个 \texttt{Actor} 是否应该执行权威逻辑
+	\item 当前对象是否可以做最终裁决
+	\item 某些游戏状态是否应只由权威端修改
+\end{itemize}
+
+例如：
+
+\begin{code}
+	if (HasAuthority())
+	{
+		ApplyDamage();
+		GiveAbility();
+		ApplyGameplayEffectToSelf(...);
+	}
+\end{code}
+
+而 \texttt{GetWorld()->GetNetMode()} 更适合判断：
+
+\begin{itemize}
+	\item 当前是不是 \texttt{Dedicated Server}
+	\item 当前是不是 \texttt{Listen Server}
+	\item 当前是不是 \texttt{Client}
+	\item 是否应执行只属于某一类进程的逻辑
+\end{itemize}
+
+例如：
+
+\begin{code}
+	if (GetWorld()->GetNetMode() == NM_Client)
+	{
+		// 客户端专属表现逻辑
+	}
+\end{code}
+
+\section{在当前项目中的理解方式}
+
+在你的项目代码里，像下面这样的写法：
+
+\begin{code}
+	const bool bHasAuthority = HasAuthority();
+	UE_LOG(LogTemp, Warning, TEXT("当前位于%s"),
+	bHasAuthority ? TEXT("服务器") : TEXT("客户端"));
+\end{code}
+
+在多人游戏调试语境下通常是可以接受的，因为它大体上能够区分：
+
+\begin{itemize}
+	\item \texttt{true}：服务端权威副本
+	\item \texttt{false}：客户端复制副本
+\end{itemize}
+
+但如果你想更严谨地区分：
+
+\begin{itemize}
+	\item \texttt{Standalone}
+	\item \texttt{Listen Server}
+	\item \texttt{Dedicated Server}
+	\item \texttt{Client}
+\end{itemize}
+
+就不应只使用 \texttt{HasAuthority()}，而应该结合 \texttt{NetMode}。
+
+\section{常见误区}
+
+一个常见误区是把：
+
+\begin{code}
+	HasAuthority()
+\end{code}
+
+理解成：
+
+\begin{quote}
+	当前代码是不是运行在服务器进程上
+\end{quote}
+
+这并不总是严格成立。
+
+更准确的理解应该是：
+
+\begin{quote}
+	当前这个 \texttt{Actor} 在本机上是不是权威副本
+\end{quote}
+
+\section{一句话总结}
+
+\texttt{HasAuthority()} 用来判断当前 \texttt{Actor} 是否具有网络权威。  
+在大多数联网 Gameplay 场景下，它可以近似当作“当前是否在服务器端执行权威逻辑”的判断；  
+但它严格来说不是世界级别的“服务器 / 客户端进程判断器”。  
+如果要判断当前环境究竟是 \texttt{Server} 还是 \texttt{Client}，应使用 \texttt{GetWorld()->GetNetMode()}。

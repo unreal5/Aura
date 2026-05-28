@@ -97,8 +97,8 @@ void UAuraAttributeDebugWidget::BuildWidgetTree()
 	if (UCanvasPanelSlot* BorderSlot = RootPanel->AddChildToCanvas(PanelBorder))
 	{
 		BorderSlot->SetAutoSize(false);
-		BorderSlot->SetPosition(FVector2D(32.f, 32.f));
-		BorderSlot->SetSize(FVector2D(760.f, 860.f));
+		BorderSlot->SetPosition(FVector2D(0.f, 0.f));
+		BorderSlot->SetSize(FVector2D(960.f, 800.f));
 	}
 
 	DebugScrollBox = WidgetTree->ConstructWidget<UScrollBox>(UScrollBox::StaticClass(), TEXT("DebugScrollBox"));
@@ -123,28 +123,28 @@ void UAuraAttributeDebugWidget::BuildWidgetTree()
 	                           FMargin(12.f, 10.f, 12.f, 10.f));
 	TitleText->SetText(FText::FromString(TEXT("GAS 属性调试面板")));
 
-	AttributeHeaderText = AddTextToPanel(TEXT("AttributeHeaderText"), 22, FLinearColor(0.95f, 0.65f, 0.2f), true,
+	AttributeHeaderText = AddTextToPanel(TEXT("AttributeHeaderText"), 18, FLinearColor(0.95f, 0.65f, 0.2f), true,
 	                                     FMargin(12.f, 6.f, 12.f, 6.f));
 	AttributeHeaderText->SetText(FText::FromString(TEXT("[Attributes]")));
 
-	HealthText = AddTextToPanel(TEXT("HealthText"), 22, FLinearColor(0.75f, 1.f, 0.75f), false,
+	HealthText = AddTextToPanel(TEXT("HealthText"), 18, FLinearColor(0.75f, 1.f, 0.75f), false,
 	                            FMargin(24.f, 2.f, 12.f, 2.f));
-	ManaText = AddTextToPanel(TEXT("ManaText"), 22, FLinearColor(0.65f, 0.85f, 1.f), false,
+	ManaText = AddTextToPanel(TEXT("ManaText"), 18, FLinearColor(0.65f, 0.85f, 1.f), false,
 	                          FMargin(24.f, 2.f, 12.f, 8.f));
 
-	TagHeaderText = AddTextToPanel(TEXT("TagHeaderText"), 22, FLinearColor(0.55f, 0.85f, 1.f), true,
+	TagHeaderText = AddTextToPanel(TEXT("TagHeaderText"), 18, FLinearColor(0.55f, 0.85f, 1.f), true,
 	                               FMargin(12.f, 6.f, 12.f, 6.f));
 	TagHeaderText->SetText(FText::FromString(TEXT("[Owned Gameplay Tags]")));
 	TagValuesText = AddTextToPanel(TEXT("TagValuesText"), 18, FLinearColor(0.88f, 0.92f, 1.f), false,
 	                               FMargin(24.f, 2.f, 12.f, 8.f));
 
-	EffectHeaderText = AddTextToPanel(TEXT("EffectHeaderText"), 22, FLinearColor(1.f, 0.72f, 0.72f), true,
+	EffectHeaderText = AddTextToPanel(TEXT("EffectHeaderText"), 18, FLinearColor(1.f, 0.72f, 0.72f), true,
 	                                  FMargin(12.f, 6.f, 12.f, 6.f));
 	EffectHeaderText->SetText(FText::FromString(TEXT("[Active Gameplay Effects]")));
-	EffectValuesText = AddTextToPanel(TEXT("EffectValuesText"), 18, FLinearColor(1.f, 0.9f, 0.9f), false,
+	EffectValuesText = AddTextToPanel(TEXT("EffectValuesText"), 12, FLinearColor(1.f, 0.0f, 0.9f), false,
 	                                  FMargin(24.f, 2.f, 12.f, 8.f));
 
-	AbilityHeaderText = AddTextToPanel(TEXT("AbilityHeaderText"), 22, FLinearColor(0.85f, 0.7f, 1.f), true,
+	AbilityHeaderText = AddTextToPanel(TEXT("AbilityHeaderText"), 18, FLinearColor(0.85f, 0.7f, 1.f), true,
 	                                   FMargin(12.f, 6.f, 12.f, 6.f));
 	AbilityHeaderText->SetText(FText::FromString(TEXT("[Activatable Abilities]")));
 	AbilityValuesText = AddTextToPanel(TEXT("AbilityValuesText"), 18, FLinearColor(0.94f, 0.88f, 1.f), false,

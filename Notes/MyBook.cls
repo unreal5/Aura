@@ -14,15 +14,14 @@
 \LoadClass{\@baseclass} % Load the base class
 
 
-\RequirePackage[a4paper,twoside,inner=30mm,outer=25mm,top=25mm,bottom=25mm]{geometry}
+\RequirePackage[a4paper,twoside,inner=14.5mm,outer=25mm,top=25mm,bottom=25mm]{geometry}
 
 \RequirePackage{amssymb} % Must be loaded before unicode-math
+\RequirePackage{amsmath}
+\RequirePackage{cancel}
 \RequirePackage[force]{filehook} % Fixes an error
-%\RequirePackage{unicode-math} % Math fonts in xetexorluatex
+\RequirePackage{unicode-math} % Math fonts in xetexorluatex
 \RequirePackage{fontspec}
-%\setromanfont[Scale=1.04]{Libertinus Serif}
-%\setsansfont[Scale=1]{Libertinus Sans}
-%\setmathfont{Libertinus Math}
 
 
 
@@ -64,36 +63,36 @@
 	% 计算背景图高度
 	\begin{lrbox}{\chap@titlebox}
 		\begin{tcolorbox}[
-			enhanced,
-			width=\textwidth,
-			top=20mm,
-			bottom=15mm,
-			sharp corners,
-			boxrule=0pt,
-			left=0pt,
-			right=0pt,
-			% 使用预计算的不透明度参数
-			opacityfill=0,
-			opacityback=0,
-			interior hidden,
-			colback=maincolor,
-			% 并排模式
-			sidebyside,
-			sidebyside align=center,
-			sidebyside gap=5mm,
-			lefthand width=3cm,
-			segmentation hidden,
+				enhanced,
+				width=\textwidth,
+				top=20mm,
+				bottom=15mm,
+				sharp corners,
+				boxrule=0pt,
+				left=0pt,
+				right=0pt,
+				% 使用预计算的不透明度参数
+				opacityfill=0,
+				opacityback=0,
+				interior hidden,
+				colback=maincolor,
+				% 并排模式
+				sidebyside,
+				sidebyside align=center,
+				sidebyside gap=5mm,
+				lefthand width=3cm,
+				segmentation hidden,
 			]
 			% 左侧：章节序号
 			\raggedright
 			\tcbox[
-			enhanced,
-			size=small,
-			boxrule=0pt,
-			colback=maincolor,
-			colframe=white,
-			coltext=highlightcolor,
-			drop fuzzy shadow,
+				enhanced,
+				size=small,
+				boxrule=0pt,
+				colback=maincolor,
+				colframe=white,
+				coltext=highlightcolor,
+				drop fuzzy shadow,
 			]{\font@chapnum\thechapter}
 			\tcblower
 			% 右侧：章节标题
@@ -123,43 +122,39 @@
 \titlespacing{\chapter}{0pt}{-40mm}{4ex}
 
 % Section: 模仿章节样式，左侧实心序号盒子，右侧标题
-\titleformat{\section}[hang]{\Large\heiti}{%
-	\llap{%
-		\begin{tikzpicture}[baseline=(node.base)]
+\titleformat{\section}[hang]{\Large\bfseries}{%
+	\begin{tikzpicture}[baseline=(node.base)]
 			\node[
-			fill=maincolor,
-			%draw=white,
-			line width=1pt,
-			rounded corners=4pt,
-			text=highlightcolor,
-			inner sep=2pt,
-			font=\bfseries,
-			blur shadow
+				fill=maincolor,
+				%draw=white,
+				line width=1pt,
+				rounded corners=4pt,
+				text=highlightcolor,
+				inner sep=2pt,
+				font=\bfseries,
+				blur shadow
 			] (node) {\thesection};
-		\end{tikzpicture}%
-	}%
-}{0.5em}{\color{maincolor}#1}
+	\end{tikzpicture}%
+}{0.75em}{\color{maincolor}#1}
 %
 \titlespacing{\section}{0pt}{0.5ex plus 0.2ex minus .2ex}{1ex plus .5ex}
 
 
 % Subsection: 左侧空心序号盒子，右侧标题
-\titleformat{\subsection}[hang]{\rmfamily\large\bfseries}{%
-	\llap{%
-		\begin{tikzpicture}[baseline=(node.base)]
-			\node[
+\titleformat{\subsection}[hang]{\sffamily\normalsize\selectfont\bfseries}{%
+	\begin{tikzpicture}[baseline=(node.base)]
+		\node[
 			fill=white,
 			draw=maincolor!80!black,
 			line width=0.25pt,
 			rounded corners=3pt,
 			text=maincolor,
 			inner sep=2pt,
-			font=\bfseries,
+			font=\large\normalfont\selectfont\sffamily,
 			%blur shadow
-			] (node) {\thesubsection};
-		\end{tikzpicture}%
-	}
-}{0.2ex}{\textcolor{maincolor!80!black}{#1}}
+		] (node) {\thesubsection};
+	\end{tikzpicture}%
+}{0.5em}{\textcolor{maincolor!80!black}{#1}}
 \titlespacing{\subsection}{0pt}{0.25ex plus 0.2ex minus .2ex}{1ex plus .2ex}
 
 % ----------------------------脚注样式 ----------------------------
@@ -195,13 +190,11 @@
 \setlist[enumerate,3]{label=\textcolor{highlightcolor}{\bfseries\roman*.},noitemsep}
 
 \setlist[itemize]{noitemsep}
-\renewcommand{\labelitemi}{\small\faToggleOn}
-
-%\newenvironment{myenum}{\begin{enumerate}[label=\protect\kk{\arabic*}]\small}{\end{enumerate}}%
+\renewcommand{\labelitemi}{\footnotesize\faCheckCircle}%\faToggleOn
 
 %页脚
 \RequirePackage{lastpage}               % "X of Y" footer
-\newcommand{\print@page}{\textcolor{maincolor}{第~\thepage~/~\pageref{LastPage}~页}}
+\newcommand{\print@page}{\textcolor{maincolor}{第~\textcolor{blue}{\thepage}~/~\pageref{LastPage}~页}}
 
 \RequirePackage{fancyhdr}
 \pagestyle{fancy}
@@ -221,7 +214,7 @@
 \definecolor{listingkeywords}{HTML}{569CD6}
 \definecolor{listingidentifiers}{HTML}{000000}
 \definecolor{listingcomments}{HTML}{57A64A}
-\definecolor{listingstrings}{HTML}{D69D85}
+\definecolor{listingstrings}{HTML}{FF9D85}
 \definecolor{listingnumbers}{rgb}{0.25, 0.25, 0.25}
 \definecolor{ueemph}{HTML}{bd63c5}
 % Define a fancy style
