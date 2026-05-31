@@ -24,6 +24,20 @@ void UAuraAttributeSet::GetLifetimeReplicatedProps(TArray<class FLifetimePropert
 	DOREPLIFETIME_CONDITION_NOTIFY(ThisClass, MaxMana, COND_None, REPNOTIFY_Always);
 }
 
+void UAuraAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)
+{
+	Super::PreAttributeChange(Attribute, NewValue);
+	// FString AttributeName = Attribute.GetName();
+	// UE_LOG(LogTemp, Warning, TEXT("PreAttributeChange: %s, NewValue: %f"), *AttributeName, NewValue);
+}
+
+void UAuraAttributeSet::PreAttributeBaseChange(const FGameplayAttribute& Attribute, float& NewValue) const
+{
+	Super::PreAttributeBaseChange(Attribute, NewValue);
+	// FString AttributeName = Attribute.GetName();
+	// UE_LOG(LogTemp, Warning, TEXT("PreAttributeBaseChange: %s, NewValue: %f"), *AttributeName, NewValue);
+}
+
 void UAuraAttributeSet::OnRep_Health(const FGameplayAttributeData& OldHealth) const
 {
 	GAMEPLAYATTRIBUTE_REPNOTIFY(ThisClass, Health, OldHealth);

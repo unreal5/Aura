@@ -36,6 +36,9 @@ public:
 	FGameplayAttributeData MaxMana;
 	ATTRIBUTE_ACCESSORS_BASIC(ThisClass, MaxMana)
 	
+	// 重载
+	void PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue) override;
+	void PreAttributeBaseChange(const FGameplayAttribute& Attribute, float& NewValue) const override;	
 private:
 	UFUNCTION()
 	void OnRep_Health(const FGameplayAttributeData& OldHealth) const;
@@ -46,4 +49,7 @@ private:
 	void OnRep_Mana(const FGameplayAttributeData& OldMana) const;
 	UFUNCTION()
 	void OnRep_MaxMana(const FGameplayAttributeData& OldMaxMana) const;
+
+public:
+
 };
