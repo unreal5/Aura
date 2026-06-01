@@ -4,15 +4,7 @@
 
 \ProcessOptions\relax
 
-\RequirePackage{color}
-\RequirePackage[colorlinks=true
-,urlcolor=Maroon
-,anchorcolor=Maroon
-,citecolor=Maroon
-,filecolor=Maroon
-,linkcolor=Maroon
-,menucolor=Maroon
-,linktocpage=true
+\RequirePackage[hidelinks
 ,pdfproducer=medialab
 ,pdfa=true
 ,pdfusetitle
@@ -22,26 +14,49 @@
 %           User Top Level Packages: Required
 % ----------------------------------------------------------------------
 
-\usepackage{marginnote,sidenotes,fancyhdr,geometry}
+\RequirePackage{marginnote,sidenotes,fancyhdr,geometry}
 \usepackage[usenames,dvipsnames]{xcolor}
 \usepackage[many]{tcolorbox}
+\tcbuselibrary{xparse,hooks,skins,breakable,theorems}
 
 % ----------------------------------------------------------------------
 %           User Top Level Packages: Additional & Styling
 % ----------------------------------------------------------------------
 
-\usepackage{lmodern,mathrsfs}
+\RequirePackage{iftex}
+\ifPDFTeX
+	\RequirePackage{stix2,mathrsfs}
+	\RequirePackage{mathtools,amsthm,amssymb,amsfonts,bm}   % Math Presets
+\else
+	\RequirePackage{fontspec,mathrsfs}
+	\RequirePackage{mathtools,amsthm,bm}                    % Math Presets
+	\RequirePackage{unicode-math}
+	%\setmathfont{STIX Two Math}
+	
+	\setmainfont[
+		Path=fonts/Alegreya/,
+		BoldFont=Alegreya-Bold.ttf,
+		ItalicFont=Alegreya-Italic.ttf,
+		BoldItalicFont=Alegreya-BoldItalic,ttf,
+	]{Alegreya-Regular.ttf}%
+
+	\setsansfont[
+		Path=fonts/Alegreya/,
+		BoldFont=AlegreyaSC-Bold.ttf,
+		ItalicFont=AlegreyaSC-Italic.ttf,
+		BoldItalicFont=AlegreyaSC-BoldItalic,ttf,
+	]{AlegreyaSC-Regular.ttf}%
+\fi
 
 \usepackage[shortlabels]{enumitem}                  % Enumitem Options
 
-\usepackage{mathtools,amsthm,amssymb,amsfonts,bm}   % Math Presets
-\usepackage{thmtools,amsmath}
-\usepackage{array,tabularx,booktabs}                % Table Presets
-\usepackage{graphicx,wrapfig,float,caption}         % Figure Presets
-\usepackage{setspace,multicol}                      % Text Presets
-\usepackage{tikz,physics}                           % Physics Presets
+\RequirePackage{thmtools}
+\RequirePackage{array,tabularx,booktabs}                % Table Presets
+\RequirePackage{graphicx,wrapfig,float,caption}         % Figure Presets
+\RequirePackage{setspace,multicol}                      % Text Presets
+\RequirePackage{tikz,physics}                           % Physics Presets
 \RequirePackage{calc}
-\usetikzlibrary{calc,arrows,shadows.blur,tikzmark,patterns,decorations.pathmorphing,arrows.meta}
+\usetikzlibrary{calc,arrows,shadows.blur,tikzmark,patterns,decorations.pathmorphing,arrows.meta,angles,quotes}
 
 % ----------------------------------------------------------------------
 %           User Page Prefrences 
@@ -106,9 +121,7 @@
 \def\@subheader{\@empty}
 \def\@keywords{\@empty}
 \def\@abstract{\@empty}
-\def\@xtum{\@empty}
 \def\@dedicated{\@empty}
-\def\@arxivnumber{\@empty}
 \def\@collaboration{\@empty}
 \def\@collaborationImg{\@empty}
 \def\@proceeding{\@empty}
@@ -120,14 +133,10 @@
 \PackageWarningNoLine{\jname}{Keywords already defined.\MessageBreak Ignoring last definition.}\fi}
 \renewcommand{\abstract}[1]{\gdef\@abstract{#1}}
 \newcommand{\dedicated}[1]{\gdef\@dedicated{#1}}
-\newcommand{\arxivnumber}[1]{\gdef\@arxivnumber{#1}}
 \newcommand{\proceeding}[1]{\gdef\@proceeding{#1}}
-\newcommand{\xtumfont}[1]{\textsc{#1}}
-\newcommand{\correctionref}[3]{\gdef\@xtum{\xtumfont{#1} \href{#2}{#3}}}
 \newcommand\jname{JHEP}
 \newcommand{\acknowledgments}[1]{\gdef\@acknowledgments{#1}}
 %\newcommand\acknowledgments{\section*{Acknowledgments}}
-\newcommand\notoc{\notoctrue}
 \newcommand\preprint[1]{\gdef\@preprint{\hfill #1}}
 
 
@@ -205,17 +214,11 @@
 \newcommand\afterAffiliationSpace{\vskip3pt plus3pt}
 %\newcommand\afterEmailSpace{\vskip16pt plus9pt minus10pt\filbreak}
 \newcommand\afterEmailSpace{\vskip20pt\filbreak}
-\newcommand\afterXtumSpace{\par\bigskip}
 \newcommand\afterAbstractSpace{\vskip16pt plus9pt minus13pt}
 \newcommand\afterKeywordsSpace{\vskip16pt plus9pt minus13pt}
-\newcommand\afterArxivSpace{\vskip3pt plus0.01fil minus10pt}
 \newcommand\afterDedicatedSpace{\vskip0pt plus0.01fil}
-\newcommand\afterTocSpace{\bigskip\medskip}
-\newcommand\afterTocRuleSpace{\bigskip\bigskip}
 %this is the ``itemsep'' of the affiliations list
 \newlength{\affiliationsSep}\setlength{\affiliationsSep}{-3pt}
-%this hook is needed if the toc starts on the first page
-\newcommand\beforetochook{\pagestyle{myplain}\pagenumbering{roman}}
 
 \DeclareFixedFont\trfont{OT1}{phv}{b}{sc}{11}
 
@@ -238,7 +241,7 @@
 {\huge\centering\sffamily\bfseries\sc\@title\par}
 \afterTitleSpace
 % Rule
-{\color{Maroon}\hrule height .6\p@}%
+{\color{MyNoteColor@Accent}\hrule height .6\p@}%
 \afterRuleSpace
 % Collaboration
 \if!\@collaboration!\else
@@ -270,7 +273,6 @@
 \ifemailadd %% if emailadd is true
 \noindent\hspace{0.28cm}\begin{minipage}[l]{.9\textwidth}
 \begin{flushleft}
-%\textit{E-mail:} \the\email@toks
 \the\email@toks
 \end{flushleft}
 \end{minipage}
@@ -278,26 +280,13 @@
 \PackageWarningNoLine{\jname}{E-mails are missing.\MessageBreak Plese use \protect\emailAdd\space macro to provide e-mails.}
 \fi
 \afterEmailSpace
-%Erratum or addendum
-\if!\@xtum!\else\noindent{\@xtum}\afterXtumSpace\fi
 % Abstract
 %\if!\@abstract!\else\noindent{\renewcommand\baselinestretch{.9}\textsc{Abstract:}}\ \@abstract\afterAbstractSpace\fi
 \if!\@abstract!\else\noindent\@abstract\afterAbstractSpace\fi
 % Keywords
 \if!\@keywords!\else\noindent{\textsc{Keywords:}} \@keywords\afterKeywordsSpace\fi
-% Arxivnumber
-\if!\@arxivnumber!\else\noindent{\textsc{ArXiv ePrint:}} \href{http://arxiv.org/abs/\@arxivnumber}{\@arxivnumber}\afterArxivSpace\fi
 % Dedication
 \if!\@dedicated!\else\vbox{\small\it\raggedleft\@dedicated}\afterDedicatedSpace\fi
-%
-\ifnotoc\else
-\iftoccontinuous\else\newpage\fi
-\beforetochook\hrule
-\tableofcontents
-\afterTocSpace
-\hrule
-\afterTocRuleSpace
-\fi
 %\if!\@acknowledgments!\else\vfill\noindent{\renewcommand\baselinestretch{.9}\textsc{Acknowledgments:}}\ \@acknowledgments\afterAbstractSpace\fi
 \setcounter{footnote}{0}
 \restoregeometry
@@ -356,31 +345,7 @@
 \newcommand\ps@titlepage{\renewcommand\@oddfoot{}\renewcommand\@oddhead{}}
 
 %number equations after the sections
-\renewcommand{\theequation}{\thesection.\arabic{equation}}
 \numberwithin{equation}{section}
-
-
-%headings style
-\renewcommand\section{\@startsection{section}{1}{\z@}%
-                                   {-3.5ex \@plus -1.3ex \@minus -.7ex}%
-                                   {2.3ex \@plus.4ex \@minus .4ex}%
-                                   {\normalfont\large\bfseries}}
-\renewcommand\subsection{\@startsection{subsection}{2}{\z@}%
-                                   {-2.3ex\@plus -1ex \@minus -.5ex}%
-                                   {1.2ex \@plus .3ex \@minus .3ex}%
-                                   {\normalfont\normalsize\bfseries}}
-\renewcommand\subsubsection{\@startsection{subsubsection}{3}{\z@}%
-                                   {-2.3ex\@plus -1ex \@minus -.5ex}%
-                                   {1ex \@plus .2ex \@minus .2ex}%
-                                   {\normalfont\normalsize\bfseries}}
-\renewcommand\paragraph{\@startsection{paragraph}{4}{\z@}%
-                                   {1.75ex \@plus1ex \@minus.2ex}%
-                                   {-1em}%
-                                   {\normalfont\normalsize\bfseries}}
-\renewcommand\subparagraph{\@startsection{subparagraph}{5}{\parindent}%
-                                   {1.75ex \@plus1ex \@minus .2ex}%
-                                   {-1em}%
-                                   {\normalfont\normalsize\bfseries}}
 
 \RequirePackage{titlesec}
 
@@ -412,7 +377,7 @@
 {\footnotesize\textsc{第 \thesection 节}}
 {0pt}
 {\Large\bfseries}
-[\vspace{-10pt}\color{Maroon}\rule{\textwidth}{.6pt}]
+[\vspace{-10pt}\color{MyNoteColor@Accent}\rule{\textwidth}{.6pt}]
 
 \titleformat{name=\section,numberless}[hang]
 {\normalfont}
@@ -425,7 +390,7 @@
 {\footnotesize\textsc{第 \thesubsection 小节}}
 {0pt}
 {\large\bfseries}
-[\vspace{-5pt}\color{Maroon}\rule{\textwidth}{.6pt}]
+[\vspace{-5pt}\color{MyNoteColor@Accent}\rule{\textwidth}{.6pt}]
 
 % \titleformat{name=\part}[hang]
 % {{\thispagestyle{fancypart}}\Huge\bfseries}
@@ -435,9 +400,9 @@
 %   \end{center}}[-.95in]}{0pt}{\Huge\bfseries\itshape}
 
 \titleformat{\part}[hang]{{\thispagestyle{fancypart}}\Huge\bfseries}{\marginnote{
-\begin{tcolorbox}[width=\marginparwidth,height=\marginparwidth/2,colback=black!50!white,colframe=black!50!white,center title,fonttitle=\bfseries\normalsize,title=部分,text fill]
+\begin{tcolorbox}[width=\marginparwidth,height=\marginparwidth/2,colback=MyNoteColor@Black!50!MyNoteColor@White,colframe=MyNoteColor@Black!50!MyNoteColor@White,center title,fonttitle=\bfseries\normalsize,title=部分,text fill]
   \begin{center}
-  {\color{white}\thepart}
+	{\color{MyNoteColor@White}\thepart}
   \end{center}
 \end{tcolorbox}
 }[-1.25in]}{0pt}{\Huge\bfseries\itshape}
@@ -461,46 +426,29 @@
   \vskip\belowcaptionskip}
 
 
-
-
-
-%apply some formatting on the biblio
-%without redefining the whole env
-\let\oldthebibliography=\thebibliography
-\let\endoldthebibliography=\endthebibliography
-\renewenvironment{thebibliography}[1]{%
-\begin{oldthebibliography}{#1}%
-\small%
-\raggedright%
-\setlength{\itemsep}{5pt plus 0.2ex minus 0.05ex}%
-}%
-{%
-\end{oldthebibliography}%
-}
-
-
 %可分页的定理环境
-\definecolor{ColorBox@MainColor}{RGB}{154, 96, 58}
-\definecolor{ColorBox@MainColor@Soft}{RGB}{238, 227, 214}
-\definecolor{ColorBox@PaperBKColor}{RGB}{252, 250, 246}
-\definecolor{ColorBox@Line@Color}{RGB}{126, 112, 98}
-% 抄录的颜色
-\definecolor{color@cyan}{HTML}{03B0B5}
-\definecolor{color@peach}{HTML}{FC7970}
-\definecolor{color@orange}{HTML}{e74c3c}
-\definecolor{color@stealblue}{HTML}{6591B8}
-\definecolor{color@teal}{HTML}{169191}
-\definecolor{color@green}{HTML}{12CA5E}
-\definecolor{color@red}{HTML}{EA2828}
-\definecolor{color@grey}{HTML}{969696}
+\colorlet{MyNoteColor@Accent}{Maroon}
+\colorlet{MyNoteColor@White}{white}
+\colorlet{MyNoteColor@Black}{black}
+\definecolor{MyNoteColor@BoxMain}{RGB}{142, 103, 72}
+\definecolor{MyNoteColor@BoxMainSoft}{RGB}{243, 234, 223}
+\definecolor{MyNoteColor@Theorem}{RGB}{162, 124, 92}
+\definecolor{MyNoteColor@TheoremSoft}{RGB}{247, 240, 231}
+\definecolor{MyNoteColor@Paper}{RGB}{252, 250, 246}
+\definecolor{MyNoteColor@Line}{RGB}{131, 120, 109}
+\definecolor{MyNoteColor@Support}{HTML}{6E8678}
+\definecolor{MyNoteColor@SupportSoft}{HTML}{EAF1EC}
+\definecolor{MyNoteColor@Definition}{HTML}{617A92}
+\definecolor{MyNoteColor@DefinitionSoft}{HTML}{EAF0F5}
+\definecolor{MyNoteColor@Neutral}{HTML}{7A746C}
 
 \tcbset{
 	common/.style={
 		fontupper=\rmfamily,
 		lower separated=true,
-		coltitle=white,
-		colback=ColorBox@PaperBKColor,
-		colframe=ColorBox@Line@Color,
+		coltitle=MyNoteColor@Black,
+		colback=MyNoteColor@Paper,
+		colframe=MyNoteColor@Line,
 		boxrule=0.2pt,
 		fonttitle=\bfseries,
 		enhanced,
@@ -513,8 +461,8 @@
 		attach boxed title to top left={yshift=-0.08in,xshift=0.18in},
 		boxed title style={
 			boxrule=0pt,
-			colframe=ColorBox@MainColor,
-			colback=ColorBox@MainColor@Soft,
+			colframe=MyNoteColor@BoxMain,
+			colback=MyNoteColor@BoxMainSoft,
 			arc=1.5pt,
 			outer arc=1.5pt,
 			left=6pt,
@@ -523,18 +471,97 @@
 			bottom=3pt,
 		},
 		separator sign={.},
-		borderline west={0.2pt}{0pt}{ColorBox@MainColor!90!black}
+		borderline west={0.2pt}{0pt}{MyNoteColor@BoxMain!90!MyNoteColor@Black}
+	},
+	primarypanel/.style={
+		colback=MyNoteColor@Paper,
+		colframe=MyNoteColor@Line,
+		boxed title style={
+			boxrule=0pt,
+			colframe=MyNoteColor@BoxMain,
+			colback=MyNoteColor@BoxMainSoft,
+			arc=1.5pt,
+			outer arc=1.5pt,
+			left=6pt,
+			right=6pt,
+			top=3pt,
+			bottom=3pt,
+		},
+		borderline west={1.2pt}{0pt}{MyNoteColor@BoxMain!90!MyNoteColor@Black}
+	},
+	theorempanel/.style={
+		colback=MyNoteColor@TheoremSoft,
+		colframe=MyNoteColor@Line,
+		boxed title style={
+			boxrule=0pt,
+			colframe=MyNoteColor@Theorem,
+			colback=MyNoteColor@TheoremSoft,
+			arc=1.5pt,
+			outer arc=1.5pt,
+			left=6pt,
+			right=6pt,
+			top=3pt,
+			bottom=3pt,
+		},
+		borderline west={1.2pt}{0pt}{MyNoteColor@Theorem!90!MyNoteColor@Black}
+	},
+	accentpanel/.style={
+		colback=MyNoteColor@SupportSoft,
+		colframe=MyNoteColor@Support,
+		boxed title style={
+			boxrule=0pt,
+			colframe=MyNoteColor@Support,
+			colback=MyNoteColor@Support!88!MyNoteColor@Black,
+			arc=1.5pt,
+			outer arc=1.5pt,
+			left=6pt,
+			right=6pt,
+			top=3pt,
+			bottom=3pt,
+		},
+		borderline west={1.2pt}{0pt}{MyNoteColor@Support}
+	},
+	definitionpanel/.style={
+		colback=MyNoteColor@DefinitionSoft,
+		colframe=MyNoteColor@Definition,
+		boxed title style={
+			boxrule=0pt,
+			colframe=MyNoteColor@Definition,
+			colback=MyNoteColor@Definition!14!MyNoteColor@White,
+			arc=1.5pt,
+			outer arc=1.5pt,
+			left=6pt,
+			right=6pt,
+			top=3pt,
+			bottom=3pt,
+		},
+		borderline west={1.2pt}{0pt}{MyNoteColor@Definition}
+	},
+	neutralpanel/.style={
+		colback=MyNoteColor@White,
+		colframe=MyNoteColor@Line,
+		boxed title style={
+			boxrule=0pt,
+			colframe=MyNoteColor@Neutral,
+			colback=MyNoteColor@Neutral!10!MyNoteColor@White,
+			arc=1.5pt,
+			outer arc=1.5pt,
+			left=6pt,
+			right=6pt,
+			top=3pt,
+			bottom=3pt,
+		},
+		borderline west={1.2pt}{0pt}{MyNoteColor@Neutral!90!MyNoteColor@Black}
 	},
 	proofstyle/.style={
 		common,
-		colframe=color@teal,
-		colback=white,
+		accentpanel,
 		sharp corners,
 		rounded corners=southeast,
 		boxed title style={
 			boxrule=0pt,
-			colframe=color@teal,
-			colback=color@teal,
+			colframe=MyNoteColor@Support,
+			colback=MyNoteColor@Support,
 			arc=1.5pt,
 			outer arc=1.5pt,
 			left=6pt,
@@ -542,50 +569,26 @@
 			top=2pt,
 			bottom=2pt,
 		},
-		borderline west={0.2pt}{0pt}{blue},
+		borderline west={0.2pt}{0pt}{MyNoteColor@Support},
 		overlay unbroken and last={
-			\node[anchor=south east, outer sep=1.5pt, text=color@teal] at (frame.south east){\footnotesize$\blacksquare$};}
+			\node[anchor=south east, outer sep=1.5pt, text=MyNoteColor@Support] at (frame.south east){\footnotesize\rule{0.85ex}{0.85ex}};}
 	},
 	theoremstyle/.style={
 		common,
-		colback=White!90!Dandelion,
-		boxed title style={
-			boxrule=0pt,
-			colframe=Dandelion!80!black,
-			colback=White!92!Dandelion,
-			arc=1.5pt,
-			outer arc=1.5pt,
-			left=6pt,
-			right=6pt,
-			top=3pt,
-			bottom=3pt,
-		},
-		borderline west={1.2pt}{0pt}{Dandelion!80!black}
+		coltitle=MyNoteColor@BoxMain!95!MyNoteColor@Black,
+		theorempanel
 	},
 	definitionstyle/.style={
 		common,
-		colback=White!90!Cerulean,
-		boxed title style={
-			boxrule=0pt,
-			colframe=Cerulean!80!black,
-			colback=White!94!Cerulean,
-			arc=1.5pt,
-			outer arc=1.5pt,
-			left=6pt,
-			right=6pt,
-			top=3pt,
-			bottom=3pt,
-		},
-		borderline west={1.2pt}{0pt}{Cerulean}
+		definitionpanel
 	},
 	lemmastyle/.style={
 		common,
-		colback=white,
-		coltitle=color@red,
+		accentpanel,
 		boxed title style={
 			boxrule=0pt,
-			colframe=color@red!75!black,
-			colback=red!8!white,
+			colframe=MyNoteColor@Support,
+			colback=MyNoteColor@Support!12!MyNoteColor@White,
 			arc=1.5pt,
 			outer arc=1.5pt,
 			left=6pt,
@@ -593,44 +596,19 @@
 			top=3pt,
 			bottom=3pt,
 		},
-		borderline west={1.2pt}{0pt}{color@red}
+		borderline west={1.2pt}{0pt}{MyNoteColor@Support}
 	},
 	claimstyle/.style={
 		common,
-		colback=white,
-		boxed title style={
-			boxrule=0pt,
-			colframe=Black!65,
-			colback=Black!5,
-			arc=1.5pt,
-			outer arc=1.5pt,
-			left=6pt,
-			right=6pt,
-			top=3pt,
-			bottom=3pt,
-		},
-		borderline west={1.2pt}{0pt}{Black!75}
+		neutralpanel
 	},
   examplestyle/.style={
 		common,
-		colframe=ColorBox@Line@Color,
-		colback=white,
+		primarypanel,
 		sharp corners,
 		rounded corners=southeast,
-		boxed title style={
-			boxrule=0pt,
-			colframe=Black!70,
-			colback=Black!6,
-			arc=1.5pt,
-			outer arc=1.5pt,
-			left=6pt,
-			right=6pt,
-			top=3pt,
-			bottom=3pt,
-		},
-		borderline west={1.2pt}{0pt}{Black!80},
 		overlay unbroken and last={
-			\node[anchor=south east, outer sep=1.5pt, text=ColorBox@MainColor!85!black] at (frame.south east){\footnotesize$\blacksquare$};}
+			\node[anchor=south east, outer sep=1.5pt, text=MyNoteColor@BoxMain!85!MyNoteColor@Black] at (frame.south east){\footnotesize\rule{0.85ex}{0.85ex}};}
 	},
 	BreakableBox@title/.code n args={2}{
 		\ifblank{#2}
@@ -687,3 +665,97 @@
 \newbreakablebox{remark}{claimstyle}
 \newcommand{\examplename}{例}
 \newbreakablebox{example}{examplestyle}
+
+
+%补充内容
+%%设置新字体
+%%定义带圈数字命令
+\newfontfamily{\nmfont}{circlenumber}
+[%
+Extension=.otf,
+Path=./fonts/]
+
+\newcommand{\quan}[1]{{\nmfont \symbol{#1}}}
+\newcommand{\kk}[1]{\quan{\numexpr32+#1}}%\kk{<参数范围1-95>}96、97、98、99分别用\quan{196} \quan{197} \quan{199} \quan{201}
+
+%脚注使用带圈数字
+\newcommand*\kkctr[1]{%
+	\protect\kk{\number\numexpr\value{#1}\relax}}
+\renewcommand*\thefootnote{\textcolor{black}{\kkctr{footnote}}}
+
+\setlist[enumerate,1]{label=\small\textcolor{black}{\protect\kk{\arabic*}},noitemsep}
+\setlist[enumerate,2]{label=\textcolor{black}{\bfseries\alph*.},noitemsep}
+\setlist[enumerate,3]{label=\textcolor{blue}{\bfseries\roman*.},noitemsep}
+
+\setlist[itemize]{noitemsep}
+\setlist[enumerate]{noitemsep}
+\setlist[description]{noitemsep}
+
+%定义代码风格
+\RequirePackage{listings} %\carriagereturn在包“dingbat”中。
+\RequirePackage{fontawesome5}
+\RequirePackage{menukeys}
+
+\renewcommand*{\lstlistingname}{代码}
+\renewcommand*{\lstlistingnamestyle}{\sffamily}
+\lstnewenvironment{code}[1][]
+{
+	%	\setmonofont{mononoki}
+	%	\setmonofont{mononoki}
+	%staring code
+	\lstset{
+		language=[11]C++,
+		columns=fullflexible,%fixed
+		basicstyle=\ttfamily\small,%\linespread{1.0}
+		commentstyle=\color{green!40!black}\itshape,
+		keywordstyle=\color{blue}\bfseries,
+		numberstyle=\scriptsize\color{black}\ttfamily,
+		stringstyle=\color{red},
+		identifierstyle=\color{black},		
+		breakautoindent,
+		breakindent=2ex,
+		breaklines,
+		breakatwhitespace=false,
+		%		prebreak=\raisebox{.4ex}{\rotatebox{-90}{{\color{gray}\tiny\faLevelDown*}}},
+		%		postbreak=\raisebox{0.8ex}{\small\reflectbox{\carriagereturn}},
+		showstringspaces=false,
+		emph=[2]{override,final},
+		emphstyle=[2]{\color{blue}\bfseries},		
+		%		emph=[3]{UPROPERTY,UFUNCTION,UENUM,UCLASS},
+		%		emphstyle=[3]{\color{orange}\bfseries},
+		tabsize=4,
+		escapeinside=``,
+		frame=none,
+		backgroundcolor=\color{gray!5},
+		captionpos=b,%b,%标题的位置
+		#1
+	}
+}
+{
+	%end code
+	%可以在这里自定义命令
+}
+
+\newcommand{\ci}[1]{
+	\lstinline[language=C++,breakatwhitespace=false,breaklines,basicstyle=\ttfamily\selectfont\color{black!40!blue},keywordstyle=\color{blue}\bfseries]{#1}%
+}
+
+\newcommand{\cppsign}{$C^{++}$}
+\newcommand{\cpp}[1][11]{$C^{++ \mathbf{#1}}$}
+\newcommand{\cssign}{$C{\#}$}
+
+
+
+%%%marker环境
+\newtcolorbox{marker}[1][]{enhanced,before skip=2mm,
+	after skip=3mm,fontupper=\rmfamily,
+	boxrule=0.4pt,left=5mm,right=2mm,top=1mm,bottom=1mm,
+	colback=yellow!50,colframe=yellow!20!black,
+	sharp corners,rounded corners=southeast,
+	arc is angular,arc=3mm,underlay={%
+		\path[fill=tcbcolback!80!black] ([yshift=3mm]interior.south east)--++(-0.4,-0.1)--++(0.1,-0.2);
+		\path[draw=tcbcolframe,shorten <=-0.05mm,shorten >=-0.05mm] ([yshift=3mm]interior.south east)--++(-0.4,-0.1)--++(0.1,-0.2);
+		\path[fill=yellow!50!black,draw=none] (interior.south west) rectangle node[white]{\Huge\bfseries !} ([xshift=4mm]interior.north west);
+	},
+	drop fuzzy shadow,#1
+}

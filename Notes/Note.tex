@@ -1,0 +1,533 @@
+\documentclass[10pt,CJKmath]{ctexart}
+\usepackage{MyNote}
+
+
+
+
+% 定义重点高亮和公式框样式
+\usepackage{framed,longtable,booktabs,array,calc}
+
+\usepackage{etoolbox}
+
+\AtBeginEnvironment{longtable}{\footnotesize}
+\AtEndEnvironment{longtable}{\normalsize}
+
+
+%参考tcolorbox P21
+\NewTotalTCBox{\commandbox}{ s v }
+{verbatim,colupper=white,colback=black!50!white,colframe=black,sharp corners,boxrule=0pt,left=0mm,right=0mm,top=0mm,bottom=0mm}
+{\IfBooleanT{#1}{\textcolor{red}{\ttfamily\bfseries > }}%
+	\lstinline[language=c++,basicstyle=\ttfamily\small,keywordstyle=\color{blue!35!white}\bfseries]^#2^}
+
+
+\begin{document}
+
+\pagestyle{fancynotes}
+
+
+\part{Attribute Set}
+
+\section{\texttt{PreAttributeChange}}
+
+\textbf{核心结论：}
+$\begin{cases}
+	\text{CurrentValue}\Rightarrow\text{PreAttributeChange} \\
+	\text{BaseValue}\Rightarrow\text{PreAttributeBaseChange}
+\end{cases}$
+
+\begin{enumerate}
+	\item \textbf{两者触发时机}
+
+		\begin{itemize}
+			\item \ci{PreAttributeChange}在属性的 \textbf{当前值（CurrentValue）} 即将变化时触发。  
+			常见于带持续时间/无限时长 GE 的修饰器引起的数值变化（聚合后更新 Current）。
+			
+			\item \ci{PreAttributeBaseChange}
+			在属性的 \textbf{基础值（BaseValue）} 即将变化时触发。  
+			常见于 Instant GE 或直接改 Base 的路径（如 \texttt{SetNumericAttributeBase}）。
+		\end{itemize}
+
+\item \textbf{为什么会有两个钩子？}
+
+在 GAS 里通常可理解为：\colorbox{yellow!5}{$
+\text{CurrentValue} = \mathbf{f}(BaseValue, Modifiers)
+$}
+因此：
+\begin{itemize}
+	\item 改 \textbf{BaseValue} 前，用 \texttt{PreAttributeBaseChange}；
+	\item 改 \textbf{CurrentValue} 前，用 \texttt{PreAttributeChange}。
+\end{itemize}
+
+\item \textbf{实战建议（很重要）}
+
+\begin{itemize}
+	\item 如果你要做夹逼（clamp），例如生命值限制在 \([0, MaxHealth]\)，
+	最稳妥做法是 \textbf{两个函数都处理}，避免不同修改路径漏掉。
+	\item 对 Instant GE 的“最终结果”校正，通常还会配合下面这个收尾钩子：
+	\begin{itemize}
+		\item \ci{PostGameplayEffectExecute}
+	\end{itemize}
+\end{itemize}
+\end{enumerate}
+在 GAS 中，带 Period 的 GE 每次周期触发会按“执行(Execute)”语义处理，这条路径本质上接近 Instant GE，通常会动到 BaseValue。
+而\textbf{一旦 BaseValue 变了，聚合器会重新计算 CurrentValue}，于是你通常会看到：
+\begin{itemize}
+	\item \ci{PreAttributeBaseChange(...)}：Base 将要改；
+	\item \ci{PreAttributeChange(...)}：Current 随后重算将要改。
+\end{itemize}
+所以“两个都调用”是正常现象，不是异常。
+
+可以把流程理解成：\colorbox{yellow}{$
+\text{Periodic Tick} \Rightarrow \Delta \text{BaseValue} \Rightarrow \text{Recompute CurrentValue}$}。
+
+因此：\ci{PreAttributeBaseChange} 先触发，\ci{PreAttributeChange} 后触发。
+
+\paragraph{为什么你会觉得“按道理只改 Current”？}
+因为“持续时间/无限时长 GE”这类描述通常让人联想到“临时 Buff/Debuff（Modifier 挂在 Active GE 上）”，那条路径主要表现为 Current 层变化。
+但一旦你加了 Period，每个周期会走一次执行逻辑，常常落到 Base 改动路径上，所以就把两边都带起来了。
+
+实战建议（Aura 项目里很实用）
+\begin{enumerate}
+	\item \ci{PreAttributeBaseChange}：放“基础值合法化”逻辑（如防 NaN、下限保护）。
+	\item \ci{PreAttributeChange}：放“显示值 / 运行时值的 clamp”（如 Health 限制到 [0, MaxHealth]）。
+	\item \ci{PostGameplayEffectExecute}：处理“执行后副作用”（死亡判定、受击、溢出转护盾等）。
+	\item 避免在两个 \ci{Pre} 里写同一套重逻辑，否则容易重复处理。
+\end{enumerate}
+
+\section{PostGameplayEffectExecute}
+\subsection{基础信息}
+该函数使用参数\ci{struct FGameplayEffectModCallbackData}，定义如下：
+\begin{code}
+struct FGameplayEffectModCallbackData
+{
+	`$\dots$`
+	const struct FGameplayEffectSpec&		EffectSpec;		// The spec that the mod came from
+	struct FGameplayModifierEvaluatedData&	EvaluatedData;	// The 'flat'/computed data to be applied to the target
+	
+	class UAbilitySystemComponent &Target;		// Target we intend to apply to
+};
+\end{code}
+可以从此结构中获取许多信息：哪个GE触发这个函数？效果应用在谁身上\sn{Target引用}？及最重要的\ci{EvaluatedData}，影响哪些数值。
+\subsubsection{详解ATTRIBUTE\_ACCESSORS\_BASIC宏}
+当使用宏：\ci{ATTRIBUTE_ACCESSORS_BASIC(ThisClass, Health)}时，会展开成如下代码（以下做了适当简化，避免干扰）：
+\begin{code}[caption={简化的宏展开}]
+
+static FGameplayAttribute GetHealthAttribute()
+{
+	static FProperty* Prop = FindFieldChecked<FProperty>(ThisClass::StaticClass(),
+	FName("Health"));
+	return Prop;
+}
+
+inline float GetHealth() const { return Health.GetCurrentValue(); }
+
+inline void SetHealth(float NewVal)
+{
+	UAbilitySystemComponent* AbilityComp = GetOwningAbilitySystemComponent();
+	AbilityComp->SetNumericAttributeBase(GetHealthAttribute(), NewVal);
+}
+
+inline void InitHealth(float NewVal)
+{
+	Health.SetBaseValue(NewVal);
+	Health.SetCurrentValue(NewVal);
+}
+\end{code}
+这个宏其实内联生成4个函数，分别对应属性及值的\ci{Init/Get/Set}函数。尤其要注意\ci{SetHealth}，它设置的是\textbf{Base值}。别忘记上节所述，Base值变动会引起Current值的变动\sn{Current值相当于$f(BaseValue,Modifiers)$}。
+\begin{code}[caption={Base值变动，触发所有当前激活的GE重新设置Base值}]
+void UAbilitySystemComponent::SetNumericAttributeBase(const FGameplayAttribute &Attribute, float NewFloatValue)
+{
+	// Go through our active gameplay effects container so that aggregation/mods are handled properly.
+	ActiveGameplayEffects.SetAttributeBaseValue(Attribute, NewFloatValue);
+}	
+\end{code}
+
+
+
+\subsection{1. 调用时机}
+
+\ci{PostGameplayEffectExecute}
+是在 \texttt{GameplayEffect} \textbf{已经执行完并且属性值已经被修改之后} 调用的回调。
+
+可简单理解为：
+	GameplayEffect 改值完成 $\Rightarrow$ \ci{PostGameplayEffectExecute}
+
+它通常对应：
+\begin{itemize}
+	\item Instant GE
+	\item Periodic GE 的每次周期结算
+	\item ExecutionCalculation 最终写入属性之后
+\end{itemize}
+\begin{marker}
+	 Duration GE 不触发 \ci{PostGameplayEffectExecute}
+\end{marker}
+\subsection{2. 适合做什么}
+
+这个函数最适合做“\textbf{最终结算}”：
+
+\begin{itemize}
+	\item 对属性做 Clamp
+	\item 处理伤害、治疗、蓝量结算
+	\item 死亡判定
+	\item 根据 \verb|Data| 读取来源、目标、标签等上下文
+\end{itemize}
+
+例如：
+\begin{itemize}
+	\item \verb|Health| 改变后限制到 \verb|[0, MaxHealth]|
+	\item \verb|Mana| 改变后限制到 \verb|[0, MaxMana]|
+\end{itemize}
+
+\subsection{3. 与其他回调的区别}
+
+\subsubsection{(1) 与 \texttt{PreAttributeChange} 的区别}
+
+\begin{itemize}
+	\item \verb|PreAttributeChange|：属性\textbf{将要}变化时调用
+	\item \ci{PostGameplayEffectExecute}：属性\textbf{已经}变化后调用
+\end{itemize}
+
+所以：
+
+\begin{itemize}
+	\item \verb|PreAttributeChange| 更像“前置处理”
+	\item \ci{PostGameplayEffectExecute} 更像“后置结算”
+\end{itemize}
+
+\subsubsection{(2) 与 \texttt{OnRep\_XXX} 的区别}
+
+\begin{itemize}
+	\item \ci{PostGameplayEffectExecute}：偏服务端结算逻辑
+	\item \verb|OnRep_Health| / \verb|OnRep_Mana|：偏客户端同步与 UI 刷新
+\end{itemize}
+
+即：
+
+\begin{quote}
+	\ci{PostGameplayEffectExecute} 负责“规则结算”，  
+	\verb|OnRep| 负责“复制后响应”。
+\end{quote}
+
+\subsection{4. 常见写法}
+
+最常见的写法是根据本次被修改的属性分支处理：
+
+\begin{code}
+if (Data.EvaluatedData.Attribute == GetHealthAttribute())
+{
+	// 处理 Health
+}
+	
+if (Data.EvaluatedData.Attribute == GetManaAttribute())
+{
+	// 处理 Mana
+}
+\end{code}
+
+含义是：
+
+\begin{quote}
+	检查这次 GameplayEffect 实际改动的是哪个属性，然后分别做对应结算。
+\end{quote}
+
+\subsection{5. 注意事项}
+
+\subsubsection{(1) 不是所有属性变化都会走这里}
+
+\textbf{不要把它理解成“任意属性变化通知”。}
+
+它主要是在 \verb|GameplayEffect| 执行并写入属性时触发。  
+如果属性是通过别的方式修改的，不一定会调用这里。
+
+\subsubsection{(2) 更适合做服务端权威逻辑}
+
+常见放在这里的逻辑有：
+
+\begin{itemize}
+	\item Clamp
+	\item 扣血/回血
+	\item 死亡判定
+	\item 资源修正
+\end{itemize}
+
+不建议把大量 UI 或表现层逻辑直接堆在这里。
+
+\subsubsection{(3) 小心重复结算}
+
+如果你在这里又施加新的 GE，或者再次修改相关属性，要注意：
+
+\begin{itemize}
+	\item 是否会重复触发
+	\item 是否会形成递归
+	\item 是否会导致一次伤害被算两遍
+\end{itemize}
+
+\subsubsection{(4) 推荐用于最终兜底}
+
+对于生命值、蓝量这类有上下限的属性，  
+\ci{PostGameplayEffectExecute} 很适合做最终 Clamp，保证结果合法。
+
+\subsection{6. 一句话总结}
+
+\begin{quote}
+	\textbf{\ci{PostGameplayEffectExecute} 就是 GameplayEffect 改完属性后的最终结算点。}
+\end{quote}
+
+它最适合做：
+
+\begin{itemize}
+	\item Clamp
+	\item 伤害/治疗收尾
+	\item 死亡与资源判定
+\end{itemize}
+
+使用时要注意：
+
+\begin{itemize}
+	\item 它不是所有属性变化的统一入口
+	\item 它更偏向服务端数值逻辑
+	\item 客户端 UI 更新通常应结合 \verb|OnRep|
+\end{itemize}
+
+\subsection{对 PostGameplayEffectExecute 的准确理解}
+
+可以近似理解为：
+
+\begin{quote}
+	\ci{PostGameplayEffectExecute} 是 \textbf{GameplayEffect 执行型结算之后} 的回调。
+\end{quote}
+
+它的触发关键并不是“属性改了 \verb|BaseValue|”本身，而是：
+
+\begin{center}
+	\textbf{该次属性修改是否来自 GameplayEffect 的 Execute 路径}
+\end{center}
+
+在 GAS 中，典型会触发它的情况有：
+
+\begin{itemize}
+	\item Instant GameplayEffect
+	\item Periodic GameplayEffect 的每次周期执行
+	\item ExecutionCalculation 的最终属性写入
+\end{itemize}
+
+这些情况通常都会修改属性的 \verb|BaseValue|，因此可以得到一个常见现象：
+
+\begin{quote}
+	\textbf{凡是触发 PostGameplayEffectExecute 的，大多数时候都伴随着 \ci{BaseValue} 的修改。}
+\end{quote}
+
+但反过来不能机械理解为：
+
+\begin{quote}
+	“只要 \verb|BaseValue| 变了，就一定会触发 \ci{PostGameplayEffectExecute}。”
+\end{quote}
+
+更不能把它当成“所有属性变化的统一通知入口”。
+
+特别是：
+
+\begin{itemize}
+	\item \verb|Duration| / \verb|Infinite| 类型的 GameplayEffect 通常只是通过 Modifier 影响 \verb|CurrentValue|
+	\item 这类变化一般不会调用 \ci{PostGameplayEffectExecute}
+\end{itemize}
+
+因此，一句话总结为：
+
+\begin{quote}
+	\textbf{PostGameplayEffectExecute 本质上是 Execute 型 GameplayEffect 的结算后回调，而不是单纯的 BaseValue 变化回调。}
+\end{quote}
+
+\subsection{什么是 GameplayEffect 的 Execute 路径}
+
+所谓 \textbf{Execute 路径}，可以理解为：
+
+\begin{quote}
+	\textbf{GameplayEffect 不是仅仅挂上一个持续 Modifier，而是实际执行了一次数值结算，并将结果真正写入属性。}
+\end{quote}
+
+其核心过程可概括为：
+
+\begin{center}
+	计算修改量 $\rightarrow$ 执行属性写入 $\rightarrow$ 触发结算后回调
+\end{center}
+
+在 GAS 中，\ci{PostGameplayEffectExecute} 主要就是在这种“\textbf{执行型结算完成之后}”被调用的。
+
+\subsubsection{1. Execute 路径的直观理解}
+
+可以把 Execute 路径理解成“\textbf{结算落账}”：
+
+\begin{itemize}
+	\item 火球命中，立刻扣除 30 点生命
+	\item 治疗命中，立刻恢复 20 点生命
+	\item 周期伤害每跳一次，真正扣除一次生命
+\end{itemize}
+
+这类变化的特点是：
+
+\begin{itemize}
+	\item 它是一次真实的数值事件
+	\item 结算结果会沉淀到属性中
+	\item 通常对应属性 \verb|BaseValue| 语义上的变化
+	\item 通常会触发 \ci{PostGameplayEffectExecute}
+\end{itemize}
+
+\subsubsection{2. 与 Modifier 路径的区别}
+
+与 Execute 路径相对的是“\textbf{持续 Modifier 生效路径}”，它更像“\textbf{状态挂账}”：
+
+\begin{itemize}
+	\item 角色身上挂了一个 Buff，于是当前生命临时 +50
+	\item 身上挂了一个 Debuff，于是当前护甲临时 -10
+	\item 光环存在期间，移速持续乘以 1.2
+\end{itemize}
+
+这类变化更像：
+
+\begin{quote}
+	效果存在时，属性的最终生效值被持续影响；效果消失时，影响随之消失。
+\end{quote}
+
+因此它通常：
+
+\begin{itemize}
+	\item 影响的是 \verb|CurrentValue|
+	\item 不属于一次“执行结算写入”
+	\item 一般不会调用 \ci{PostGameplayEffectExecute}
+\end{itemize}
+
+\subsection{Execute 路径与 GE Duration Policy 的对应关系}
+
+\begin{table}[h]
+	\centering
+	\begin{longtable}{|p{0.1\textwidth}|p{0.1\textwidth}|p{0.2\textwidth}|p{0.35\textwidth}|p{0.25\textwidth}|}
+		\hline
+		\textbf{GE 类型} & \textbf{是否属于 Execute 路径} & \textbf{常见影响目标} & \textbf{是否常触发 \texttt{PostGameplayEffectExecute}} & \textbf{典型用途} \\
+		\hline
+		Instant & 是 & 通常是 \verb|BaseValue| 语义 & 是 & 立即伤害、立即治疗、立即回蓝、一次性资源变化 \\
+		\hline
+		Duration & 否（通常） & 通常影响 \verb|CurrentValue| & 否（通常） & 持续 Buff / Debuff，例如持续加攻击、持续减防御 \\
+		\hline
+		Infinite & 否（通常） & 通常影响 \verb|CurrentValue| & 否（通常） & 装备加成、常驻光环、持续被动效果 \\
+		\hline
+		Periodic & 是（每个周期执行时） & 每次周期结算通常是 \verb|BaseValue| 语义 & 是（每次周期执行时） & 中毒每跳扣血、持续回蓝每跳加蓝、灼烧每秒伤害 \\
+		\hline
+	\end{longtable}
+	\caption{GameplayEffect 的 Execute 路径与持续 Modifier 路径对比}
+\end{table}
+
+\subsection{为什么说它“通常对应 BaseValue”，但又不能简单等同}
+
+很多时候可以观察到：\colorbox{yellow}{
+	$触发  \texttt{PostGameplayEffectExecute} \Rightarrow 常常伴随 \text{BaseValue} 变化$}
+
+因此容易形成一种简化理解：
+
+\begin{quote}
+	“只有修改 \verb|BaseValue| 的才会触发 \ci{PostGameplayEffectExecute}。”
+\end{quote}
+
+这个理解\textbf{接近正确}，但更准确的说法应当是：
+
+\begin{quote}
+	\textbf{\ci{PostGameplayEffectExecute} 的触发关键不是“BaseValue 变了”，而是“GameplayEffect 走了 Execute 路径”。}
+\end{quote}
+
+也就是说：
+
+\begin{center}
+	\textbf{Execute} $\Rightarrow$ \ci{PostGameplayEffectExecute}
+\end{center}
+
+而不是机械地写成：
+
+\begin{center}
+	\verb|BaseValue| \text{变化} $\Rightarrow$ \ci{PostGameplayEffectExecute}
+\end{center}
+
+\subsection{为什么 Duration 型 GE 不适合直接处理伤害结算}
+
+如果一个 \commandbox{Duration GE} 只是给 \verb|Health| 挂了一个持续的负 Modifier，例如：
+
+\[
+CurrentHealth = BaseHealth + (-50)
+\]
+
+那么会出现两个问题：
+
+\begin{enumerate}
+	\item 它通常不会触发 \ci{PostGameplayEffectExecute}
+	\item 效果消失时，生命值可能“弹回去”
+\end{enumerate}
+
+这会让“死亡判定”变得很不稳定，例如：
+
+\begin{itemize}
+	\item Debuff 生效时，目标当前生命低于 0
+	\item Debuff 消失后，又恢复到正数
+\end{itemize}
+
+因此在战斗系统里，更常见也更稳妥的做法是：
+
+\begin{itemize}
+	\item \textbf{伤害}：使用 Instant 或 Periodic Execute 进行真实扣血
+	\item \textbf{持续伤害}：使用 Periodic，每次 tick 都执行一次真实扣血
+	\item \textbf{Buff / Debuff}：使用 Duration / Infinite 影响攻击、防御、速度、护盾等
+\end{itemize}
+
+\subsection{与 \texttt{PostGameplayEffectExecute} 的关系}
+
+\ci{PostGameplayEffectExecute} 可以理解为：
+
+\begin{quote}
+	\textbf{Execute 型 GameplayEffect 完成属性结算后，AttributeSet 拿到的一次后置处理机会。}
+\end{quote}
+
+因此它特别适合做：
+
+\begin{itemize}
+	\item \verb|Health| Clamp
+	\item \verb|Mana| Clamp
+	\item 死亡判定
+	\item 护盾扣减后的血量修正
+	\item 伤害、治疗、资源变化的最终收尾
+\end{itemize}
+
+但不应把它理解成：
+
+\begin{itemize}
+	\item 所有属性变化的统一通知
+	\item 所有 \verb|CurrentValue| 变化都会触发的回调
+	\item 客户端 UI 更新的唯一入口
+\end{itemize}
+
+\subsection{结合 AuraAttributeSet 的理解}
+
+在当前的 `UAuraAttributeSet` 中，\ci{PostGameplayEffectExecute} 被用于：
+
+\begin{itemize}
+	\item 当 \verb|Health| 被 Execute 型效果修改后，限制在 \verb|[0, MaxHealth]|
+	\item 当 \verb|Mana| 被 Execute 型效果修改后，限制在 \verb|[0, MaxMana]|
+\end{itemize}
+
+这说明当前代码的设计思路是：
+
+\begin{quote}
+	\textbf{把 Health 和 Mana 当作需要“真实结算落地”的属性，并在结算后统一做兜底修正。}
+\end{quote}
+
+如果后续伤害系统继续沿着这个思路扩展，那么推荐做法是：
+
+\begin{itemize}
+	\item 用 Instant / Periodic Execute 处理扣血与回血
+	\item 在 \ci{PostGameplayEffectExecute} 中处理 Clamp、死亡、受击收尾
+	\item 不要用 Duration 直接给 \verb|Health| 挂持续负 Modifier 来表示真实伤害
+\end{itemize}
+
+\subsection{一句话总结}
+
+\begin{quote}
+	\textbf{Execute 路径 = GameplayEffect 真正执行了一次数值结算并把结果写入属性；而 \ci{PostGameplayEffectExecute} 就是这次结算之后的后置回调。}
+\end{quote}
+\end{document}

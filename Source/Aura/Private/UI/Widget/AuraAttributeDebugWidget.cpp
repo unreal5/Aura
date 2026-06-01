@@ -152,7 +152,7 @@ void UAuraAttributeDebugWidget::BuildWidgetTree()
 
 	HintText = AddTextToPanel(TEXT("HintText"), 18, FLinearColor(0.85f, 0.85f, 0.85f), false,
 	                          FMargin(12.f, 12.f, 12.f, 14.f));
-	HintText->SetText(FText::FromString(TEXT("F12: 显示/隐藏面板")));
+	HintText->SetText(FText::FromString(TEXT("T键: 显示/隐藏面板")));
 }
 
 void UAuraAttributeDebugWidget::BindAttributeDelegates()

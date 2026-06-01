@@ -3,6 +3,9 @@
 
 #include "AbilitySystem/AuraAttributeSet.h"
 
+#include "GameplayEffectExtension.h"
+#include "GameFramework/Pawn.h"
+#include "GameFramework/PlayerController.h"
 #include "Net/UnrealNetwork.h"
 
 UAuraAttributeSet::UAuraAttributeSet()
@@ -16,10 +19,10 @@ UAuraAttributeSet::UAuraAttributeSet()
 void UAuraAttributeSet::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	
+
 	DOREPLIFETIME_CONDITION_NOTIFY(ThisClass, Health, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(ThisClass, MaxHealth, COND_None, REPNOTIFY_Always);
-	
+
 	DOREPLIFETIME_CONDITION_NOTIFY(ThisClass, Mana, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(ThisClass, MaxMana, COND_None, REPNOTIFY_Always);
 }
@@ -36,6 +39,14 @@ void UAuraAttributeSet::PreAttributeBaseChange(const FGameplayAttribute& Attribu
 	Super::PreAttributeBaseChange(Attribute, NewValue);
 	// FString AttributeName = Attribute.GetName();
 	// UE_LOG(LogTemp, Warning, TEXT("PreAttributeBaseChange: %s, NewValue: %f"), *AttributeName, NewValue);
+}
+
+void UAuraAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data)
+{
+	Super::PostGameplayEffectExecute(Data);
+
+	FEffectProperties EffectProperties;
+	GatherEffectProperties(Data, EffectProperties);
 }
 
 void UAuraAttributeSet::OnRep_Health(const FGameplayAttributeData& OldHealth) const
@@ -56,4 +67,54 @@ void UAuraAttributeSet::OnRep_Mana(const FGameplayAttributeData& OldMana) const
 void UAuraAttributeSet::OnRep_MaxMana(const FGameplayAttributeData& OldMaxMana) const
 {
 	GAMEPLAYATTRIBUTE_REPNOTIFY(ThisClass, MaxMana, OldMaxMana);
+}
+
+void UAuraAttributeSet::GatherEffectProperties(const FGameplayEffectModCallbackData& Data,
+                                               FEffectProperties& OutProps) const
+{
+	// 收集数据
+	// Source = causer of the effect, Target = GE作用的对象（这个属性的拥有者）
+	OutProps.EffectContextHandle = Data.EffectSpec.GetContext();
+
+	// 获取Source相关信息
+	OutProps.SourceASC = OutProps.EffectContextHandle.
+	                              GetOriginalInstigatorAbilitySystemComponent();
+	if (IsValid(OutProps.SourceASC) && OutProps.SourceASC->AbilityActorInfo.IsValid())
+	{
+		OutProps.SourceAvatarActor = OutProps.SourceASC->GetAvatarActor();
+		OutProps.SourcePlayerController = OutProps.SourceASC->AbilityActorInfo->PlayerController.
+		                                           Get();
+		if (!IsValid(OutProps.SourcePlayerController) && IsValid(OutProps.SourceAvatarActor))
+		{
+			if (auto SourcePawn = Cast<APawn>(OutProps.SourceAvatarActor))
+			{
+				OutProps.SourcePlayerController = SourcePawn->GetController<APlayerController>();
+			}
+		}
+
+		OutProps.SourceCharacter = IsValid(OutProps.SourcePlayerController)
+			                           ? OutProps.SourcePlayerController->GetCharacter()
+			                           : nullptr;
+	}
+
+	// 获取Target相关信息. Data.Target是引用类型，一定存在。
+	OutProps.TargetASC = &Data.Target;
+	if (OutProps.TargetASC->AbilityActorInfo.IsValid() && OutProps.TargetASC->AbilityActorInfo->
+	                                                               AvatarActor.IsValid())
+	{
+		OutProps.TargetAvatarActor = OutProps.TargetASC->GetAvatarActor();
+		OutProps.TargetPlayerController = OutProps.TargetASC->AbilityActorInfo->PlayerController.
+		                                           Get();
+		if (!IsValid(OutProps.TargetPlayerController) && IsValid(OutProps.TargetAvatarActor))
+		{
+			if (auto TargetPawn = Cast<APawn>(OutProps.TargetAvatarActor))
+			{
+				OutProps.TargetPlayerController = TargetPawn->GetController<APlayerController>();
+			}
+		}
+
+		OutProps.TargetCharacter = IsValid(OutProps.TargetPlayerController)
+			                           ? OutProps.TargetPlayerController->GetCharacter()
+			                           : nullptr;
+	}
 }
