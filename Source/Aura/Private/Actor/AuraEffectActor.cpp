@@ -25,7 +25,7 @@ bool AAuraEffectActor::ApplyEffectToTarget(AActor* TargetActor, TSubclassOf<UGam
 	auto EffectContextHandle = TargetASC->MakeEffectContext();
 	EffectContextHandle.AddSourceObject(this);
 
-	auto SpecHandle = TargetASC->MakeOutgoingSpec(InGameplayEffectClass, 1, EffectContextHandle);
+	auto SpecHandle = TargetASC->MakeOutgoingSpec(InGameplayEffectClass, ActorLevel, EffectContextHandle);
 
 	if (SpecHandle.IsValid())
 	{

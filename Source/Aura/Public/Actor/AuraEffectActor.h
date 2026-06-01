@@ -60,4 +60,7 @@ protected:
 	EEffectApplicationPolicy InfiniteEffectApplicationPolicy;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Aura | Effect | Infinite")
 	EEffectRemovalPolicy InfiniteEffectRemovalPolicy = EEffectRemovalPolicy::RemovalOnEndOverlap;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Aura | Level")
+	float ActorLevel = 1.f;
 };

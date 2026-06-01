@@ -137,7 +137,7 @@ void UGlobeProgressBar::UpdateGlassImage() const
 void UGlobeProgressBar::UpdateProgressBarAndText() const
 {
 	SetProgressBarPercent(FMath::SafeDivide(Numerator, Denominator));
-	FString Text = FString::Printf(TEXT("%.0f / %.0f"), Numerator, Denominator);
+	FString Text = FString::Printf(TEXT("%.1f / %.1f"), Numerator, Denominator);
 	SetProgressBarText(FText::FromString(Text));
 }
 
