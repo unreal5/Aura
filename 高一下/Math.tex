@@ -46,10 +46,10 @@
 	\]
 	即：\colorbox{yellow}{$r=\dfrac{2 S}{a+b+c}$}，$a+b+c$是周长。
 	
-	在此基础之上考虑三棱锥：
-	\begin{figure}[H]
-		\centering
-		\begin{tikzpicture}[scale=1.05,line join=round,line cap=round,>=stealth]
+	在此基础之上考虑三棱锥：\\
+	\begin{minipage}[c]{0.5\textwidth}
+		%\centering
+		\begin{tikzpicture}[scale=1,line join=round,line cap=round,>=stealth]
 			% 非标准三棱锥的四个顶点
 			\coordinate (A) at (-2.8,0);
 			\coordinate (B) at (2.6,0.2);
@@ -58,7 +58,7 @@
 
 			% 球心与半径示意
 			\coordinate (O) at (-0.08,0.63);
-			\coordinate (H) at (0.18,-0.12);
+			\coordinate (H) at (-0.1,-0.12);
 			\def\r{0.79}
 
 			% 底面
@@ -71,7 +71,7 @@
 			\draw[thick] (D) -- (C);
 
 			% 内切球示意
-			\shade[ball color=blue!18,opacity=0.55] (O) circle (\r);
+			\shade[ball color=blue!18,opacity=0.25] (O) circle (\r);
 			\draw[blue!60!black,thick] (O) circle (\r);
 
 			% 球心与半径
@@ -79,6 +79,10 @@
 			\draw[red!70!black,thick] (O) -- (H) node[midway,right] {$r$};
 			\draw[dashed] (O) -- (D);
 
+			% 绘制多个三棱锥
+			\draw[dashed,blue](O)--(A);
+			\draw[dashed,blue](O)--(B);
+			\draw[dashed,blue](O)--(C);
 			% 顶点与关键点标注
 			\node[left] at (A) {$A$};
 			\node[right] at (B) {$B$};
@@ -87,7 +91,15 @@
 			\node[above right] at (O) {$O$};
 			\node[below right] at (H) {$H$};
 		\end{tikzpicture}
-
-	\end{figure}
+	\end{minipage}
+	\begin{minipage}[b]{0.45\textwidth}
+	从球心O到各个顶点连线，把整个三棱锥分成4个小三棱锥。
+	
+	显然三棱锥体积$\equiv$4个小三棱锥体积之和，小三棱锥高为球半径r。
+	
+	因此有$V=\dfrac{1}{3}\big(S_1+S_2+S_3+S_4\big)\times r$
+	
+	\colorbox{yellow}{$\therefore\quad r=\dfrac{3V}{S}$}，S为表面积之和。
+	\end{minipage}
 \end{enumerate}
 \end{document}

@@ -34,3 +34,5 @@ CourseAssets
 *.xdy
 *.blg
 *.out
+*.fdb_latexmk
+*.fls
