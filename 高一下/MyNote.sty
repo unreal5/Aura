@@ -1,0 +1,760 @@
+
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{MyNote}[2026/05/30 Version 1.0 My Note Template]
+
+\ProcessOptions\relax
+
+\RequirePackage[hidelinks
+,pdfproducer=medialab
+,pdfa=true
+,pdfusetitle
+]{hyperref}
+
+% ----------------------------------------------------------------------
+%           User Top Level Packages: Required
+% ----------------------------------------------------------------------
+
+\RequirePackage{marginnote,sidenotes,fancyhdr,geometry}
+\usepackage[usenames,dvipsnames]{xcolor}
+\usepackage[many]{tcolorbox}
+\tcbuselibrary{xparse,hooks,skins,breakable,theorems}
+
+% ----------------------------------------------------------------------
+%           User Top Level Packages: Additional & Styling
+% ----------------------------------------------------------------------
+
+\RequirePackage{iftex}
+\ifPDFTeX
+	\RequirePackage{stix2,mathrsfs}
+	\RequirePackage{mathtools,amsthm,amssymb,amsfonts,bm}   % Math Presets
+\else
+	\RequirePackage{fontspec,mathrsfs}
+	\RequirePackage{mathtools,amsthm,bm}                    % Math Presets
+	\RequirePackage{unicode-math}
+	%\setmathfont{STIX Two Math}
+	
+	\setmainfont[
+		Path=fonts/Alegreya/,
+		BoldFont=Alegreya-Bold.ttf,
+		ItalicFont=Alegreya-Italic.ttf,
+		BoldItalicFont=Alegreya-BoldItalic,ttf,
+	]{Alegreya-Regular.ttf}%
+
+	\setsansfont[
+		Path=fonts/Alegreya/,
+		BoldFont=AlegreyaSC-Bold.ttf,
+		ItalicFont=AlegreyaSC-Italic.ttf,
+		BoldItalicFont=AlegreyaSC-BoldItalic,ttf,
+	]{AlegreyaSC-Regular.ttf}%
+\fi
+
+\usepackage[shortlabels]{enumitem}                  % Enumitem Options
+
+\RequirePackage{thmtools}
+\RequirePackage{array,tabularx,booktabs}                % Table Presets
+\RequirePackage{graphicx,wrapfig,float,caption}         % Figure Presets
+\RequirePackage{setspace,multicol}                      % Text Presets
+\RequirePackage{tikz,physics}                           % Physics Presets
+\RequirePackage{calc}
+\usetikzlibrary{3d,calc,angles,arrows,shadows.blur,tikzmark,patterns,decorations.pathmorphing,arrows.meta,quotes}
+% ----------------------------------------------------------------------
+%           User Page Prefrences 
+% ----------------------------------------------------------------------
+\DeclareGraphicsExtensions{.pdf,.png,.jpg}
+
+\geometry{paperheight=11in,paperwidth=8.5in,                   %fix paperwidth and height.
+          marginparsep=.02\paperwidth,marginparwidth=.2\paperwidth,
+          inner=.11\paperwidth,voffset=-1in,headheight=.02\paperheight,
+          headsep=.03\paperheight,footskip=20pt,
+          textheight=.795\paperheight,textwidth=.62\paperwidth}
+
+  \pagestyle{fancy}%
+  \newlength{\myoddoffset}%
+  \setlength{\myoddoffset}{\marginparwidth + \marginparsep}%
+  \renewcommand{\sectionmark}[1]{\markboth{#1}{}}%
+  \renewcommand{\subsectionmark}[1]{\markright{#1}{}}%
+
+  \fancypagestyle{fancynotes}{%
+    \fancyhf{}%
+    \fancyheadoffset[rh]{\myoddoffset}%
+    \renewcommand{\headrulewidth}{0pt}%
+    \fancyhead[L]{\textsc{\leftmark}}%
+    \fancyhead[R]{\footnotesize \textit{\rightmark}~~~~ \thepage}%
+  }%
+
+  \fancypagestyle{fancypart}{%
+    \fancyhf{}%
+    \fancyfootoffset[rh]{\myoddoffset}%
+    \renewcommand{\headrulewidth}{0pt}
+    \fancyfoot[L]{\footnotesize \thepage}%
+  }%
+
+\newenvironment{fullpage}
+    {\smallskip\noindent\begin{minipage}
+    {\textwidth+\marginparwidth+\marginparsep}\hrule\smallskip\smallskip}
+    {\hrule\end{minipage}\vspace{.1in}}
+
+% ----------------------------------------------------------------------
+%           User Created Environments 
+% ----------------------------------------------------------------------
+
+\newlength{\spacelength}
+\settowidth{\spacelength}{\normalfont\ }
+
+
+
+\renewcommand*{\raggedleftmarginnote}{\noindent}
+\renewcommand*{\raggedrightmarginnote}{\noindent}
+\newcommand{\mn}[1]{\textsuperscript{\thesidenote}{}\marginnote{\textsuperscript{\thesidenote}{}\itshape\footnotesize #1}\refstepcounter{sidenote}}
+\newcommand{\en}[1]{\marginnote{\footnotesize{#1}}}
+\newcommand{\lec}[2]{{\setlength{\marginparwidth}{.07\paperwidth}\reversemarginpar\marginnote{\centering\footnotesize{\textsf{\bfseries #1}}\\#2}}}
+\newcommand{\sn}[1]{\sidenote{\itshape\footnotesize #1}}
+
+% ----------------------------------------------------------------------
+%           User Macros: Add Below 
+% ----------------------------------------------------------------------
+
+
+%===========================================================================================================
+
+\def\@subheader{\@empty}
+\def\@keywords{\@empty}
+\def\@abstract{\@empty}
+\def\@dedicated{\@empty}
+\def\@collaboration{\@empty}
+\def\@collaborationImg{\@empty}
+\def\@proceeding{\@empty}
+\def\@preprint{\@empty}
+\def\@acknowledgments{\@empty}
+
+\newcommand{\subheader}[1]{\gdef\@subheader{#1}}
+\newcommand{\keywords}[1]{\if!\@keywords!\gdef\@keywords{#1}\else%
+\PackageWarningNoLine{\jname}{Keywords already defined.\MessageBreak Ignoring last definition.}\fi}
+\renewcommand{\abstract}[1]{\gdef\@abstract{#1}}
+\newcommand{\dedicated}[1]{\gdef\@dedicated{#1}}
+\newcommand{\proceeding}[1]{\gdef\@proceeding{#1}}
+\newcommand\jname{JHEP}
+\newcommand{\acknowledgments}[1]{\gdef\@acknowledgments{#1}}
+%\newcommand\acknowledgments{\section*{Acknowledgments}}
+\newcommand\preprint[1]{\gdef\@preprint{\hfill #1}}
+
+
+
+%Equivalent to ``\footnote'', but can be used inside the \author macro
+% because it does not write the footnote mark
+% it has an optional argument that will be used as footnote mark when given
+% WARNING: when the optional argument is used, the footnotecounter is not increased
+% WARNING: the character ``!'' cannot be used.
+% If you really need it use somthing like [\relax !] as the optional arg.
+\newcommand\note[2][]{%
+\if!#1!%
+\stepcounter{footnote}\footnotetext{#2}%
+\else%
+{\renewcommand\thefootnote{#1}%
+\footnotetext{#2}}%
+\fi}
+
+
+
+%Use this if you want to try to keep some piece of the abstract on a
+%very long first page
+\newcommand\compress{%
+\renewcommand\afterProceedingsSpace{\bigskip}%
+\renewcommand\afterTitleSpace{\bigskip}%
+\renewcommand\afterRuleSpace{\bigskip\bigskip}
+\renewcommand\afterEmailSpace{\par\bigskip}}
+
+%authors and affiliations
+\newtoks\auth@toks
+\renewcommand{\author}[2][]{%
+  \if!#1!%
+    \auth@toks=\expandafter{\the\auth@toks#2\ }%
+  \else
+    \auth@toks=\expandafter{\the\auth@toks#2$^{#1}$\ }%
+  \fi
+}
+
+\newtoks\affil@toks\newif\ifaffil\affilfalse
+\newcommand{\affiliation}[2][]{%
+\affiltrue
+  \if!#1!%
+    \affil@toks=\expandafter{\the\affil@toks{\item[]#2}}%
+  \else
+    \affil@toks=\expandafter{\the\affil@toks{\item[$^{#1}$]#2}}%
+  \fi
+}
+
+%emails
+%automatically put a comma between emails
+\newtoks\email@toks\newcounter{email@counter}%
+\setcounter{email@counter}{0}%
+\newcommand{\emailAdd}[1]{%
+\emailaddtrue%
+\ifnum\theemail@counter>0\email@toks=\expandafter{\the\email@toks, \@email{#1}}%
+\else\email@toks=\expandafter{\the\email@toks\@email{#1}}%
+\fi\stepcounter{email@counter}}
+\newcommand{\@email}[1]{\href{mailto:#1}{\tt #1}}
+
+
+% Collaboration macros
+\newcommand*\collaboration[1]{\gdef\@collaboration{#1}}
+\newcommand*\collaborationImg[2][]{\gdef\@collaborationImg{#2}}
+
+%all pieces get a ``after'' spacing
+\newcommand\afterLogoSpace{\smallskip}
+\newcommand\afterSubheaderSpace{\vskip3pt plus 2pt minus 1pt}
+\newcommand\afterProceedingsSpace{\vskip21pt plus0.4fil minus15pt}
+\newcommand\afterTitleSpace{\vskip10pt}
+%\newcommand\afterRuleSpace{\vskip23pt plus0.06fil minus13pt}
+\newcommand\afterRuleSpace{\vskip20pt plus0.06fil minus13pt}
+\newcommand\afterCollaborationSpace{\vskip3pt plus 2pt minus 1pt}
+\newcommand\afterCollaborationImgSpace{\vskip3pt plus 2pt minus 1pt}
+\newcommand\afterAuthorSpace{\vskip5pt plus4pt minus4pt}
+\newcommand\afterAffiliationSpace{\vskip3pt plus3pt}
+%\newcommand\afterEmailSpace{\vskip16pt plus9pt minus10pt\filbreak}
+\newcommand\afterEmailSpace{\vskip20pt\filbreak}
+\newcommand\afterAbstractSpace{\vskip16pt plus9pt minus13pt}
+\newcommand\afterKeywordsSpace{\vskip16pt plus9pt minus13pt}
+\newcommand\afterDedicatedSpace{\vskip0pt plus0.01fil}
+%this is the ``itemsep'' of the affiliations list
+\newlength{\affiliationsSep}\setlength{\affiliationsSep}{-3pt}
+
+\DeclareFixedFont\trfont{OT1}{phv}{b}{sc}{11}
+
+%first page
+\renewcommand\maketitle{
+%% First page
+\pagestyle{empty}
+\thispagestyle{titlepage}
+\newgeometry{marginparwidth=0pt,marginparsep=0pt,textwidth=.8\paperwidth,hoffset=0in,voffset=0in}
+\setcounter{page}{0}
+\noindent{\small\scshape\@fpheader}\@preprint\par
+\afterLogoSpace
+% Subheader
+\if!\@subheader!\else\noindent{\trfont{\@subheader}}\fi
+\afterSubheaderSpace
+% Proceedings
+\if!\@proceeding!\else\noindent{\sc\@proceeding}\fi
+\afterProceedingsSpace
+% Title
+{\huge\centering\sffamily\bfseries\sc\@title\par}
+\afterTitleSpace
+% Rule
+{\color{MyNoteColor@Accent}\hrule height .6\p@}%
+\afterRuleSpace
+% Collaboration
+\if!\@collaboration!\else
+{\Large\bfseries\sffamily\raggedright\@collaboration}\par
+\afterCollaborationSpace
+\fi
+%
+\if!\@collaborationImg!\else
+{\normalsize\bfseries\sffamily\raggedright\@collaborationImg}\par
+\afterCollaborationImgSpace
+%% I leave the size and font so that if there are two collaboration
+%% they can be linked with an 'and'
+\fi
+% Author
+%{\bfseries\raggedright\sffamily\the\auth@toks\par}
+{\bfseries\raggedright\sffamily\sc\the\auth@toks\par}
+\afterAuthorSpace
+% Affiliation
+\ifaffil\begin{list}{}{%
+\setlength{\leftmargin}{0.28cm}%
+\setlength{\labelsep}{0pt}%
+\setlength{\itemsep}{\affiliationsSep}%
+\setlength{\topsep}{-\parskip}}
+\itshape\small%
+\the\affil@toks
+\end{list}\fi
+\afterAffiliationSpace
+% E-mail
+\ifemailadd %% if emailadd is true
+\noindent\hspace{0.28cm}\begin{minipage}[l]{.9\textwidth}
+\begin{flushleft}
+\the\email@toks
+\end{flushleft}
+\end{minipage}
+\else %% if emailaddfalse do nothing
+\PackageWarningNoLine{\jname}{E-mails are missing.\MessageBreak Plese use \protect\emailAdd\space macro to provide e-mails.}
+\fi
+\afterEmailSpace
+% Abstract
+%\if!\@abstract!\else\noindent{\renewcommand\baselinestretch{.9}\textsc{Abstract:}}\ \@abstract\afterAbstractSpace\fi
+\if!\@abstract!\else\noindent\@abstract\afterAbstractSpace\fi
+% Keywords
+\if!\@keywords!\else\noindent{\textsc{Keywords:}} \@keywords\afterKeywordsSpace\fi
+% Dedication
+\if!\@dedicated!\else\vbox{\small\it\raggedleft\@dedicated}\afterDedicatedSpace\fi
+%\if!\@acknowledgments!\else\vfill\noindent{\renewcommand\baselinestretch{.9}\textsc{Acknowledgments:}}\ \@acknowledgments\afterAbstractSpace\fi
+\setcounter{footnote}{0}
+\restoregeometry
+\pagestyle{myplain}\pagenumbering{arabic}
+} % close the \renewcommand\maketitle{
+
+
+% Page layout
+\renewcommand{\baselinestretch}{1.0}\normalsize
+\setlength\lineskip{1\p@}
+\setlength\parindent{1.2\parindent}
+\setlength\normallineskip{1\p@}
+\setlength\parskip{0\p@ \@plus \p@}
+\@lowpenalty   51
+\@medpenalty  151
+\@highpenalty 301
+\widowpenalty 1000
+\clubpenalty 1000
+
+\setcounter{topnumber}{4}
+\renewcommand\topfraction{1}
+\setcounter{bottomnumber}{1}
+\renewcommand\bottomfraction{.6}
+\setcounter{totalnumber}{5}
+\renewcommand\textfraction{0}
+\renewcommand\floatpagefraction{1}
+\addtolength\textheight{\topskip}
+
+\marginparpush 6\p@
+\topmargin   .05\paperheight
+
+\setlength\arraycolsep{2\p@}
+\setlength\tabcolsep{6\p@}
+\setlength\arrayrulewidth{.4\p@}
+\setlength\doublerulesep{2\p@}
+\setlength\tabbingsep{\labelsep}
+\skip\@mpfootins = \skip\footins
+\setlength\fboxsep{3\p@}
+\setlength\fboxrule{.4\p@}
+
+% No dots in the table of contents
+\renewcommand{\@dotsep}{10000}
+
+% Footer and header of the body
+% the command ``\pagestyle{myplain}'' must be inserted
+% just after ``\begin{document}''
+\newcommand\ps@myplain{
+\pagenumbering{arabic}
+\renewcommand\@oddfoot{\hfill-- \thepage\ --\hfill}
+\renewcommand\@oddhead{}}
+\let\ps@plain=\ps@myplain
+
+
+
+% no header or footer in the title page
+\newcommand\ps@titlepage{\renewcommand\@oddfoot{}\renewcommand\@oddhead{}}
+
+%number equations after the sections
+\numberwithin{equation}{section}
+
+\RequirePackage{titlesec}
+
+%一些定制标题：
+%\newcommand{\mysection}[1]{
+%	\begin{center}
+%		\begin{tikzpicture}[overlay]
+%			\fill[mycyan!90, draw = black] (0.025\linewidth, 0.5) -- (-.5\linewidth, 0.5) -- (-.5\linewidth, -0.5) -- (-0.025\linewidth, -0.5) -- cycle;
+%			\fill[mypeach!90, draw = black] (0.025\linewidth, 0.5) -- (.5\linewidth, 0.5) -- (.5\linewidth, -0.5) -- (-0.025\linewidth, -0.5) -- cycle;
+%			\node[fill = white, draw = black, text = black] at (0, 0) {\LARGE\bfseries\sectionsfont #1};
+%			\draw[line width = 1pt] (-.5\linewidth, 0.5) -- (.5\linewidth, 0.5) -- (.5\linewidth, -0.5) -- (-.5\linewidth, -0.5) -- cycle;
+%		\end{tikzpicture}
+%	\end{center}
+%	\vspace{0.35cm}
+%}
+%\newcommand{\mysubsection}[1]{
+%	\begin{center}
+%		\begin{tikzpicture}[overlay]
+%			\draw[mypeach, line width = 10pt] (-.5\linewidth, 0) -- (0, 0);
+%			\draw[mycyan, line width = 10pt] (0, 0) -- (.5\linewidth, 0);
+%			\node[fill = white, text = black] at (0, 0) {\large\bfseries\sectionsfont #1};
+%		\end{tikzpicture}
+%	\end{center}
+%	\vspace{0.3cm}
+%}
+
+\titleformat{name=\section}[display]
+{\normalfont}
+{\footnotesize\textsc{第 \thesection 节}}
+{0pt}
+{\Large\bfseries}
+[\vspace{-10pt}\color{MyNoteColor@Accent}\rule{\textwidth}{.6pt}]
+
+\titleformat{name=\section,numberless}[hang]
+{\normalfont}
+{}
+{0pt}
+{\Large\bfseries}
+
+\titleformat{name=\subsection}[display]
+{\normalfont}
+{\footnotesize\textsc{第 \thesubsection 小节}}
+{0pt}
+{\large\bfseries}
+[\vspace{-5pt}\color{MyNoteColor@Accent}\rule{\textwidth}{.6pt}]
+
+% \titleformat{name=\part}[hang]
+% {{\thispagestyle{fancypart}}\Huge\bfseries}
+% {\marginnote{
+%   \begin{center}
+%   {\color{black}\thepart}
+%   \end{center}}[-.95in]}{0pt}{\Huge\bfseries\itshape}
+
+\titleformat{\part}[hang]{{\thispagestyle{fancypart}}\Huge\bfseries}{\marginnote{
+\begin{tcolorbox}[width=\marginparwidth,height=\marginparwidth/2,colback=MyNoteColor@Black!50!MyNoteColor@White,colframe=MyNoteColor@Black!50!MyNoteColor@White,center title,fonttitle=\bfseries\normalsize,title=部分,text fill]
+  \begin{center}
+	{\color{MyNoteColor@White}\thepart}
+  \end{center}
+\end{tcolorbox}
+}[-1.25in]}{0pt}{\Huge\bfseries\itshape}
+
+%Caption of figure and table
+\def\fnum@figure{\textbf{\figurename\nobreakspace\thefigure}}
+\def\fnum@table{\textbf{\tablename\nobreakspace\thetable}}
+
+%redefining \@makecaption, to have captions with \small font size
+%taken from article.cls l.489--498
+%the only differences are the ``\small '' commands added on two lines
+\long\def\@makecaption#1#2{%
+  \vskip\abovecaptionskip
+  \sbox\@tempboxa{\small #1. #2}%
+  \ifdim \wd\@tempboxa >\hsize
+    \small #1. #2\par
+  \else
+    \global \@minipagefalse
+    \hb@xt@\hsize{\hfil\box\@tempboxa\hfil}%
+  \fi
+  \vskip\belowcaptionskip}
+
+
+%可分页的定理环境
+\colorlet{MyNoteColor@Accent}{Maroon}
+\colorlet{MyNoteColor@White}{white}
+\colorlet{MyNoteColor@Black}{black}
+\definecolor{MyNoteColor@BoxMain}{RGB}{142, 103, 72}
+\definecolor{MyNoteColor@BoxMainSoft}{RGB}{243, 234, 223}
+\definecolor{MyNoteColor@Theorem}{RGB}{162, 124, 92}
+\definecolor{MyNoteColor@TheoremSoft}{RGB}{247, 240, 231}
+\definecolor{MyNoteColor@Paper}{RGB}{252, 250, 246}
+\definecolor{MyNoteColor@Line}{RGB}{131, 120, 109}
+\definecolor{MyNoteColor@Support}{HTML}{6E8678}
+\definecolor{MyNoteColor@SupportSoft}{HTML}{EAF1EC}
+\definecolor{MyNoteColor@Definition}{HTML}{617A92}
+\definecolor{MyNoteColor@DefinitionSoft}{HTML}{EAF0F5}
+\definecolor{MyNoteColor@Neutral}{HTML}{7A746C}
+
+\tcbset{
+	common/.style={
+		fontupper=\rmfamily,
+		lower separated=true,
+		coltitle=MyNoteColor@Black,
+		colback=MyNoteColor@Paper,
+		colframe=MyNoteColor@Line,
+		boxrule=0.2pt,
+		fonttitle=\bfseries,
+		enhanced,
+		breakable,
+		top=9pt,
+		before skip=10pt,
+		after skip=10pt,
+		left=7pt,
+		right=7pt,
+		attach boxed title to top left={yshift=-0.08in,xshift=0.18in},
+		boxed title style={
+			boxrule=0pt,
+			colframe=MyNoteColor@BoxMain,
+			colback=MyNoteColor@BoxMainSoft,
+			arc=1.5pt,
+			outer arc=1.5pt,
+			left=6pt,
+			right=6pt,
+			top=3pt,
+			bottom=3pt,
+		},
+		separator sign={.},
+		borderline west={0.2pt}{0pt}{MyNoteColor@BoxMain!90!MyNoteColor@Black}
+	},
+	primarypanel/.style={
+		colback=MyNoteColor@Paper,
+		colframe=MyNoteColor@Line,
+		boxed title style={
+			boxrule=0pt,
+			colframe=MyNoteColor@BoxMain,
+			colback=MyNoteColor@BoxMainSoft,
+			arc=1.5pt,
+			outer arc=1.5pt,
+			left=6pt,
+			right=6pt,
+			top=3pt,
+			bottom=3pt,
+		},
+		borderline west={1.2pt}{0pt}{MyNoteColor@BoxMain!90!MyNoteColor@Black}
+	},
+	theorempanel/.style={
+		colback=MyNoteColor@TheoremSoft,
+		colframe=MyNoteColor@Line,
+		boxed title style={
+			boxrule=0pt,
+			colframe=MyNoteColor@Theorem,
+			colback=MyNoteColor@TheoremSoft,
+			arc=1.5pt,
+			outer arc=1.5pt,
+			left=6pt,
+			right=6pt,
+			top=3pt,
+			bottom=3pt,
+		},
+		borderline west={1.2pt}{0pt}{MyNoteColor@Theorem!90!MyNoteColor@Black}
+	},
+	accentpanel/.style={
+		colback=MyNoteColor@SupportSoft,
+		colframe=MyNoteColor@Support,
+		boxed title style={
+			boxrule=0pt,
+			colframe=MyNoteColor@Support,
+			colback=MyNoteColor@Support!88!MyNoteColor@Black,
+			arc=1.5pt,
+			outer arc=1.5pt,
+			left=6pt,
+			right=6pt,
+			top=3pt,
+			bottom=3pt,
+		},
+		borderline west={1.2pt}{0pt}{MyNoteColor@Support}
+	},
+	definitionpanel/.style={
+		colback=MyNoteColor@DefinitionSoft,
+		colframe=MyNoteColor@Definition,
+		boxed title style={
+			boxrule=0pt,
+			colframe=MyNoteColor@Definition,
+			colback=MyNoteColor@Definition!14!MyNoteColor@White,
+			arc=1.5pt,
+			outer arc=1.5pt,
+			left=6pt,
+			right=6pt,
+			top=3pt,
+			bottom=3pt,
+		},
+		borderline west={1.2pt}{0pt}{MyNoteColor@Definition}
+	},
+	neutralpanel/.style={
+		colback=MyNoteColor@White,
+		colframe=MyNoteColor@Line,
+		boxed title style={
+			boxrule=0pt,
+			colframe=MyNoteColor@Neutral,
+			colback=MyNoteColor@Neutral!10!MyNoteColor@White,
+			arc=1.5pt,
+			outer arc=1.5pt,
+			left=6pt,
+			right=6pt,
+			top=3pt,
+			bottom=3pt,
+		},
+		borderline west={1.2pt}{0pt}{MyNoteColor@Neutral!90!MyNoteColor@Black}
+	},
+	proofstyle/.style={
+		common,
+		accentpanel,
+		sharp corners,
+		rounded corners=southeast,
+		boxed title style={
+			boxrule=0pt,
+			colframe=MyNoteColor@Support,
+			colback=MyNoteColor@Support,
+			arc=1.5pt,
+			outer arc=1.5pt,
+			left=6pt,
+			right=6pt,
+			top=2pt,
+			bottom=2pt,
+		},
+		borderline west={0.2pt}{0pt}{MyNoteColor@Support},
+		overlay unbroken and last={
+			\node[anchor=south east, outer sep=1.5pt, text=MyNoteColor@Support] at (frame.south east){\footnotesize\rule{0.85ex}{0.85ex}};}
+	},
+	theoremstyle/.style={
+		common,
+		coltitle=MyNoteColor@BoxMain!95!MyNoteColor@Black,
+		theorempanel
+	},
+	definitionstyle/.style={
+		common,
+		definitionpanel
+	},
+	lemmastyle/.style={
+		common,
+		accentpanel,
+		boxed title style={
+			boxrule=0pt,
+			colframe=MyNoteColor@Support,
+			colback=MyNoteColor@Support!12!MyNoteColor@White,
+			arc=1.5pt,
+			outer arc=1.5pt,
+			left=6pt,
+			right=6pt,
+			top=3pt,
+			bottom=3pt,
+		},
+		borderline west={1.2pt}{0pt}{MyNoteColor@Support}
+	},
+	claimstyle/.style={
+		common,
+		neutralpanel
+	},
+  examplestyle/.style={
+		common,
+		primarypanel,
+		sharp corners,
+		rounded corners=southeast,
+		overlay unbroken and last={
+			\node[anchor=south east, outer sep=1.5pt, text=MyNoteColor@BoxMain!85!MyNoteColor@Black] at (frame.south east){\footnotesize\rule{0.85ex}{0.85ex}};}
+	},
+	BreakableBox@title/.code n args={2}{
+		\ifblank{#2}
+			{\tcbset{title={\csname #1name\endcsname~\thetcbcounter}}}
+			{\tcbset{title={\csname #1name\endcsname~\thetcbcounter\ (#2)}}}
+	},
+}
+
+\newcommand{\newbreakablebox}[2]{
+	\ifcsundef{#1name}{%
+		\tcbset{BreakableBox@title/.code n args={2}{\tcbset{title={use newcommand define #1name}}} }
+	}{\relax}
+	\DeclareTColorBox[auto counter,number within=section]{#1}{ g o t\label g }{
+		common,
+		#2,
+		IfValueTF={##1}
+			{BreakableBox@title={#1}{##1}}
+			{
+				IfValueTF={##2}
+					{BreakableBox@title={#1}{##2}}
+					{BreakableBox@title={#1}{}}
+			},
+		IfValueT={##4}{label={##4}}
+	}
+	\DeclareTColorBox{#1*}{ g o }{
+		common,#2,
+		IfValueTF={##1}
+			{BreakableBox@title={#1}{##1}}
+			{
+				IfValueTF={##2}
+					{BreakableBox@title={#1}{##2}}
+					{BreakableBox@title={#1}{}}
+			},
+	}
+}
+
+\newcommand{\theoremname}{定理}
+\renewcommand*{\proofname}{证明}
+\newcommand{\Intuitionname}{直觉}
+\newcommand{\quesname}{问题}
+\newcommand{\definitionname}{定义}
+\newcommand{\lemmaname}{引理}
+\newcommand{\intuname}{直觉}
+\newcommand{\solutionname}{解答}
+\newcommand{\remarkname}{注}
+\newbreakablebox{proof}{proofstyle}
+\newbreakablebox{theorem}{theoremstyle}
+\newbreakablebox{Intuition}{claimstyle}
+\newbreakablebox{ques}{claimstyle}
+\newbreakablebox{definition}{definitionstyle}
+\newbreakablebox{lemma}{lemmastyle}
+\newbreakablebox{intu}{claimstyle}
+\newbreakablebox{solution}{claimstyle}
+\newbreakablebox{remark}{claimstyle}
+\newcommand{\examplename}{例}
+\newbreakablebox{example}{examplestyle}
+
+
+%补充内容
+%%设置新字体
+%%定义带圈数字命令
+\newfontfamily{\nmfont}{circlenumber}
+[%
+Extension=.otf,
+Path=./fonts/]
+
+\newcommand{\quan}[1]{{\nmfont \symbol{#1}}}
+\newcommand{\kk}[1]{\quan{\numexpr32+#1}}%\kk{<参数范围1-95>}96、97、98、99分别用\quan{196} \quan{197} \quan{199} \quan{201}
+
+%脚注使用带圈数字
+\newcommand*\kkctr[1]{%
+	\protect\kk{\number\numexpr\value{#1}\relax}}
+\renewcommand*\thefootnote{\textcolor{black}{\kkctr{footnote}}}
+
+\setlist[enumerate,1]{label=\small\textcolor{black}{\protect\kk{\arabic*}},noitemsep}
+\setlist[enumerate,2]{label=\textcolor{black}{\bfseries\alph*.},noitemsep}
+\setlist[enumerate,3]{label=\textcolor{blue}{\bfseries\roman*.},noitemsep}
+
+\setlist[itemize]{noitemsep}
+\setlist[enumerate]{noitemsep}
+\setlist[description]{noitemsep}
+
+%定义代码风格
+\RequirePackage{listings} %\carriagereturn在包“dingbat”中。
+\RequirePackage{fontawesome5}
+\RequirePackage{menukeys}
+
+\renewcommand*{\lstlistingname}{代码}
+\renewcommand*{\lstlistingnamestyle}{\sffamily}
+\lstnewenvironment{code}[1][]
+{
+	%	\setmonofont{mononoki}
+	%	\setmonofont{mononoki}
+	%staring code
+	\lstset{
+		language=[11]C++,
+		columns=fullflexible,%fixed
+		basicstyle=\ttfamily\small,%\linespread{1.0}
+		commentstyle=\color{green!40!black}\itshape,
+		keywordstyle=\color{blue}\bfseries,
+		numberstyle=\scriptsize\color{black}\ttfamily,
+		stringstyle=\color{red},
+		identifierstyle=\color{black},		
+		breakautoindent,
+		breakindent=2ex,
+		breaklines,
+		breakatwhitespace=false,
+		%		prebreak=\raisebox{.4ex}{\rotatebox{-90}{{\color{gray}\tiny\faLevelDown*}}},
+		%		postbreak=\raisebox{0.8ex}{\small\reflectbox{\carriagereturn}},
+		showstringspaces=false,
+		emph=[2]{override,final},
+		emphstyle=[2]{\color{blue}\bfseries},		
+		%		emph=[3]{UPROPERTY,UFUNCTION,UENUM,UCLASS},
+		%		emphstyle=[3]{\color{orange}\bfseries},
+		tabsize=4,
+		escapeinside=``,
+		frame=none,
+		backgroundcolor=\color{gray!5},
+		captionpos=b,%b,%标题的位置
+		#1
+	}
+}
+{
+	%end code
+	%可以在这里自定义命令
+}
+
+\newcommand{\ci}[1]{
+	\lstinline[language=C++,breakatwhitespace=false,breaklines,basicstyle=\ttfamily\selectfont\color{black!40!blue},keywordstyle=\color{blue}\bfseries]{#1}%
+}
+
+\newcommand{\cppsign}{$C^{++}$}
+\newcommand{\cpp}[1][11]{$C^{++ \mathbf{#1}}$}
+\newcommand{\cssign}{$C{\#}$}
+
+
+
+%%%marker环境
+\newtcolorbox{marker}[1][]{enhanced,before skip=2mm,
+	after skip=3mm,fontupper=\rmfamily,
+	boxrule=0.4pt,left=5mm,right=2mm,top=1mm,bottom=1mm,
+	colback=yellow!50,colframe=yellow!20!black,
+	sharp corners,rounded corners=southeast,
+	arc is angular,arc=3mm,underlay={%
+		\path[fill=tcbcolback!80!black] ([yshift=3mm]interior.south east)--++(-0.4,-0.1)--++(0.1,-0.2);
+		\path[draw=tcbcolframe,shorten <=-0.05mm,shorten >=-0.05mm] ([yshift=3mm]interior.south east)--++(-0.4,-0.1)--++(0.1,-0.2);
+		\path[fill=yellow!50!black,draw=none] (interior.south west) rectangle node[white]{\Huge\bfseries !} ([xshift=4mm]interior.north west);
+	},
+	drop fuzzy shadow,#1
+}
