@@ -39,10 +39,6 @@ void AAuraEnemy::InitAbilityActorInfo()
 {
 	// Super::InitAbilityActorInfo();
 	AbilitySystemComponent->InitAbilityActorInfo(this, this);
-	if (auto AuraASC = Cast<UAuraAbilitySystemComponent>(AbilitySystemComponent))
-	{
-		AuraASC->AbilityActorInfoSet();
-	}
 }
 
 void AAuraEnemy::HighlightActor_Implementation()
