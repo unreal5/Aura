@@ -4,6 +4,7 @@
 #include "Character/Player/AuraCharacter.h"
 
 #include "AbilitySystemComponent.h"
+#include "AbilitySystem/AuraAbilitySystemComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -75,6 +76,10 @@ void AAuraCharacter::InitAbilityActorInfo()
 		{
 			AbilitySystemComponent->InitAbilityActorInfo(AuraPlayerState, this);
 		}
+		if (auto AuraASC = Cast<UAuraAbilitySystemComponent>(AbilitySystemComponent))
+		{
+			AuraASC->AbilityActorInfoSet();
+		}
 	}
 
 	// 初始化HUD
@@ -88,4 +93,6 @@ void AAuraCharacter::InitAbilityActorInfo()
 			AuraHUD->InitOverlay(PC, GetPlayerState(), AbilitySystemComponent, AttributeSet);
 		}
 	}
+
+	// 绑定
 }

@@ -3,34 +3,40 @@
 
 #include "AbilitySystem/AuraAbilitySystemComponent.h"
 
+#include "Engine/World.h"
+
 
 // Sets default values for this component's properties
 UAuraAbilitySystemComponent::UAuraAbilitySystemComponent()
 {
-	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
-	// off to improve performance if you don't need them.
 	PrimaryComponentTick.bCanEverTick = true;
-
-	// ...
 }
 
-
-// Called when the game starts
-void UAuraAbilitySystemComponent::BeginPlay()
+void UAuraAbilitySystemComponent::AbilityActorInfoSet()
 {
-	Super::BeginPlay();
-
-	// ...
-	
+	// 只有在服务器上才绑定GE委托
+	if (GetOwnerActor() && GetOwnerActor()->HasAuthority())
+	{
+		OnGameplayEffectAppliedDelegateToSelf.AddUObject(this, &UAuraAbilitySystemComponent::EffectApplied);
+		OnAnyGameplayEffectRemovedDelegate().AddUObject(this, &UAuraAbilitySystemComponent::EffectRemoved);
+	}
 }
 
-
-// Called every frame
-void UAuraAbilitySystemComponent::TickComponent(float DeltaTime, ELevelTick TickType,
-                                                FActorComponentTickFunction* ThisTickFunction)
+void UAuraAbilitySystemComponent::EffectApplied(UAbilitySystemComponent* ASC, const FGameplayEffectSpec& EffectSpec,
+                                                FActiveGameplayEffectHandle ActiveEffectHandle)
 {
-	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
-	// ...
+	UE_LOG(LogTemp, Warning, TEXT("Effect applied: %s"), *EffectSpec.Def->GetName());
 }
 
+void UAuraAbilitySystemComponent::EffectRemoved(const FActiveGameplayEffect& ActiveGameplayEffect)
+{
+	const FGameplayEffectSpec& Spec = ActiveGameplayEffect.Spec;
+	const UGameplayEffect* EffectDef = Spec.Def;
+	const FString EffectName = GetNameSafe(EffectDef);
+	const int32 StackCount = GetCurrentStackCount(ActiveGameplayEffect.Handle);
+	const float Duration = Spec.GetDuration();
+	const float Period = Spec.GetPeriod();
+
+	UE_LOG(LogTemp, Warning, TEXT("移除Active Effect: %s, StackCount: %d, Duration: %.2f,  Period: %.2f"),
+	       *EffectName, StackCount, Duration, Period);
+}

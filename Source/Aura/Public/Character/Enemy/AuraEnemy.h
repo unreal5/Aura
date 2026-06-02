@@ -15,7 +15,8 @@ class AURA_API AAuraEnemy : public AAuraCharacterBase, public IHighlightInterfac
 public:
 	AAuraEnemy();
 	void BeginPlay() override;
-
+protected:
+	void InitAbilityActorInfo() override;
 private:
 	void HighlightActor_Implementation() override;
 	void UnHighlightActor_Implementation() override;

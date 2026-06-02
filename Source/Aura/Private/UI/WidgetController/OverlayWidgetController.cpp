@@ -12,10 +12,10 @@ void UOverlayWidgetController::BroadcastInitialValues()
 {
 	auto AS = CastChecked<UAuraAttributeSet>(AttributeSet);
 
-	OnAttributeChangedWithTag.Broadcast(AuraAttributeTags::Health, AS->GetHealth());
-	OnAttributeChangedWithTag.Broadcast(AuraAttributeTags::MaxHealth, AS->GetMaxHealth());
-	OnAttributeChangedWithTag.Broadcast(AuraAttributeTags::Mana, AS->GetMana());
-	OnAttributeChangedWithTag.Broadcast(AuraAttributeTags::MaxMana, AS->GetMaxMana());
+	OnAttributeChangedWithTag.Broadcast(Attributes::Vital::Health, AS->GetHealth());
+	OnAttributeChangedWithTag.Broadcast(Attributes::Vital::MaxHealth, AS->GetMaxHealth());
+	OnAttributeChangedWithTag.Broadcast(Attributes::Vital::Mana, AS->GetMana());
+	OnAttributeChangedWithTag.Broadcast(Attributes::Vital::MaxMana, AS->GetMaxMana());
 }
 
 void UOverlayWidgetController::BindCallbacksToDependencies()
@@ -30,20 +30,20 @@ void UOverlayWidgetController::BindCallbacksToDependencies()
 
 	FOnGameplayAttributeValueChange& HealthDelegate =
 		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UAuraAttributeSet::GetHealthAttribute());
-	HealthDelegate.AddLambda(AttributeChangeLambda, AuraAttributeTags::Health.GetTag());
+	HealthDelegate.AddLambda(AttributeChangeLambda, Attributes::Vital::Health.GetTag());
 
 	// 绑定MaxHealth
 	FOnGameplayAttributeValueChange& MaxHealthDelegate =
 		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UAuraAttributeSet::GetMaxHealthAttribute());
-	MaxHealthDelegate.AddLambda(AttributeChangeLambda, AuraAttributeTags::MaxHealth.GetTag());
+	MaxHealthDelegate.AddLambda(AttributeChangeLambda, Attributes::Vital::MaxHealth.GetTag());
 
 	// 绑定Mana
 	FOnGameplayAttributeValueChange& ManaDelegate =
 		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UAuraAttributeSet::GetManaAttribute());
-	ManaDelegate.AddLambda(AttributeChangeLambda, AuraAttributeTags::Mana.GetTag());
+	ManaDelegate.AddLambda(AttributeChangeLambda, Attributes::Vital::Mana.GetTag());
 
 	// 绑定MaxMana
 	FOnGameplayAttributeValueChange MaxManaDelegate =
 		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UAuraAttributeSet::GetMaxManaAttribute());
-	MaxManaDelegate.AddLambda(AttributeChangeLambda, AuraAttributeTags::MaxMana.GetTag());
+	MaxManaDelegate.AddLambda(AttributeChangeLambda, Attributes::Vital::MaxMana.GetTag());
 }

@@ -26,5 +26,5 @@ public:
 	void OnRep_PlayerState() override;
 	void PossessedBy(AController* NewController) override;
 private:
-	void InitAbilityActorInfo();
+	void InitAbilityActorInfo() override;
 };

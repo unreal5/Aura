@@ -69,8 +69,8 @@ $}
 	\end{itemize}
 \end{itemize}
 \end{enumerate}
-在 GAS 中，带 Period 的 GE 每次周期触发会按“执行(Execute)”语义处理，这条路径本质上接近 Instant GE，通常会动到 BaseValue。
-而\textbf{一旦 BaseValue 变了，聚合器会重新计算 CurrentValue}，于是你通常会看到：
+
+在 GAS 中，带 Period 的 GE 每次周期触发会按“执行(Execute)”语义处理，这条路径本质上接近 Instant GE，通常会动到 BaseValue。 而\textbf{一旦 BaseValue 变了，聚合器会重新计算 CurrentValue}，于是你通常会看到：
 \begin{itemize}
 	\item \ci{PreAttributeBaseChange(...)}：Base 将要改；
 	\item \ci{PreAttributeChange(...)}：Current 随后重算将要改。
@@ -530,4 +530,5 @@ CurrentHealth = BaseHealth + (-50)
 \begin{quote}
 	\textbf{Execute 路径 = GameplayEffect 真正执行了一次数值结算并把结果写入属性；而 \ci{PostGameplayEffectExecute} 就是这次结算之后的后置回调。}
 \end{quote}
+\part{Gameplay Tags}
 \end{document}

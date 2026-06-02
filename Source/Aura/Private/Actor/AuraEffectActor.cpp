@@ -101,24 +101,6 @@ void AAuraEffectActor::OnEndOverlap(AActor* TargetActor)
 		if (TargetASC)
 		{
 			TargetASC->RemoveActiveGameplayEffectBySourceEffect(InfiniteGameplayEffectClass, TargetASC, 1);
-			/*
-			auto ActiveEffectHandles = TargetASC->GetActiveEffects(FGameplayEffectQuery());
-			const UWorld* World = GetWorld();
-			const float WorldTime = IsValid(World) ? World->GetTimeSeconds() : 0.f;
-			for (const FActiveGameplayEffectHandle& ActiveEffectHandle : ActiveEffectHandles)
-			{
-				const FActiveGameplayEffect* ActiveEffect = TargetASC->GetActiveGameplayEffect(ActiveEffectHandle);
-				if (!ActiveEffect) continue;
-				
-				const FGameplayEffectSpec& Spec = ActiveEffect->Spec;
-				const UGameplayEffect* EffectDef = TargetASC->GetGameplayEffectDefForHandle(ActiveEffectHandle);
-				const FString EffectName = GetNameSafe(EffectDef);
-				const int32 StackCount = TargetASC->GetCurrentStackCount(ActiveEffectHandle);
-				const float Duration = Spec.GetDuration();
-				const float RemainingTime = IsValid(World) ? ActiveEffect->GetTimeRemaining(WorldTime) : Duration;
-				const float Period = Spec.GetPeriod();
-			}
-			*/
 		}
 	}
 }

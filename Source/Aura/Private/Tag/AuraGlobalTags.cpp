@@ -4,7 +4,15 @@
 #include "Tag/AuraGlobalTags.h"
 
 
-UE_DEFINE_GAMEPLAY_TAG(AuraAttributeTags::Health, "Attribute.Health");
-UE_DEFINE_GAMEPLAY_TAG(AuraAttributeTags::MaxHealth, "Attribute.MaxHealth");
-UE_DEFINE_GAMEPLAY_TAG(AuraAttributeTags::Mana, "Attribute.Mana");
-UE_DEFINE_GAMEPLAY_TAG(AuraAttributeTags::MaxMana, "Attribute.MaxMana");
+// UE_DEFINE_GAMEPLAY_TAG(AuraAttributeTags::Health, "AuraAttribute.Health");
+// UE_DEFINE_GAMEPLAY_TAG(AuraAttributeTags::MaxHealth, "AuraAttribute.MaxHealth");
+// UE_DEFINE_GAMEPLAY_TAG(AuraAttributeTags::Mana, "AuraAttribute.Mana");
+// UE_DEFINE_GAMEPLAY_TAG(AuraAttributeTags::MaxMana, "AuraAttribute.MaxMana");
+
+
+// Attributes::Primary
+// Attributes::Vital
+UE_DEFINE_GAMEPLAY_TAG(Attributes::Vital::Health, "Attributes.Vital.Health");
+UE_DEFINE_GAMEPLAY_TAG(Attributes::Vital::MaxHealth, "Attributes.Vital.MaxHealth");
+UE_DEFINE_GAMEPLAY_TAG(Attributes::Vital::Mana, "Attributes.Vital.Mana");
+UE_DEFINE_GAMEPLAY_TAG(Attributes::Vital::MaxMana, "Attributes.Vital.MaxMana");

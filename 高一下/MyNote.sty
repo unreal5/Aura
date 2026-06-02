@@ -398,10 +398,10 @@
 %   {\color{black}\thepart}
 %   \end{center}}[-.95in]}{0pt}{\Huge\bfseries\itshape}
 
-\titleformat{\part}[hang]{{\thispagestyle{fancypart}}\Huge\bfseries}{\marginnote{
-\begin{tcolorbox}[width=\marginparwidth,height=\marginparwidth/2,colback=MyNoteColor@Black!50!MyNoteColor@White,colframe=MyNoteColor@Black!50!MyNoteColor@White,center title,fonttitle=\bfseries\normalsize,title=部分,text fill]
+\titleformat{\part}[hang]{{\thispagestyle{fancypart}}\huge\bfseries}{\marginnote{
+\begin{tcolorbox}[width=\marginparwidth,height=\marginparwidth/2,colback=MyNoteColor@Black!50!MyNoteColor@White,colframe=MyNoteColor@Black!50!MyNoteColor@White,center title,fonttitle=\bfseries\normalsize,title=,text fill,rounded corners]
   \begin{center}
-	{\color{MyNoteColor@White}\thepart}
+	{\color{MyNoteColor@White}第\thepart~部分}
   \end{center}
 \end{tcolorbox}
 }[-1.25in]}{0pt}{\Huge\bfseries\itshape}
