@@ -6,8 +6,9 @@
 #include "AbilitySystemComponent.h"
 #include "AuraAbilitySystemComponent.generated.h"
 
+DECLARE_MULTICAST_DELEGATE_OneParam(FEffectAssetTagsDelegate, const FGameplayTagContainer& /*AssetTags*/);
 
-UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
+UCLASS(ClassGroup=("UserComponent"), meta=(BlueprintSpawnableComponent))
 class AURA_API UAuraAbilitySystemComponent : public UAbilitySystemComponent
 {
 	GENERATED_BODY()
@@ -17,8 +18,8 @@ public:
 	UAuraAbilitySystemComponent();
 	void InitAbilityActorInfo(AActor* InOwnerActor, AActor* InAvatarActor) override;
 	// 在用户调用InitAbilityActorInfo后调用，子类可以重写这个函数来绑定GE委托
-	// 注意 InitAbilityActorInfo可能会被多次调用，所以要确保绑定GE委托的代码只会执行一次
 	virtual void PostUserInitAbilityActorInfo(AActor* InOwnerActor, AActor* InAvatarActor);
+	FEffectAssetTagsDelegate OnEffectAssetTagsAppliedDelegate;
 protected:
 	void EffectApplied(UAbilitySystemComponent* ASC, const FGameplayEffectSpec& EffectSpec, FActiveGameplayEffectHandle ActiveEffectHandle);
 	void EffectRemoved(const FActiveGameplayEffect& ActiveGameplayEffect);

@@ -50,19 +50,17 @@ void UAuraAbilitySystemComponent::EffectApplied(UAbilitySystemComponent* ASC, co
 {
 	FGameplayTagContainer AssetTags;
 	EffectSpec.GetAllAssetTags(AssetTags);
-	for (const auto& Tag : AssetTags)
-	{
-		// TODO: 向UI发送消息，显示GE标签
-		UE_LOG(LogTemp, Warning, TEXT("应用Active Effect: %s"), *Tag.ToString());
-	}
+	OnEffectAssetTagsAppliedDelegate.Broadcast(AssetTags);
+	
+
 }
 
 void UAuraAbilitySystemComponent::EffectRemoved(const FActiveGameplayEffect& ActiveGameplayEffect)
 {
-	const FGameplayEffectSpec& Spec = ActiveGameplayEffect.Spec;
-	const UGameplayEffect* EffectDef = Spec.Def;
-	const FString EffectName = GetNameSafe(EffectDef);
-	const int32 StackCount = GetCurrentStackCount(ActiveGameplayEffect.Handle);
-	const float Duration = Spec.GetDuration();
-	const float Period = Spec.GetPeriod();
+	// const FGameplayEffectSpec& Spec = ActiveGameplayEffect.Spec;
+	// const UGameplayEffect* EffectDef = Spec.Def;
+	// const FString EffectName = GetNameSafe(EffectDef);
+	// const int32 StackCount = GetCurrentStackCount(ActiveGameplayEffect.Handle);
+	// const float Duration = Spec.GetDuration();
+	// const float Period = Spec.GetPeriod();
 }

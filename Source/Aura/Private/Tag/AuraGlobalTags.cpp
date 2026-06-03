@@ -16,3 +16,10 @@ UE_DEFINE_GAMEPLAY_TAG(Attributes::Vital::Health, "Attributes.Vital.Health");
 UE_DEFINE_GAMEPLAY_TAG(Attributes::Vital::MaxHealth, "Attributes.Vital.MaxHealth");
 UE_DEFINE_GAMEPLAY_TAG(Attributes::Vital::Mana, "Attributes.Vital.Mana");
 UE_DEFINE_GAMEPLAY_TAG(Attributes::Vital::MaxMana, "Attributes.Vital.MaxMana");
+
+
+// Message
+UE_DEFINE_GAMEPLAY_TAG(Message::HealthPotion, "Message.HealthPotion");
+UE_DEFINE_GAMEPLAY_TAG(Message::HealthCrystal, "Message.HealthCrystal");
+UE_DEFINE_GAMEPLAY_TAG(Message::ManaPotion, "Message.ManaPotion");
+UE_DEFINE_GAMEPLAY_TAG(Message::ManaCrystal, "Message.ManaCrystal");

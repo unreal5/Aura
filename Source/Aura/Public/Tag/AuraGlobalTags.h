@@ -28,3 +28,11 @@ namespace Attributes
 		UE_DECLARE_GAMEPLAY_TAG_EXTERN(MaxMana);
 	}
 }
+
+namespace Message
+{
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(HealthPotion);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(HealthCrystal);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(ManaPotion);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(ManaCrystal);
+}

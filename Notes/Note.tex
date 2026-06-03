@@ -531,4 +531,27 @@ CurrentHealth = BaseHealth + (-50)
 	\textbf{Execute 路径 = GameplayEffect 真正执行了一次数值结算并把结果写入属性；而 \ci{PostGameplayEffectExecute} 就是这次结算之后的后置回调。}
 \end{quote}
 \part{Gameplay Tags}
+目标:在ASC中监听GE应用到目标Actor上，然后根据GE的AssetTag显示UI。监听事件使用委托：\ci{OnGameplayEffectAppliedDelegateToSelf}，使用\ci{Asset Tag}标识GE。在UI显示时需要使用一些额外的信息，例如GE的名称，效果之类，这样的信息可以统一保存在数据表中。这个数据表行结构用\cppsign{}定义，这就是本节内容。
+\section{UI Widget数据表}
+行结构要从\ci{FTableRowBase}派生：
+\begin{code}[caption={数据表}]
+USTRUCT(BlueprintType)
+struct FUIWidgetRow : public FTableRowBase
+{
+	GENERATED_BODY()
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FGameplayTag MessageTag;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FText Message;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TSubclassOf<UAuraUserWidget> MessageWidgetClass;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	UTexture2D* Image;
+};
+\end{code}
+
 \end{document}

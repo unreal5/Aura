@@ -5,6 +5,7 @@
 
 #include "AbilitySystemComponent.h"
 #include "AttributeSet.h"
+#include "AbilitySystem/AuraAbilitySystemComponent.h"
 #include "AbilitySystem/AuraAttributeSet.h"
 #include "Tag/AuraGlobalTags.h"
 
@@ -46,4 +47,23 @@ void UOverlayWidgetController::BindCallbacksToDependencies()
 	FOnGameplayAttributeValueChange MaxManaDelegate =
 		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UAuraAttributeSet::GetMaxManaAttribute());
 	MaxManaDelegate.AddLambda(AttributeChangeLambda, Attributes::Vital::MaxMana.GetTag());
+
+
+	// 查找信息表
+	auto AuraASC = CastChecked<UAuraAbilitySystemComponent>(AbilitySystemComponent);
+	if (!IsValid(AuraASC)) return;
+
+	if (!IsValid(MessageWidgetDataTable)) return;
+
+	auto AssetTagsLambda = [this](const FGameplayTagContainer& AssetTags)
+	{
+		for (const auto& Tag : AssetTags)
+		{
+			const auto Row = GetDataTableRowByTag<FUIWidgetRow>(MessageWidgetDataTable, Tag);
+			if (!Row) continue;
+
+			UE_LOG(LogTemp, Warning, TEXT("查找到数据：%s, 消息：%s"), *Row->MessageTag.ToString(), *Row->Message.ToString());
+		}
+	};
+	AuraASC->OnEffectAssetTagsAppliedDelegate.AddLambda(AssetTagsLambda);
 }
