@@ -19,6 +19,7 @@ UE_DEFINE_GAMEPLAY_TAG(Attributes::Vital::MaxMana, "Attributes.Vital.MaxMana");
 
 
 // Message
+UE_DEFINE_GAMEPLAY_TAG_COMMENT(Message::Tag, "Message", "标识Message标签的根标签");
 UE_DEFINE_GAMEPLAY_TAG(Message::HealthPotion, "Message.HealthPotion");
 UE_DEFINE_GAMEPLAY_TAG(Message::HealthCrystal, "Message.HealthCrystal");
 UE_DEFINE_GAMEPLAY_TAG(Message::ManaPotion, "Message.ManaPotion");

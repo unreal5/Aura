@@ -32,10 +32,8 @@ void UAuraAbilitySystemComponent::PostUserInitAbilityActorInfo(AActor* InOwnerAc
 	if (GetOwnerActor() && GetOwnerActor()->HasAuthority())
 	{
 		/*
-		 * RemoveAll:只删你的 UAuraAbilitySystemComponent 自己加进去的监听其他对象绑定的监听不会受影响
-		 * 但如果别的系统也订阅了这个委托，例如 UI、调试工具、别的组件，它们不会被删掉。
-		 * 
-		 * Clear()含义是：清空整个委托列表中的所有绑定。也就是不管是谁绑的，统统删掉。
+		 * RemoveAll:只删自己加进去的监听其他对象绑定的监听不会受影响
+		 * Clear()：清空整个委托列表中的所有绑定。也就是不管是谁绑的，统统删掉。
 		 */
 		OnGameplayEffectAppliedDelegateToSelf.RemoveAll(this);
 		OnAnyGameplayEffectRemovedDelegate().RemoveAll(this);
@@ -51,8 +49,6 @@ void UAuraAbilitySystemComponent::EffectApplied(UAbilitySystemComponent* ASC, co
 	FGameplayTagContainer AssetTags;
 	EffectSpec.GetAllAssetTags(AssetTags);
 	OnEffectAssetTagsAppliedDelegate.Broadcast(AssetTags);
-	
-
 }
 
 void UAuraAbilitySystemComponent::EffectRemoved(const FActiveGameplayEffect& ActiveGameplayEffect)

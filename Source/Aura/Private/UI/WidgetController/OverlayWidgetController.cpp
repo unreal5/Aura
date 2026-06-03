@@ -59,10 +59,12 @@ void UOverlayWidgetController::BindCallbacksToDependencies()
 	{
 		for (const auto& Tag : AssetTags)
 		{
-			const auto Row = GetDataTableRowByTag<FUIWidgetRow>(MessageWidgetDataTable, Tag);
-			if (!Row) continue;
-
-			UE_LOG(LogTemp, Warning, TEXT("查找到数据：%s, 消息：%s"), *Row->MessageTag.ToString(), *Row->Message.ToString());
+			if (!Tag.MatchesTag(Message::Tag)) continue; // 只处理Message标签，冗余无用，只是为了和教程一致。
+			
+			if (auto Row = GetDataTableRowByTag<FUIWidgetRow>(MessageWidgetDataTable, Tag))
+			{
+				OnMessageWidgetRowDelegate.Broadcast(*Row);
+			}
 		}
 	};
 	AuraASC->OnEffectAssetTagsAppliedDelegate.AddLambda(AssetTagsLambda);

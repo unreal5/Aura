@@ -19,7 +19,15 @@
 {\IfBooleanT{#1}{\textcolor{red}{\ttfamily\bfseries > }}%
 	\lstinline[language=c++,basicstyle=\ttfamily\small,keywordstyle=\color{blue!35!white}\bfseries]^#2^}
 
+\usepackage{pifont}
+%使用带圈的数字0-10，过多则会出错
+\newcommand{\makenum}[1]{{\ding{\numexpr171+#1}}}%
 
+\newenvironment{myenum}{
+\begin{dingautolist}{182}\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}%
+}
+{\end{dingautolist}}
+	
 \begin{document}
 
 \pagestyle{fancynotes}
@@ -35,7 +43,7 @@ $\begin{cases}
 	\text{BaseValue}\Rightarrow\text{PreAttributeBaseChange}
 \end{cases}$
 
-\begin{enumerate}
+\begin{myenum}
 	\item \textbf{两者触发时机}
 
 		\begin{itemize}
@@ -68,7 +76,7 @@ $}
 		\item \ci{PostGameplayEffectExecute}
 	\end{itemize}
 \end{itemize}
-\end{enumerate}
+\end{myenum}
 
 在 GAS 中，带 Period 的 GE 每次周期触发会按“执行(Execute)”语义处理，这条路径本质上接近 Instant GE，通常会动到 BaseValue。 而\textbf{一旦 BaseValue 变了，聚合器会重新计算 CurrentValue}，于是你通常会看到：
 \begin{itemize}

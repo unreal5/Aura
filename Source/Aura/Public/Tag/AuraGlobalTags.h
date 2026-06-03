@@ -31,6 +31,7 @@ namespace Attributes
 
 namespace Message
 {
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Tag);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(HealthPotion);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(HealthCrystal);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(ManaPotion);

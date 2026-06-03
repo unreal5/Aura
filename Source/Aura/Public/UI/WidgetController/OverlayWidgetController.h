@@ -12,9 +12,6 @@
 
 class UTexture2D;
 class UAuraUserWidget;
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnAttributeValueChangedWithTagSignature, FGameplayTag, AttributeTag,
-                                             float, NewValue);
-
 
 USTRUCT(BlueprintType)
 struct FUIWidgetRow : public FTableRowBase
@@ -34,6 +31,11 @@ struct FUIWidgetRow : public FTableRowBase
 	TObjectPtr<UTexture2D> Image;
 };
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnAttributeValueChangedWithTagSignature, FGameplayTag, AttributeTag,
+                                             float, NewValue);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMessageWidgetRowSignature, const FUIWidgetRow&, WidgetRow);
+
 UCLASS(BlueprintType, Blueprintable)
 class AURA_API UOverlayWidgetController : public UAuraWidgetController
 {
@@ -46,17 +48,17 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Aura | Delegate")
 	FOnAttributeValueChangedWithTagSignature OnAttributeChangedWithTag;
 
+	UPROPERTY(BlueprintAssignable, Category = "Aura | Messages")
+	FOnMessageWidgetRowSignature OnMessageWidgetRowDelegate;
 protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Aura | 数据表")
 	TObjectPtr<UDataTable> MessageWidgetDataTable;
-
-
 };
 
 template <typename T>
-T* GetDataTableRowByTag(UDataTable* InDataTable, const FGameplayTag& InTag)
+const T* GetDataTableRowByTag(UDataTable* InDataTable, const FGameplayTag& InTag)
 {
-	if (!IsValid(InDataTable)) return nullptr;
+	if (!IsValid(InDataTable)) return (const T*)nullptr;
 
 	return InDataTable->FindRow<T>(InTag.GetTagName(), "");
 }
