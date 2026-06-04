@@ -561,5 +561,5 @@ struct FUIWidgetRow : public FTableRowBase
 	UTexture2D* Image;
 };
 \end{code}
-
+\ci{OnGameplayEffectAppliedDelegateToSelf}是Server only函数，注定在客户端不会触发，对于UI要显示，需要使用别的方法。
 \end{document}
