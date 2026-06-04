@@ -562,4 +562,18 @@ struct FUIWidgetRow : public FTableRowBase
 };
 \end{code}
 \ci{OnGameplayEffectAppliedDelegateToSelf}是Server only函数，注定在客户端不会触发，对于UI要显示，需要使用别的方法。
+
+\section{Attribute Based Modifier 的基本用法与作用}
+
+本节介绍了 Gameplay Effect 中另一种重要的数值计算方式：\texttt{Attribute Based}。此前课程中的 Modifier Magnitude 一直使用 \texttt{Scalable Float}，而 \texttt{Attribute Based} 的核心价值在于，它可以让一个属性的变化量直接基于其他属性的当前值来计算，因此非常适合实现“派生属性”或“由其他属性驱动的属性变化”。
+
+为了演示这一点，课程先新建了一个测试用的 \texttt{Effect Actor}，并为其添加一个可见的 Box Collision，在角色进入碰撞体时调用 \texttt{ApplyEffectToTarget}。随后又创建了一个测试用的 Gameplay Effect，命名为 \texttt{GE\_Test\_Attribute\_Based}，并将其设置为该测试 Actor 的 Instant Gameplay Effect。这样，Aura 角色一旦进入该区域，就会立即受到这个效果的影响。
+
+接着，课程重点讲解了如何配置 \texttt{Attribute Based} Modifier。示例中给 Health 添加一个 Modifier，操作类型保持为 \texttt{Add}，但将 Magnitude Calculation Type 从 \texttt{Scalable Float} 改为 \texttt{Attribute Based}。在其展开配置中，\texttt{Backing Attribute} 用来指定“以哪个属性为基础”进行计算，\texttt{Attribute Source} 则决定这个属性是从 Source 还是 Target 身上获取。由于测试场景中是将效果施加给 Aura，所以这里选择从 \texttt{Target} 捕获属性，并以 Aura 的 \texttt{Vigor} 作为基础属性。这样，当角色进入测试区域时，Health 就会增加当前 Vigor 的数值；示例中 Aura 的 Health 为 50、Vigor 为 9，因此进入后 Health 变为 59。课程还简要提到 \texttt{Snapshot} 用于决定何时捕获属性值，但这一机制会留到后面更合适的场景再深入讨论。
+
+之后，课程进一步演示了多个 Modifier 同时作用于同一属性的情况。除了第一个基于 Vigor 的 Health 加成外，又添加了第二个同样作用于 Health 的 Modifier，这次改为基于 \texttt{Strength}。由于两个 Modifier 的操作类型都是 \texttt{Add}，最终效果就是把 Vigor 和 Strength 的值都加到 Health 上。示例中角色初始 Health 为 50，Vigor 为 9，Strength 为 10，因此进入测试区域后 Health 变为 69，结果符合直觉。
+
+本节的结论是：\texttt{Attribute Based} 提供了一种非常灵活的方式，使 Gameplay Effect 的数值不再是固定常数，而是可以由角色自身或来源对象的属性动态驱动。当前示例展示的是最简单、最直观的加法情况，而更复杂的行为还涉及多个 Modifier 叠加时的执行顺序，以及 \texttt{Coefficient}、\texttt{Pre-Multiply Additive}、\texttt{Post-Multiply Additive} 等附加参数。下一节将继续深入分析不同 Modifier Operation 下的运算顺序与具体规则。
+
+
 \end{document}
