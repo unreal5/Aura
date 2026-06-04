@@ -24,9 +24,9 @@ void UOverlayWidgetController::BindCallbacksToDependencies()
 	//Super::BindCallbacksToDependencies();
 
 
-	auto AttributeChangeLambda = [this](const FOnAttributeChangeData& Data, const FGameplayTag& AttributeTag)
+	auto AttributeChangeLambda = [this](const FOnAttributeChangeData& Data, const FGameplayTag& GameplayTag)
 	{
-		OnAttributeChangedWithTag.Broadcast(AttributeTag, Data.NewValue);
+		OnAttributeChangedWithTag.Broadcast(GameplayTag, Data.NewValue);
 	};
 
 	FOnGameplayAttributeValueChange& HealthDelegate =

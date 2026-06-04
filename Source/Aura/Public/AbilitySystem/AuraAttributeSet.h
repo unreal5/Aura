@@ -46,7 +46,28 @@ public:
 	UAuraAttributeSet();
 	void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 
-	// Health
+	/*
+	 *  Primary Attributes
+	 */ 
+	UPROPERTY(ReplicatedUsing=OnRep_Strength, BlueprintReadOnly, Category = "Primary Attributes")
+	FGameplayAttributeData Strength;
+	ATTRIBUTE_ACCESSORS_BASIC(ThisClass, Strength)
+
+	UPROPERTY(ReplicatedUsing=OnRep_Intelligence, BlueprintReadOnly, Category = "Primary Attributes")
+	FGameplayAttributeData Intelligence;
+	ATTRIBUTE_ACCESSORS_BASIC(ThisClass, Intelligence)
+
+	UPROPERTY(ReplicatedUsing=OnRep_Resilience, BlueprintReadOnly, Category = "Primary Attributes")
+	FGameplayAttributeData Resilience;
+	ATTRIBUTE_ACCESSORS_BASIC(ThisClass, Resilience)
+
+	UPROPERTY(ReplicatedUsing=OnRep_Vigor, BlueprintReadOnly, Category = "Primary Attributes")
+	FGameplayAttributeData Vigor;
+	ATTRIBUTE_ACCESSORS_BASIC(ThisClass, Vigor)
+
+	/*
+	 * vital attributes
+	 */ 
 	UPROPERTY(ReplicatedUsing=OnRep_Health, BlueprintReadOnly, Category = "Vital Attributes")
 	FGameplayAttributeData Health;
 	ATTRIBUTE_ACCESSORS_BASIC(ThisClass, Health)
@@ -55,7 +76,6 @@ public:
 	FGameplayAttributeData MaxHealth;
 	ATTRIBUTE_ACCESSORS_BASIC(ThisClass, MaxHealth)
 
-	// Mana
 	UPROPERTY(ReplicatedUsing=OnRep_Mana, BlueprintReadOnly, Category = "Vital Attributes")
 	FGameplayAttributeData Mana;
 	ATTRIBUTE_ACCESSORS_BASIC(ThisClass, Mana)
@@ -64,12 +84,24 @@ public:
 	FGameplayAttributeData MaxMana;
 	ATTRIBUTE_ACCESSORS_BASIC(ThisClass, MaxMana)
 
+	// 
 	// 重载
 	void PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue) override;
 	void PreAttributeBaseChange(const FGameplayAttribute& Attribute, float& NewValue) const override;
 	void PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data) override;
 
 private:
+	/* Primary Attributes RepNotify */
+	UFUNCTION()
+	void OnRep_Strength(const FGameplayAttributeData& OldStrength) const;
+	UFUNCTION()
+	void OnRep_Intelligence(const FGameplayAttributeData& OldIntelligence) const;
+	UFUNCTION()
+	void OnRep_Resilience(const FGameplayAttributeData& OldResilience) const;
+	UFUNCTION()
+	void OnRep_Vigor(const FGameplayAttributeData& OldVigor) const;
+	
+	/* Vital Attributes RepNotify */
 	UFUNCTION()
 	void OnRep_Health(const FGameplayAttributeData& OldHealth) const;
 	UFUNCTION()

@@ -63,6 +63,10 @@ void AAuraCharacter::PossessedBy(AController* NewController)
 	Super::PossessedBy(NewController);
 
 	InitAbilityActorInfo();
+
+	// 只在服务器端初始化属性，属性会通过ReplicatedUsing同步到客户端
+	auto bSuccess = InitializePrimaryAttributes();
+	check(bSuccess);
 }
 
 void AAuraCharacter::InitAbilityActorInfo()
