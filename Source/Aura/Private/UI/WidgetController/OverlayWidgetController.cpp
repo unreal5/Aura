@@ -44,7 +44,7 @@ void UOverlayWidgetController::BindCallbacksToDependencies()
 	ManaDelegate.AddLambda(AttributeChangeLambda, Attributes::Vital::Mana.GetTag());
 
 	// 绑定MaxMana
-	FOnGameplayAttributeValueChange MaxManaDelegate =
+	FOnGameplayAttributeValueChange& MaxManaDelegate =
 		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UAuraAttributeSet::GetMaxManaAttribute());
 	MaxManaDelegate.AddLambda(AttributeChangeLambda, Attributes::Vital::MaxMana.GetTag());
 
