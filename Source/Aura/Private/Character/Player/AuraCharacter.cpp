@@ -12,6 +12,8 @@
 #include "UI/HUD/AuraHUD.h"
 
 
+
+
 // Sets default values
 AAuraCharacter::AAuraCharacter()
 {
@@ -48,7 +50,14 @@ AAuraCharacter::AAuraCharacter()
 	bUseControllerRotationRoll = false;
 }
 
-
+int32 AAuraCharacter::GetPlayerLevel_Implementation() const
+{
+	if (auto AuraPlayerState = GetPlayerState<AAuraPlayerState>())
+	{
+		return AuraPlayerState->GetPlayerLevel();
+	}
+	return Super::GetPlayerLevel_Implementation();
+}
 // 客户端调用
 void AAuraCharacter::OnRep_PlayerState()
 {

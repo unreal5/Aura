@@ -20,6 +20,9 @@ class AURA_API AAuraCharacter : public AAuraCharacterBase
 	/** Follow camera */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
 	UCameraComponent* FollowCamera;
+	
+	/* 实现ICombatInterface*/
+	int32 GetPlayerLevel_Implementation() const override;
 public:
 	AAuraCharacter();
 

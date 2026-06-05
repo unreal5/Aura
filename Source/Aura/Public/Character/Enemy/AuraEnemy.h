@@ -15,9 +15,17 @@ class AURA_API AAuraEnemy : public AAuraCharacterBase, public IHighlightInterfac
 public:
 	AAuraEnemy();
 	void BeginPlay() override;
+
+	/* 实现ICombatInterface*/
+	int32 GetPlayerLevel_Implementation() const override;
 protected:
 	void InitAbilityActorInfo() override;
+
 private:
 	void HighlightActor_Implementation() override;
 	void UnHighlightActor_Implementation() override;
+
+	//对于敌人，数据只存在于服务器上，客户端不需要知道，所以不复制。
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="角色默认", meta=(AllowPrivateAccess=true))
+	int32 Level = 1;
 };
