@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "AbilitySystemInterface.h"
 #include "GameFramework/PlayerState.h"
+#include "Interaction/CombatInterface.h"
 #include "AuraPlayerState.generated.h"
 
 class UAttributeSet;
@@ -13,7 +14,7 @@ class UAbilitySystemComponent;
  * 
  */
 UCLASS()
-class AURA_API AAuraPlayerState : public APlayerState, public IAbilitySystemInterface
+class AURA_API AAuraPlayerState : public APlayerState, public IAbilitySystemInterface, public ICombatInterface
 {
 	GENERATED_BODY()
 public:
@@ -26,6 +27,7 @@ public:
 	
 	UAttributeSet* GetAttributeSet() const { return AttributeSet; }
 	int32 GetPlayerLevel() const { return Level; }
+	int32 GetPlayerLevel_Implementation() const override { return GetPlayerLevel(); }
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UAbilitySystemComponent> AbilitySystemComponent;;
