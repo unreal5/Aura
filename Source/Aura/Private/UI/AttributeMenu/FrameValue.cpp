@@ -29,4 +29,5 @@ void UFrameValue::UpdateBackgroundImage() const
 	if (Image_Background)
 	{
 		Image_Background->SetBrush(BackgroundBrush);
-	}}
+	}
+}
