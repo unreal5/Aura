@@ -20,9 +20,7 @@
 
 
 
-\section{%  
-竖直圆与机械能
-}
+\section{综合}
 
 \begin{question}
 如图所示，绝缘水平面上固定一光滑绝缘的竖直圆弧轨道 \(BCD\)，圆心为 $O$，$C$ 点与圆心等高，$B$ 点为圆弧轨道与水平面的切点，$D$ 点为轨道的末端，$OD$ 与水平方向的夹角 $\theta=37^\circ$，圆弧轨道半径 $R=1.0\text{m}$。质量 $m=0.4\text{kg}$、电荷量 $q=+0.03\text{C}$ 的滑块静止在 $A$ 点。某时刻在整个空间加上水平向左的匀强电场，电场强度 $E=100\text{N/C}$，滑块开始运动。已知 $A$、$B$ 间的水平距离 $x_{AB}=3.6\text{m}$，滑块与水平面间的动摩擦因数 $\mu=0.25$，重力加速度 $g$ 取 $10\text{m/s}^2$，取 $\sin37^\circ=0.6$，规定 $B$ 点电势为零，滑块可视为质点。求：
@@ -88,7 +86,7 @@
 		
 	\end{tikzpicture}
 \end{center}
-\end{question}	
+
 \begin{solution}
 解题分四步进行。\par
 
@@ -270,6 +268,74 @@ v_{B3}=3\sqrt{2}\text{ m/s}
 \boxed{v_{B3}=3\sqrt{2}\text{ m/s}}
 \]
 \end{solution}
-
-
+\end{question}	
+\begin{question}
+	如图所示弧形物块$B$为圆心角为$\theta = 60^\circ$，半径为$R=2.9m$的光滑圆弧，质量$M=2m$，静止在光滑的水平面上。质量为m的小滑块A，以速度$v_0=7m/s$水平向右沿圆弧冲上物块$B$。重力加速度$g=10m/s^2$。求：小滑块$A$滑至弧形物块$B$的最高点时，物块$B$的速度大小。
+	\begin{center}
+		\begin{tikzpicture}[scale=1.2]
+			% 定义坐标
+			\coordinate (O) at (0,2.9); % 圆心
+			\coordinate (A) at (0,0); %
+			%TikZ 里的坐标计算要用 PGF 数学表达式，应该写成 sin(60)、cos(60)，
+			%并且每个分量最好放进花括号里；
+			\coordinate (B) at ({2.9*sin(60)},{2.9*(1-cos(60))});
+			
+			\fill (O) circle (1pt) node[left] {$O$};
+			%-90:2.9cm 表示从圆心出发，到正下方半径 2.9cm 的起点。
+			%逆时针 60^\circ，所以结束角是 -30^\circ。
+			\draw[thin] (O) ++(-90:2.9cm) arc[start angle=-90,end angle=-30,radius=2.9cm]--++(1,0)--++(0,-2.9/2)--cycle;
+			\draw[fill=gray!30] ($(A)+(-0.3,0)$) rectangle ++(0.3, 0.3);
+			\draw[thick,dash dot] (O)++(-90:2.9cm)--(O)--++(-30:2.9cm);
+			% 绘制角度
+			\draw[ultra thick,dashed,red] (O) ++(-90:0.5cm) arc[start angle=-90,end angle=-30,radius=0.5cm]node[midway,below]{$\theta$};
+			
+			\foreach \x in {-1, -0.9, ..., 4} {
+				\draw[gray!50, thick] (\x, 0) -- (\x-0.1, -0.2);
+			}
+			\node[left] at (A) {$A$};
+			\node[above right] at ($(B)+(0.25,-1)$) {$B$};
+			\draw[->] ($(A)+(-0.2,0.5)$)--++(0.5,0)node[near end,red,above]{$V_0$};
+		\end{tikzpicture}
+	\end{center}
+	\begin{solution}
+		运动到B点时，滑块速度可以分解成水平和竖起速度$V_x,V_y$，如下图：
+			\begin{center}
+			\begin{tikzpicture}[scale=1.2]
+				% 定义坐标
+				\coordinate (O) at (0,2.9); % 圆心
+				\coordinate (A) at (0,0); %
+				%TikZ 里的坐标计算要用 PGF 数学表达式，应该写成 sin(60)、cos(60)，
+				%并且每个分量最好放进花括号里；
+				\coordinate (B) at ({2.9*sin(60)},{2.9*(1-cos(60))});
+				
+				\fill (O) circle (1pt) node[left] {$O$};
+				%-90:2.9cm 表示从圆心出发，到正下方半径 2.9cm 的起点。
+				%逆时针 60^\circ，所以结束角是 -30^\circ。
+				\draw[thick] (O) ++(-90:2.9cm) arc[start angle=-90,end angle=-30,radius=2.9cm]--++(1,0)--++(0,-2.9/2)--cycle;
+				\draw[fill=gray!30] ($(A)+(-0.3,0)$) rectangle ++(0.3, 0.3);
+				\draw[thick,dash dot] (O)++(-90:2.9cm)--(O)--++(-30:2.9cm);
+				% 绘制角度
+				\draw[ultra thick,dashed,red] (O) ++(-90:0.5cm) arc[start angle=-90,end angle=-30,radius=0.5cm]node[midway,below]{$\theta$};
+				
+				\foreach \x in {-1, -0.9, ..., 4} {
+					\draw[gray!50, thick] (\x, 0) -- (\x-0.1, -0.2);
+				}
+				\node[left] at (A) {$A$};
+				\node[above right] at ($(B)+(0.25,-1)$) {$B$};
+				\draw[->] ($(A)+(-0.2,0.5)$)--++(0.5,0)node[near end,red,above]{$V_0$};
+				%绘制滑块在B时速度，注意并不与圆相切
+				\draw[red,thick,->](B)--++({2*cos(30)},{2*sin(30)})node[above right]{$V_A$};
+				\draw[thick,blue,->](B)--++(0,{2*sin(30)})node[left]{$V_y$};
+				\draw[thick,blue,->](B)--++({2*cos(30)},0)node[below]{$V_x$};
+			\end{tikzpicture}
+		\end{center}
+		由动能定理及系统水平方向动量守恒：$
+		\begin{cases}
+			mV_0=mV_x+MV_B\qquad V_x为V_A的水平分量\\
+			\dfrac{1}{2}mV_0^2=\dfrac{1}{2}mV_A^2+\dfrac{1}{2}MV_B^2+mgR(1-\cos 60^\circ)
+		\end{cases}$。此时两个方程，三个未知数$V_x,V_B,V_A$，无法直接求解。
+		
+		进一步分析：$V_A^2=V_x^2+V_y^2$
+	\end{solution}
+\end{question}
 \end{document}

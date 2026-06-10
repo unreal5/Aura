@@ -6,6 +6,8 @@
 #include "UI/Widget/AuraUserWidget.h"
 #include "FrameValue.generated.h"
 
+class UTextBlock;
+class UImage;
 /**
  * 
  */
@@ -26,6 +28,17 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FrameProperties")
 	float BoxHeight = 45.f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FrameProperties", meta = (BindWidget))
+	UImage* Image_Background;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FrameProperties")
+	FSlateBrush BackgroundBrush;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FrameProperties", meta = (BindWidget))
+	UImage* Image_Border;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FrameProperties", meta = (BindWidget))
+	UTextBlock* TextBlock_Value;
 private:
-	void UpdateFrameSize();
+	void UpdateFrameSize() const;
+	void UpdateBackgroundImage() const;
 };
