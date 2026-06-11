@@ -7,6 +7,7 @@
 #include "AbilitySystem/AuraAttributeSet.h"
 #include "UI/Widget/AuraAttributeDebugWidget.h"
 #include "UI/Widget/AuraUserWidget.h"
+#include "UI/WidgetController/AttributeMenuWidgetController.h"
 #include "UI/WidgetController/OverlayWidgetController.h"
 
 AAuraHUD::AAuraHUD()
@@ -60,6 +61,20 @@ void AAuraHUD::ToggleAttributeDebugPanel()
 	{
 		AttributeDebugWidget->TogglePanelVisibility();
 	}
+}
+
+UAttributeMenuWidgetController* AAuraHUD::GetAttributeMenuWidgetController(const FWidgetControllerParams& WCParams)
+{
+	if (!IsValid(AttributeMenuWidgetController))
+	{
+		AttributeMenuWidgetController = NewObject<UAttributeMenuWidgetController>(this, AttributeMenuWidgetControllerClass);
+		AttributeMenuWidgetController->SetWidgetControllerParams(WCParams);
+		
+		// 绑定属性变化的回调
+		AttributeMenuWidgetController->BindCallbacksToDependencies();
+	}
+
+	return AttributeMenuWidgetController;
 }
 
 void AAuraHUD::InitAttributeDebugPanel(UAbilitySystemComponent* ASC, UAttributeSet* AS)
