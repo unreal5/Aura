@@ -14,9 +14,9 @@ void UOverlayWidgetController::BroadcastInitialValues()
 	auto AS = CastChecked<UAuraAttributeSet>(AttributeSet);
 
 	OnAttributeChangedWithTag.Broadcast(Attributes::Vital::Health, AS->GetHealth());
-	OnAttributeChangedWithTag.Broadcast(Attributes::Vital::MaxHealth, AS->GetMaxHealth());
+	OnAttributeChangedWithTag.Broadcast(Attributes::Secondary::MaxHealth, AS->GetMaxHealth());
 	OnAttributeChangedWithTag.Broadcast(Attributes::Vital::Mana, AS->GetMana());
-	OnAttributeChangedWithTag.Broadcast(Attributes::Vital::MaxMana, AS->GetMaxMana());
+	OnAttributeChangedWithTag.Broadcast(Attributes::Secondary::MaxMana, AS->GetMaxMana());
 }
 
 void UOverlayWidgetController::BindCallbacksToDependencies()
@@ -36,7 +36,7 @@ void UOverlayWidgetController::BindCallbacksToDependencies()
 	// 绑定MaxHealth
 	FOnGameplayAttributeValueChange& MaxHealthDelegate =
 		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UAuraAttributeSet::GetMaxHealthAttribute());
-	MaxHealthDelegate.AddLambda(AttributeChangeLambda, Attributes::Vital::MaxHealth.GetTag());
+	MaxHealthDelegate.AddLambda(AttributeChangeLambda, Attributes::Secondary::MaxHealth.GetTag());
 
 	// 绑定Mana
 	FOnGameplayAttributeValueChange& ManaDelegate =
@@ -46,7 +46,7 @@ void UOverlayWidgetController::BindCallbacksToDependencies()
 	// 绑定MaxMana
 	FOnGameplayAttributeValueChange& MaxManaDelegate =
 		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UAuraAttributeSet::GetMaxManaAttribute());
-	MaxManaDelegate.AddLambda(AttributeChangeLambda, Attributes::Vital::MaxMana.GetTag());
+	MaxManaDelegate.AddLambda(AttributeChangeLambda, Attributes::Secondary::MaxMana.GetTag());
 
 
 	// 查找信息表

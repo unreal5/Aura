@@ -4,18 +4,26 @@
 #include "Tag/AuraGlobalTags.h"
 
 
-// UE_DEFINE_GAMEPLAY_TAG(AuraAttributeTags::Health, "AuraAttribute.Health");
-// UE_DEFINE_GAMEPLAY_TAG(AuraAttributeTags::MaxHealth, "AuraAttribute.MaxHealth");
-// UE_DEFINE_GAMEPLAY_TAG(AuraAttributeTags::Mana, "AuraAttribute.Mana");
-// UE_DEFINE_GAMEPLAY_TAG(AuraAttributeTags::MaxMana, "AuraAttribute.MaxMana");
-
 
 // Attributes::Primary
+UE_DEFINE_GAMEPLAY_TAG(Attributes::Primary::Strength, "Attributes.Primary.Strength");
+UE_DEFINE_GAMEPLAY_TAG(Attributes::Primary::Intelligence, "Attributes.Primary.Intelligence");
+UE_DEFINE_GAMEPLAY_TAG(Attributes::Primary::Resilience, "Attributes.Primary.Resilience");
+UE_DEFINE_GAMEPLAY_TAG(Attributes::Primary::Vigor, "Attributes.Primary.Vigor");
+// Attributes::Secondary
+UE_DEFINE_GAMEPLAY_TAG(Attributes::Secondary::Armor, "Attributes.Secondary.Armor");
+UE_DEFINE_GAMEPLAY_TAG(Attributes::Secondary::ArmorPenetration, "Attributes.Secondary.ArmorPenetration");
+UE_DEFINE_GAMEPLAY_TAG(Attributes::Secondary::BlockChance, "Attributes.Secondary.BlockChance");
+UE_DEFINE_GAMEPLAY_TAG(Attributes::Secondary::CriticalHitChance, "Attributes.Secondary.CriticalHitChance");
+UE_DEFINE_GAMEPLAY_TAG(Attributes::Secondary::CriticalHitDamage, "Attributes.Secondary.CriticalHitDamage");
+UE_DEFINE_GAMEPLAY_TAG(Attributes::Secondary::CriticalHitResistance, "Attributes.Secondary.CriticalHitResistance");
+UE_DEFINE_GAMEPLAY_TAG(Attributes::Secondary::HealthRegeneration, "Attributes.Secondary.HealthRegeneration");
+UE_DEFINE_GAMEPLAY_TAG(Attributes::Secondary::ManaRegeneration, "Attributes.Secondary.ManaRegeneration");
+UE_DEFINE_GAMEPLAY_TAG(Attributes::Secondary::MaxHealth, "Attributes.Secondary.MaxHealth");
+UE_DEFINE_GAMEPLAY_TAG(Attributes::Secondary::MaxMana, "Attributes.Secondary.MaxMana");
 // Attributes::Vital
 UE_DEFINE_GAMEPLAY_TAG(Attributes::Vital::Health, "Attributes.Vital.Health");
-UE_DEFINE_GAMEPLAY_TAG(Attributes::Vital::MaxHealth, "Attributes.Vital.MaxHealth");
 UE_DEFINE_GAMEPLAY_TAG(Attributes::Vital::Mana, "Attributes.Vital.Mana");
-UE_DEFINE_GAMEPLAY_TAG(Attributes::Vital::MaxMana, "Attributes.Vital.MaxMana");
 
 
 // Message

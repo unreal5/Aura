@@ -575,5 +575,343 @@ struct FUIWidgetRow : public FTableRowBase
 
 本节的结论是：\texttt{Attribute Based} 提供了一种非常灵活的方式，使 Gameplay Effect 的数值不再是固定常数，而是可以由角色自身或来源对象的属性动态驱动。当前示例展示的是最简单、最直观的加法情况，而更复杂的行为还涉及多个 Modifier 叠加时的执行顺序，以及 \texttt{Coefficient}、\texttt{Pre-Multiply Additive}、\texttt{Post-Multiply Additive} 等附加参数。下一节将继续深入分析不同 Modifier Operation 下的运算顺序与具体规则。
 
+\section{SynchronizeProperties 的作用}
 
+在 UMG / \texttt{UUserWidget} 体系中，\texttt{SynchronizeProperties()} 的核心职责可以概括为：
+
+\begin{quote}
+	把对象上保存的属性值，同步到实际的 Slate / Widget 显示层。
+\end{quote}
+
+它更偏向于“属性同步”而不是“业务逻辑初始化”。
+
+很多时候可以把它理解为：
+
+\begin{itemize}
+	\item C++ 成员变量里已经有了一些值；
+	\item 现在需要把这些值真正应用到界面控件上；
+	\item 这一步就是 \texttt{SynchronizeProperties()} 要做的事情。
+\end{itemize}
+
+例如：
+
+\begin{itemize}
+	\item 把一个 \texttt{FText TitleText} 同步到 \texttt{TextBlock->SetText(...)}；
+	\item 把一个 \texttt{float BoxWidth} 同步到 \texttt{SizeBox->SetWidthOverride(...)}；
+	\item 把一个颜色变量同步到 \texttt{Border} 或 \texttt{Image} 上。
+\end{itemize}
+
+\section{它和 NativePreConstruct / NativeConstruct 的区别}
+
+这三个函数都和 Widget 初始化有关，但关注点不同。
+
+\subsection{NativePreConstruct}
+
+\texttt{NativePreConstruct()} 更偏向：
+
+\begin{itemize}
+	\item 在设计器预览和运行时都可能调用；
+	\item 用来提前调整 UI 的外观；
+	\item 适合做“展示层的预配置”。
+\end{itemize}
+
+例如：
+
+\begin{itemize}
+	\item 设置默认文本；
+	\item 设置尺寸；
+	\item 设置可见性；
+	\item 根据可编辑属性刷新外观。
+\end{itemize}
+
+\subsection{NativeConstruct}
+
+\texttt{NativeConstruct()} 更偏向：
+
+\begin{itemize}
+	\item 运行时逻辑初始化；
+	\item 绑定按钮事件；
+	\item 获取游戏对象；
+	\item 注册委托；
+	\item 创建动态子控件。
+\end{itemize}
+
+它通常不是专门为“属性同步”设计的，而是为“控件开始参与游戏逻辑”准备的。
+
+\subsection{SynchronizeProperties}
+
+\texttt{SynchronizeProperties()} 则更聚焦于：
+
+\begin{itemize}
+	\item 将当前对象的属性值应用到实际控件；
+	\item 保证界面显示和对象状态一致；
+	\item 更像“刷新显示层”。
+\end{itemize}
+
+因此可以把它和前两个函数粗略区分成：
+
+\begin{itemize}
+	\item \texttt{NativePreConstruct()}：预构造阶段调整外观；
+	\item \texttt{NativeConstruct()}：运行时接入逻辑；
+	\item \texttt{SynchronizeProperties()}：把属性值同步到界面。
+\end{itemize}
+
+\section{什么时候会调用}
+
+从使用者角度，不必死记底层所有细节，但需要知道一个重要事实：
+
+\begin{quote}
+	\texttt{SynchronizeProperties()} 不是“业务初始化入口”，而是“属性刷新入口”。
+\end{quote}
+
+它通常会在引擎认为“需要把对象属性重新应用到界面”时被调用。  
+这类场景一般包括：
+
+\begin{itemize}
+	\item Widget 构建或重建时；
+	\item 设计器预览需要刷新时；
+	\item 某些属性变化后需要重新同步时。
+\end{itemize}
+
+所以它可能不是只调用一次，而可能被多次调用。
+
+这也是为什么在这个函数里通常应该做：
+
+\begin{itemize}
+	\item 幂等的 UI 同步；
+	\item 轻量的显示刷新；
+	\item 不依赖复杂运行时上下文的操作。
+\end{itemize}
+
+\section{适合放什么代码}
+
+\subsection{适合放的内容}
+
+适合放进 \texttt{SynchronizeProperties()} 的，一般是“把已有属性值写到控件上”的代码，例如：
+
+\begin{itemize}
+	\item 文本同步；
+	\item 颜色同步；
+	\item 图片同步；
+	\item 尺寸同步；
+	\item 可见性同步；
+	\item 某些简单状态的表现层刷新。
+\end{itemize}
+
+例如：
+
+\begin{code}
+	if (TitleTextBlock)
+	{
+		TitleTextBlock->SetText(TitleText);
+	}
+	
+	if (SizeBox_Root)
+	{
+		SizeBox_Root->SetWidthOverride(BoxWidth);
+		SizeBox_Root->SetHeightOverride(BoxHeight);
+	}
+\end{code}
+
+这里的思想是：
+
+\begin{quote}
+	成员变量是“数据”，Widget 子控件是“显示”，\\
+	\texttt{SynchronizeProperties()} 负责把前者写到后者。
+\end{quote}
+
+\subsection{不适合放的内容}
+
+不建议放进 \texttt{SynchronizeProperties()} 的内容包括：
+
+\begin{itemize}
+	\item 获取 \texttt{PlayerController} / \texttt{GameMode} / \texttt{PlayerState}；
+	\item 绑定按钮点击事件；
+	\item 注册委托；
+	\item 创建大量动态子控件；
+	\item 依赖运行时世界状态的复杂逻辑；
+	\item 带副作用的业务操作。
+\end{itemize}
+
+原因是：
+
+\begin{enumerate}
+	\item 这个函数可能被多次调用；
+	\item 它的职责本来就是“同步属性”，不是“做业务初始化”；
+	\item 如果在这里绑定事件或重复创建对象，很容易导致重复执行。
+\end{enumerate}
+
+\section{一个典型使用模式}
+
+一个常见做法是：
+
+\begin{enumerate}
+	\item 在 \ci{UPROPERTY(EditAnywhere)} 里暴露一些可编辑参数；
+	\item 在 \ci{SynchronizeProperties()} 中把这些参数应用到子控件；
+	\item 这样在设计器和运行时都更容易保持显示一致。
+\end{enumerate}
+
+例如一个 Widget 有如下属性：
+
+\begin{code}
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="UI")
+	float BoxWidth = 805.f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="UI")
+	float BoxHeight = 906.f;
+\end{code}
+
+那么就可以在 \texttt{SynchronizeProperties()} 中写：
+
+\begin{code}
+	void UAttributeMenu::SynchronizeProperties()
+	{
+		Super::SynchronizeProperties();
+		
+		if (SizeBox_Root)
+		{
+			SizeBox_Root->SetWidthOverride(BoxWidth);
+			SizeBox_Root->SetHeightOverride(BoxHeight);
+		}
+	}
+\end{code}
+
+这样它的语义非常明确：
+
+\begin{quote}
+	每当需要同步属性时，就把 \texttt{BoxWidth} 和 \texttt{BoxHeight} 应用到 \texttt{SizeBox\_Root}。
+\end{quote}
+
+\section{和你的 AttributeMenu 场景如何对应}
+
+从你当前的 \texttt{`AttributeMenu.h`} 来看，你已经有：
+
+\begin{itemize}
+	\item \texttt{SizeBox\_Root}
+	\item \texttt{BoxWidth}
+	\item \texttt{BoxHeight}
+	\item \texttt{UpdateFrameSize()}
+\end{itemize}
+
+这类“根据可编辑属性同步 UI 尺寸”的行为，其实就很适合使用 \texttt{SynchronizeProperties()}。
+
+可以把思路理解为：
+
+\begin{itemize}
+	\item \texttt{BoxWidth} / \texttt{BoxHeight} 是数据；
+	\item \texttt{SizeBox\_Root} 是显示对象；
+	\item \texttt{SynchronizeProperties()} 就是把这两个数据写入显示对象。
+\end{itemize}
+
+因此如果 \texttt{UpdateFrameSize()} 的职责仅仅是：
+
+\begin{itemize}
+	\item 调用 \texttt{SetWidthOverride()}；
+	\item 调用 \texttt{SetHeightOverride()}；
+\end{itemize}
+
+那么它就非常适合在 \texttt{SynchronizeProperties()} 中调用。
+
+例如逻辑上可以写成：
+
+\begin{code}
+	void UAttributeMenu::SynchronizeProperties()
+	{
+		Super::SynchronizeProperties();
+		UpdateFrameSize();
+	}
+\end{code}
+
+\section{为什么它在做“编辑器友好型 UI”时很有用}
+
+当一个 Widget 需要在编辑器里就能看到配置效果时，\texttt{SynchronizeProperties()} 特别有价值。
+
+因为这种场景里，你经常会有这样的需求：
+
+\begin{itemize}
+	\item 改一个 \texttt{UPROPERTY(EditAnywhere)}；
+	\item 立即让对应控件的显示变化反映出来；
+	\item 保持设计器预览和运行时显示尽量一致。
+\end{itemize}
+
+这正是“属性同步函数”最擅长做的事情。
+
+所以对于：
+
+\begin{itemize}
+	\item 面板尺寸；
+	\item 默认标题；
+	\item 颜色主题；
+	\item 图标样式；
+	\item 文本样式；
+\end{itemize}
+
+这样的可编辑展示参数，\texttt{SynchronizeProperties()} 通常是很合适的切入点。
+
+\section{使用时的注意事项}
+
+\subsection{要调用父类实现}
+
+通常应当先调用：
+
+\begin{code}
+	Super::SynchronizeProperties();
+\end{code}
+
+这样可以保证父类已有的同步逻辑正常执行。
+
+\subsection{尽量保持幂等}
+
+因为它可能被多次调用，所以最好保证：
+
+\begin{itemize}
+	\item 调一次和调多次结果一致；
+	\item 不产生额外副作用；
+	\item 不重复绑定事件；
+	\item 不重复创建对象。
+\end{itemize}
+
+\subsection{注意空指针判断}
+
+由于子控件可能在某些阶段尚未准备好，通常要先判断：
+
+\begin{code}
+	if (SizeBox_Root)
+	{
+		...
+	}
+\end{code}
+
+\subsection{不要把它当成业务入口}
+
+如果你需要：
+
+\begin{itemize}
+	\item 和角色属性系统通信；
+	\item 绑定按钮事件；
+	\item 初始化运行时数据源；
+	\item 构建滚动列表内容；
+\end{itemize}
+
+这些通常更适合放到 \texttt{NativeConstruct()} 或专门的初始化函数中，而不是 \texttt{SynchronizeProperties()}。
+
+\section{一个简明判断标准}
+
+可以用下面这个原则区分：
+
+\begin{quote}
+	如果你的代码是在说“把这个属性显示到界面上”，就优先考虑 \texttt{SynchronizeProperties()}；\\
+	如果你的代码是在说“让这个界面开始参与游戏逻辑”，就优先考虑 \texttt{NativeConstruct()}。
+\end{quote}
+
+\section{一句话总结}
+
+\texttt{SynchronizeProperties()} 的本质是：
+
+\begin{quote}
+	\textbf{把 Widget 对象上的配置属性，同步到实际界面表现。}
+\end{quote}
+
+它适合做轻量、可重复、偏显示层的刷新；  
+而不适合承担复杂的运行时初始化和业务逻辑。
 \end{document}
