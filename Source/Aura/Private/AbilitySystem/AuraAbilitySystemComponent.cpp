@@ -3,6 +3,7 @@
 
 #include "AbilitySystem/AuraAbilitySystemComponent.h"
 
+#include "AbilitySystem/Ability/AuraGameplayAbility.h"
 #include "Character/AuraCharacterBase.h"
 #include "Engine/World.h"
 
@@ -40,6 +41,27 @@ void UAuraAbilitySystemComponent::PostUserInitAbilityActorInfo(AActor* InOwnerAc
 
 		OnGameplayEffectAppliedDelegateToSelf.AddUObject(this, &UAuraAbilitySystemComponent::EffectApplied);
 		OnAnyGameplayEffectRemovedDelegate().AddUObject(this, &UAuraAbilitySystemComponent::EffectRemoved);
+	}
+}
+
+void UAuraAbilitySystemComponent::AddCharacterAbilities(
+	const TArray<TSubclassOf<UAuraGameplayAbility>>& AbilitiesToAdd)
+{
+	if (!GetOwnerActor() || !GetOwnerActor()->HasAuthority())
+	{
+		check(false && "Only the server can add abilities.");
+		return;
+	}
+	int32 PlayerLevel = ICombatInterface::Execute_GetPlayerLevel(GetOwnerActor());
+
+	for (const TSubclassOf<UAuraGameplayAbility>& Ability : AbilitiesToAdd)
+	{
+		if (!IsValid(Ability)) continue;
+
+
+		FGameplayAbilitySpec AbilitySpec(Ability, PlayerLevel, INDEX_NONE);
+		//GiveAbility(AbilitySpec);
+		GiveAbilityAndActivateOnce(AbilitySpec);
 	}
 }
 

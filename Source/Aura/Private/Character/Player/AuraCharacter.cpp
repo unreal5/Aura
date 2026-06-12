@@ -75,6 +75,9 @@ void AAuraCharacter::PossessedBy(AController* NewController)
 
 	// 只在服务器端初始化属性，属性会通过ReplicatedUsing同步到客户端
 	InitializeDefaultAttributes();
+	
+	// 只在服务器端添加能力，能力会通过ASC的ReplicatedUsing同步到客户端
+	AddCharacterAbilities();
 }
 
 void AAuraCharacter::InitAbilityActorInfo()

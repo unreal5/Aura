@@ -914,4 +914,13 @@ struct FUIWidgetRow : public FTableRowBase
 
 它适合做轻量、可重复、偏显示层的刷新；  
 而不适合承担复杂的运行时初始化和业务逻辑。
+
+\part{技能}
+\section{Gameplay Abilities 字幕总结}
+
+Gameplay Ability 是派生自 \texttt{UGameplayAbility} 的类，用来定义角色可执行的技能、法术或动作，以及这些能力在什么条件下可以被使用。与普通函数式动作不同，它是一个可实例化、可异步执行的对象，能够跨时间执行多阶段逻辑，并根据玩家或环境条件触发不同分支。
+
+课程还强调了 Gameplay Ability 的几个核心特性：它原生支持网络复制与预测，内置 \textbf{消耗} 与 \textbf{冷却} 机制，例如课程中会用法力值作为施法消耗；它还能配合 \texttt{UAbilityTask} 执行异步任务，并通过委托驱动 Blueprint 中的多输出执行流，从而兼顾 C++ 性能与 Blueprint 的可视化设计灵活性。
+
+最后，课程说明了能力的使用流程：能力需要先授予给 \texttt{AbilitySystemComponent}，此时会生成并同步一个 \texttt{Ability Spec}，其中包含能力类、等级和可在运行时变化的信息。能力被激活后会进入活动状态，直到自行结束或被外部取消。整体上，Gameplay Ability 是 GAS 的核心执行单元，后续课程将开始实现第一个实际能力。
 \end{document}

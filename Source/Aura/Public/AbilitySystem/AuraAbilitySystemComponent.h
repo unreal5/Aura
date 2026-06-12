@@ -6,6 +6,8 @@
 #include "AbilitySystemComponent.h"
 #include "AuraAbilitySystemComponent.generated.h"
 
+class UAuraGameplayAbility;
+
 DECLARE_MULTICAST_DELEGATE_OneParam(FEffectAssetTagsDelegate, const FGameplayTagContainer& /*AssetTags*/);
 
 UCLASS(ClassGroup=("UserComponent"), meta=(BlueprintSpawnableComponent))
@@ -20,7 +22,11 @@ public:
 	// 在用户调用InitAbilityActorInfo后调用，子类可以重写这个函数来绑定GE委托
 	virtual void PostUserInitAbilityActorInfo(AActor* InOwnerActor, AActor* InAvatarActor);
 	FEffectAssetTagsDelegate OnEffectAssetTagsAppliedDelegate;
+
+	void AddCharacterAbilities(const TArray<TSubclassOf<UAuraGameplayAbility>>& AbilitiesToAdd);
+
 protected:
-	void EffectApplied(UAbilitySystemComponent* ASC, const FGameplayEffectSpec& EffectSpec, FActiveGameplayEffectHandle ActiveEffectHandle);
+	void EffectApplied(UAbilitySystemComponent* ASC, const FGameplayEffectSpec& EffectSpec,
+	                   FActiveGameplayEffectHandle ActiveEffectHandle);
 	void EffectRemoved(const FActiveGameplayEffect& ActiveGameplayEffect);
 };
