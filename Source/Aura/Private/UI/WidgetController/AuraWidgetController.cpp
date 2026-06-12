@@ -9,9 +9,7 @@ FWidgetControllerParams::FWidgetControllerParams(APlayerController* InPlayerCont
 	: PlayerController(InPlayerController)
 	  , PlayerState(InPlayerState)
 	  , AbilitySystemComponent(InAbilitySystemComponent)
-	  , AttributeSet(InAttributeSet)
-{
-}
+	  , AttributeSet(InAttributeSet) {}
 
 void UAuraWidgetController::SetWidgetControllerParams(const FWidgetControllerParams& WCParams)
 {
@@ -19,4 +17,6 @@ void UAuraWidgetController::SetWidgetControllerParams(const FWidgetControllerPar
 	PlayerState = WCParams.PlayerState;
 	AbilitySystemComponent = WCParams.AbilitySystemComponent;
 	AttributeSet = WCParams.AttributeSet;
+
+	WidgetControllerParametersChanged(WCParams);
 }

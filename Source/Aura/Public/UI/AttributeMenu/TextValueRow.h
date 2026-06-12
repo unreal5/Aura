@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "AbilitySystem/Data/AttributeInfo.h"
 #include "UI/Widget/AuraUserWidget.h"
 #include "TextValueRow.generated.h"
 
@@ -17,6 +18,7 @@ class AURA_API UTextValueRow : public UAuraUserWidget
 	GENERATED_BODY()
 protected:
 	void NativePreConstruct() override;
+	void NativeConstruct() override;
 public:
 	// SizeBox_Root是一个SizeBox组件，用于控制框架的大小。通过编辑BoxWidth和BoxHeight属性，可以调整框架的宽度和高度。
 	UPROPERTY(meta = (BindWidget))
@@ -32,6 +34,18 @@ public:
 	UFrameValue* WBP_FrameValue;
 	UPROPERTY(meta = (BindWidget),EditAnywhere, BlueprintReadWrite, Category = "文本行属性")
 	UNamedSlot* NamedSlot_Content;
+	
+	UFUNCTION(BlueprintCallable, Category = "文本行功能")
+	void SetLableText(const FText& InName);
+	
+	UFUNCTION(BlueprintCallable, Category = "文本行功能")
+	void SetNumericalValue(float NewValue);
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "标签")
+	FGameplayTag AttributeTag;
 private:
 	void UpdateFrameSize() const;
+	
+	UFUNCTION()
+	void UpdateAttributeInfo(const FAuraAttributeInfo& AttributeInfo);
 };

@@ -43,6 +43,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Aura | WidgetController")
 	void SetWidgetControllerParams(const FWidgetControllerParams& WCParams);
 
+	virtual void WidgetControllerParametersChanged(const FWidgetControllerParams& WCParams) {}
+	
 	virtual void BroadcastInitialValues() {}
 	virtual void BindCallbacksToDependencies() {}
 

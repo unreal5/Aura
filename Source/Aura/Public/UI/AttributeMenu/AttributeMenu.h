@@ -42,6 +42,8 @@ public:
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "AuraAttributeMenu | Secondary Attributes")
 	TArray<class UTextValueRow*> SecondaryAttributes;
 
+	// UFUNCTION(BlueprintCallable, Category = "AuraAttributeMenu")
+	
 private:
 	void UpdateFrameSize() const;
 };

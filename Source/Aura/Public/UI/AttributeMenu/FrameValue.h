@@ -38,6 +38,10 @@ public:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FrameProperties", meta = (BindWidget))
 	UTextBlock* TextBlock_Value;
+	
+	// 设置文本值
+	UFUNCTION(BlueprintCallable, Category = "FrameValue")
+	void SetValueText(const FText& InText);
 private:
 	void UpdateFrameSize() const;
 	void UpdateBackgroundImage() const;

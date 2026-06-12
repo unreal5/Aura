@@ -3,6 +3,9 @@
 
 #include "UI/Widget/AuraUserWidget.h"
 
+#include "UI/WidgetController/AuraWidgetController.h"
+
+
 void UAuraUserWidget::SetWidgetController(UObject* InWidgetController)
 {
 	if (InWidgetController == WidgetController) return;
@@ -13,4 +16,8 @@ void UAuraUserWidget::SetWidgetController(UObject* InWidgetController)
 
 void UAuraUserWidget::WidgetControllerSet_Implementation()
 {
+	auto AuraWidgetController = Cast<UAuraWidgetController>(WidgetController);
+	if (!AuraWidgetController) return;
+	AuraWidgetController->BindCallbacksToDependencies();
+	AuraWidgetController->BroadcastInitialValues();
 }

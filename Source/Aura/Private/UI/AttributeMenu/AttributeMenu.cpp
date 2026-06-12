@@ -23,6 +23,8 @@ void UAttributeMenu::NativeConstruct()
 	}
 }
 
+
+
 void UAttributeMenu::UpdateFrameSize() const
 {
 	if (SizeBox_Root)

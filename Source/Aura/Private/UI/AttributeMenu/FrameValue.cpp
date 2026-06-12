@@ -5,6 +5,7 @@
 
 #include "Components/Image.h"
 #include "Components/SizeBox.h"
+#include "Components/TextBlock.h"
 
 
 void UFrameValue::NativePreConstruct()
@@ -13,6 +14,14 @@ void UFrameValue::NativePreConstruct()
 
 	UpdateFrameSize();
 	UpdateBackgroundImage();
+}
+
+void UFrameValue::SetValueText(const FText& InText)
+{
+	if (TextBlock_Value)
+	{
+		TextBlock_Value->SetText(InText);
+	}
 }
 
 void UFrameValue::UpdateFrameSize() const
