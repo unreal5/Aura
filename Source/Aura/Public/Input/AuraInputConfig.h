@@ -1,0 +1,34 @@
+// 版权没有，拷贝自由。
+
+#pragma once
+
+#include "CoreMinimal.h"
+#include "GameplayTagContainer.h"
+#include "Engine/DataAsset.h"
+#include "AuraInputConfig.generated.h"
+
+class UInputAction;
+
+USTRUCT(BlueprintType)
+struct FAuraInputAction
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditDefaultsOnly)
+	const UInputAction* InputAction = nullptr;
+
+	UPROPERTY(EditDefaultsOnly)
+	FGameplayTag InputTag;
+};
+
+UCLASS()
+class AURA_API UAuraInputConfig : public UDataAsset
+{
+	GENERATED_BODY()
+
+public:
+	const UInputAction* GetInputAction(const FGameplayTag& InputTag) const;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input", meta=(TitleProperty="InputTag"))
+	TArray<FAuraInputAction> Actions;
+};

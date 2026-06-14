@@ -32,3 +32,12 @@ UE_DEFINE_GAMEPLAY_TAG(Message::HealthPotion, "Message.HealthPotion");
 UE_DEFINE_GAMEPLAY_TAG(Message::HealthCrystal, "Message.HealthCrystal");
 UE_DEFINE_GAMEPLAY_TAG(Message::ManaPotion, "Message.ManaPotion");
 UE_DEFINE_GAMEPLAY_TAG(Message::ManaCrystal, "Message.ManaCrystal");
+
+
+// InputAction
+UE_DEFINE_GAMEPLAY_TAG(InputAction::LMB, "InputAction.LMB");
+UE_DEFINE_GAMEPLAY_TAG(InputAction::RMB, "InputAction.RMB");
+UE_DEFINE_GAMEPLAY_TAG(InputAction::_1, "InputAction.1");
+UE_DEFINE_GAMEPLAY_TAG(InputAction::_2, "InputAction.2");
+UE_DEFINE_GAMEPLAY_TAG(InputAction::_3, "InputAction.3");
+UE_DEFINE_GAMEPLAY_TAG(InputAction::_4, "InputAction.4");

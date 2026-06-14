@@ -8,7 +8,7 @@
 #include "Engine/HitResult.h"
 #include "Engine/LocalPlayer.h"
 #include "GameFramework/Pawn.h"
-#include "InputCoreTypes.h"
+#include "Input/AuraInputComponent.h"
 #include "Interaction/HighlightInterface.h"
 #include "UI/HUD/AuraHUD.h"
 
@@ -54,14 +54,18 @@ void AAuraPlayerController::SetupInputComponent()
 {
 	Super::SetupInputComponent();
 
-	auto EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(InputComponent);
+	auto EnhancedInputComponent = CastChecked<UAuraInputComponent>(InputComponent);
 	if (!IsValid(EnhancedInputComponent))
 	{
 		return;
 	}
 	// Bind Move Input Action
 	EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ThisClass::Move);
-	EnhancedInputComponent->BindAction(DebugAction, ETriggerEvent::Started, this, &ThisClass::ToggleAttributeDebugPanel);
+	EnhancedInputComponent->BindAction(DebugAction, ETriggerEvent::Started, this,
+	                                   &ThisClass::ToggleAttributeDebugPanel);
+
+	EnhancedInputComponent->BindAbilityAction(AuraInputConfig, this, &ThisClass::AbilityInputPressed,
+	                                          &ThisClass::AbilityInputReleased, &ThisClass::AbilityInputHeld);
 }
 
 void AAuraPlayerController::Move(const FInputActionValue& InputActionValue)
@@ -113,3 +117,17 @@ void AAuraPlayerController::ToggleAttributeDebugPanel()
 	}
 }
 
+void AAuraPlayerController::AbilityInputPressed(const FGameplayTag InputTag)
+{
+	UE_LOG(LogTemp, Log, TEXT("AbilityInputPressed: %s"), *InputTag.ToString());
+}
+
+void AAuraPlayerController::AbilityInputReleased(const FGameplayTag InputTag)
+{
+	UE_LOG(LogTemp, Log, TEXT("AbilityInputReleased: %s"), *InputTag.ToString());
+}
+
+void AAuraPlayerController::AbilityInputHeld(const FGameplayTag InputTag)
+{
+	//UE_LOG(LogTemp, Log, TEXT("AbilityInputHeld: %s"), *InputTag.ToString());
+}

@@ -705,7 +705,7 @@ Path=./fonts/]
 	\lstset{
 		language=[11]C++,
 		columns=fullflexible,%fixed
-		basicstyle=\ttfamily\small,%\linespread{1.0}
+		basicstyle=\ttfamily\footnotesize,%\linespread{1.0}
 		commentstyle=\color{green!40!black}\itshape,
 		keywordstyle=\color{blue}\bfseries,
 		numberstyle=\scriptsize\color{black}\ttfamily,
@@ -721,7 +721,7 @@ Path=./fonts/]
 		emph=[2]{override,final},
 		emphstyle=[2]{\color{blue}\bfseries},		
 		emph=[3]{UPROPERTY,UFUNCTION,UENUM,UCLASS},
-		emphstyle=[3]{\color{pink}\bfseries},
+		emphstyle=[3]{\color{cyan}\bfseries},
 		tabsize=4,
 		escapeinside=``,
 		frame=none,
@@ -758,3 +758,6 @@ Path=./fonts/]
 	},
 	drop fuzzy shadow,#1
 }
+\RequirePackage{etoolbox}
+\AtBeginEnvironment{longtable}{\footnotesize}
+\AtEndEnvironment{longtable}{\normalsize}
