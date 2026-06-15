@@ -3,8 +3,11 @@
 
 #include "Player/AuraPlayerController.h"
 
+#include "DrawDebugHelpers.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
+#include "NavigationPath.h"
+#include "NavigationSystem.h"
 #include "AbilitySystem/AuraAbilitySystemComponent.h"
 #include "Character/Enemy/AuraEnemy.h"
 #include "Components/SplineComponent.h"
@@ -158,7 +161,31 @@ void AAuraPlayerController::AbilityInputReleased(const FGameplayTag InputTag)
 	auto ASC = GetASC();
 	if (!IsValid(ASC)) return;
 
-	ASC->AbilityInputTagReleased(InputTag);
+	if (bTargeting || !InputTag.MatchesTagExact(InputAction::LMB))
+	{
+		ASC->AbilityInputTagReleased(InputTag);
+	}
+	else // 没有指定目标，并且是左键释放，判断是否短按。
+	{
+		FollowTime += GetWorld()->GetDeltaSeconds();
+		// 如果是短按，则进行自动移动
+		bAutoRunning = FollowTime < ShortPressThreshold;
+		APawn* ControlledPawn = GetPawn();
+		if (bAutoRunning && IsValid(ControlledPawn))
+		{
+			FVector StartLocation = ControlledPawn->GetActorLocation();
+			UNavigationPath* NavPath= UNavigationSystemV1::FindPathToLocationSynchronously(this,StartLocation, CachedDestination);
+			if (NavPath)
+			{
+				SplineComponent->ClearSplinePoints();
+				for (const FVector& Point : NavPath->PathPoints)
+				{
+					SplineComponent->AddSplinePoint(Point, ESplineCoordinateSpace::World);
+					DrawDebugSphere(GetWorld(), Point, 25.0f, 12, FColor::Green, false, 5.0f);
+				}
+			}
+		}
+	}
 }
 
 void AAuraPlayerController::AbilityInputHeld(const FGameplayTag InputTag)
@@ -174,7 +201,7 @@ void AAuraPlayerController::AbilityInputHeld(const FGameplayTag InputTag)
 	{
 		FollowTime += GetWorld()->GetDeltaSeconds();
 		// 在PlayerTick中已经通过CursorTrace不断更新了CachedDestination，这里不需要再次获取鼠标位置。
-		
+
 		if (APawn* ControlledPawn = GetPawn())
 		{
 			ControlledPawn->AddMovementInput((CachedDestination - ControlledPawn->GetActorLocation()).GetSafeNormal());
