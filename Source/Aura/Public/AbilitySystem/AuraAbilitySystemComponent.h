@@ -25,6 +25,10 @@ public:
 
 	void AddCharacterAbilities(const TArray<TSubclassOf<UAuraGameplayAbility>>& AbilitiesToAdd);
 
+	// 对于激活技能，只关注两种按键：hold和release.因为有些技能需要持续按住才能保持激活状态，而有些技能则在按键释放时触发效果。
+	void AbilityInputTagHeld(const FGameplayTag& InputTag);
+	void AbilityInputTagReleased(const FGameplayTag& InputTag);
+
 protected:
 	void EffectApplied(UAbilitySystemComponent* ASC, const FGameplayEffectSpec& EffectSpec,
 	                   FActiveGameplayEffectHandle ActiveEffectHandle);

@@ -5,16 +5,24 @@
 
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
+#include "AbilitySystem/AuraAbilitySystemComponent.h"
+#include "Character/Enemy/AuraEnemy.h"
+#include "Components/SplineComponent.h"
 #include "Engine/HitResult.h"
 #include "Engine/LocalPlayer.h"
+#include "Engine/World.h"
 #include "GameFramework/Pawn.h"
 #include "Input/AuraInputComponent.h"
 #include "Interaction/HighlightInterface.h"
+#include "Tag/AuraGlobalTags.h"
 #include "UI/HUD/AuraHUD.h"
 
 AAuraPlayerController::AAuraPlayerController()
 {
 	bReplicates = true;
+
+	SplineComponent = CreateDefaultSubobject<USplineComponent>(TEXT("SplineComponent"));
+	SplineComponent->SetupAttachment(GetRootComponent());
 }
 
 void AAuraPlayerController::PlayerTick(float DeltaTime)
@@ -86,7 +94,11 @@ void AAuraPlayerController::CursorTrace()
 {
 	FHitResult HitResult;
 	GetHitResultUnderCursor(ECollisionChannel::ECC_Visibility, false, HitResult);
-	if (!HitResult.bBlockingHit) return;
+	if (!HitResult.bBlockingHit)
+	{
+		CachedDestination = FVector::ZeroVector;
+		return;
+	}
 
 	CurrentActor = HitResult.GetActor();
 	if (LastActor != CurrentActor)
@@ -102,6 +114,9 @@ void AAuraPlayerController::CursorTrace()
 		}
 	}
 	LastActor = CurrentActor;
+
+	// 更新目标位置
+	CachedDestination = HitResult.ImpactPoint;
 }
 
 void AAuraPlayerController::ToggleAttributeDebugPanel()
@@ -117,17 +132,52 @@ void AAuraPlayerController::ToggleAttributeDebugPanel()
 	}
 }
 
+UAuraAbilitySystemComponent* AAuraPlayerController::GetASC()
+{
+	if (!IsValid(CachedAuraASC))
+	{
+		CachedAuraASC = Cast<UAuraAbilitySystemComponent>(
+			UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(GetPawn()));
+	}
+	return CachedAuraASC;
+}
+
 void AAuraPlayerController::AbilityInputPressed(const FGameplayTag InputTag)
 {
-	UE_LOG(LogTemp, Log, TEXT("AbilityInputPressed: %s"), *InputTag.ToString());
+	if (InputTag == InputAction::LMB)
+	{
+		bTargeting = CurrentActor && CurrentActor->IsA(AAuraEnemy::StaticClass());
+		// 取消自动移动
+		bAutoRunning = false;
+	}
+	FollowTime = 0.0f;
 }
 
 void AAuraPlayerController::AbilityInputReleased(const FGameplayTag InputTag)
 {
-	UE_LOG(LogTemp, Log, TEXT("AbilityInputReleased: %s"), *InputTag.ToString());
+	auto ASC = GetASC();
+	if (!IsValid(ASC)) return;
+
+	ASC->AbilityInputTagReleased(InputTag);
 }
 
 void AAuraPlayerController::AbilityInputHeld(const FGameplayTag InputTag)
 {
-	//UE_LOG(LogTemp, Log, TEXT("AbilityInputHeld: %s"), *InputTag.ToString());
+	auto ASC = GetASC();
+	if (!IsValid(ASC)) return;
+
+	if (bTargeting || !InputTag.MatchesTagExact(InputAction::LMB))
+	{
+		ASC->AbilityInputTagHeld(InputTag);
+	}
+	else // 如果是左键，并且当前没有目标，则进行自动移动
+	{
+		FollowTime += GetWorld()->GetDeltaSeconds();
+		// 在PlayerTick中已经通过CursorTrace不断更新了CachedDestination，这里不需要再次获取鼠标位置。
+		
+		if (APawn* ControlledPawn = GetPawn())
+		{
+			ControlledPawn->AddMovementInput((CachedDestination - ControlledPawn->GetActorLocation()).GetSafeNormal());
+		}
+	}
 }

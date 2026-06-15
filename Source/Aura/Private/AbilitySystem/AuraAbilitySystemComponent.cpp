@@ -60,8 +60,47 @@ void UAuraAbilitySystemComponent::AddCharacterAbilities(
 
 
 		FGameplayAbilitySpec AbilitySpec(Ability, PlayerLevel, INDEX_NONE);
-		//GiveAbility(AbilitySpec);
-		GiveAbilityAndActivateOnce(AbilitySpec);
+		// GameplayAbility 要满足运行时改变StartupInputTag的条件，这样可以动态的关联按键与Ability。
+		// 1. 不能在运行时修改默认对象的属性，因为它会影响所有使用这个类的实例。
+		// 2. 只能在运行时修改AbilitySpec的属性，因为它是每个实例独有的。
+		FGameplayTag InputTag = Ability.GetDefaultObject()->StartupInputTag;
+		if (InputTag.IsValid())
+		{
+			AbilitySpec.GetDynamicSpecSourceTags().AddTag(InputTag);
+		}
+		GiveAbility(AbilitySpec);
+	}
+}
+
+void UAuraAbilitySystemComponent::AbilityInputTagHeld(const FGameplayTag& InputTag)
+{
+	if (!InputTag.IsValid()) return;
+
+	// 对于未激活的技能要激活，如果已经激活了就继续保持激活状态。
+	for (auto& AbilitySpec : GetActivatableAbilities())
+	{
+		if (!AbilitySpec.GetDynamicSpecSourceTags().HasTag(InputTag)) continue;
+
+		// 不要丢失原来的行为，当前技能激活与否，都不能改变又有同样的InputTag的技能的输入状态。
+		AbilitySpecInputPressed(AbilitySpec);
+
+		if (!AbilitySpec.IsActive())
+		{
+			TryActivateAbility(AbilitySpec.Handle);
+		}
+	}
+}
+
+void UAuraAbilitySystemComponent::AbilityInputTagReleased(const FGameplayTag& InputTag)
+{
+	if (!InputTag.IsValid()) return;
+
+
+	for (auto& AbilitySpec : GetActivatableAbilities())
+	{
+		if (!AbilitySpec.GetDynamicSpecSourceTags().HasTag(InputTag)) continue;
+
+		AbilitySpecInputReleased(AbilitySpec);
 	}
 }
 
