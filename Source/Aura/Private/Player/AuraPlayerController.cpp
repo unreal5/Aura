@@ -8,6 +8,7 @@
 #include "EnhancedInputSubsystems.h"
 #include "NavigationPath.h"
 #include "NavigationSystem.h"
+#include "NiagaraFunctionLibrary.h"
 #include "AbilitySystem/AuraAbilitySystemComponent.h"
 #include "Character/Enemy/AuraEnemy.h"
 #include "Components/SplineComponent.h"
@@ -28,11 +29,14 @@ AAuraPlayerController::AAuraPlayerController()
 	SplineComponent->SetupAttachment(GetRootComponent());
 }
 
+
 void AAuraPlayerController::PlayerTick(float DeltaTime)
 {
 	Super::PlayerTick(DeltaTime);
 
 	CursorTrace();
+
+	AutoRun();
 }
 
 void AAuraPlayerController::BeginPlay()
@@ -93,34 +97,37 @@ void AAuraPlayerController::Move(const FInputActionValue& InputActionValue)
 	ControlledPawn->AddMovementInput(ForwardDirection);
 }
 
+void AAuraPlayerController::TryHighlightActor(AActor* Actor)
+{
+	if (IsValid(Actor) &&
+		Actor->GetClass()->ImplementsInterface(UHighlightInterface::StaticClass()))
+	{
+		IHighlightInterface::Execute_HighlightActor(Actor);
+	}
+}
+
+void AAuraPlayerController::TryUnHighlightActor(AActor* Actor)
+{
+	if (IsValid(Actor) &&
+		Actor->GetClass()->ImplementsInterface(UHighlightInterface::StaticClass()))
+	{
+		IHighlightInterface::Execute_UnHighlightActor(Actor);
+	}
+}
+
 void AAuraPlayerController::CursorTrace()
 {
-	FHitResult HitResult;
-	GetHitResultUnderCursor(ECollisionChannel::ECC_Visibility, false, HitResult);
-	if (!HitResult.bBlockingHit)
-	{
-		CachedDestination = FVector::ZeroVector;
-		return;
-	}
+	GetHitResultUnderCursor(ECollisionChannel::ECC_Visibility, false, CursorHit);
 
-	CurrentActor = HitResult.GetActor();
+	CurrentActor = CursorHit.bBlockingHit ? CursorHit.GetActor() : nullptr;
 	if (LastActor != CurrentActor)
 	{
-		if (IsValid(LastActor) && LastActor->Implements<UHighlightInterface>())
-		{
-			IHighlightInterface::Execute_UnHighlightActor(LastActor);
-		}
-
-		if (IsValid(CurrentActor) && CurrentActor->Implements<UHighlightInterface>())
-		{
-			IHighlightInterface::Execute_HighlightActor(CurrentActor);
-		}
+		TryUnHighlightActor(LastActor);
+		TryHighlightActor(CurrentActor);
 	}
 	LastActor = CurrentActor;
-
-	// 更新目标位置
-	CachedDestination = HitResult.ImpactPoint;
 }
+
 
 void AAuraPlayerController::ToggleAttributeDebugPanel()
 {
@@ -168,43 +175,76 @@ void AAuraPlayerController::AbilityInputReleased(const FGameplayTag InputTag)
 	else // 没有指定目标，并且是左键释放，判断是否短按。
 	{
 		FollowTime += GetWorld()->GetDeltaSeconds();
-		// 如果是短按，则进行自动移动
-		bAutoRunning = FollowTime < ShortPressThreshold;
 		APawn* ControlledPawn = GetPawn();
-		if (bAutoRunning && IsValid(ControlledPawn))
+		if ((FollowTime < ShortPressThreshold) && IsValid(ControlledPawn))
 		{
 			FVector StartLocation = ControlledPawn->GetActorLocation();
-			UNavigationPath* NavPath= UNavigationSystemV1::FindPathToLocationSynchronously(this,StartLocation, CachedDestination);
+
+			UNavigationPath* NavPath = UNavigationSystemV1::FindPathToLocationSynchronously(
+				this, StartLocation, CachedDestination);
 			if (NavPath)
 			{
 				SplineComponent->ClearSplinePoints();
 				for (const FVector& Point : NavPath->PathPoints)
 				{
 					SplineComponent->AddSplinePoint(Point, ESplineCoordinateSpace::World);
-					DrawDebugSphere(GetWorld(), Point, 25.0f, 12, FColor::Green, false, 5.0f);
+					//DrawDebugSphere(GetWorld(), Point, 10.0f, 12, FColor::Green, false, 5.0f);
+				}
+				bAutoRunning = true;
+				if (NavPath->PathPoints.Num() > 0)
+				{
+					CachedDestination = NavPath->PathPoints.Last();
+				}
+				else
+				{
+					UE_LOG(LogTemp, Warning, TEXT("没有找到有效的导航路径"));
 				}
 			}
+
+			// 产生点击地面特效
+			UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, FXCursor, CachedDestination, FRotator::ZeroRotator,
+			                                               FVector(1.f, 1.f, 1.f), true, true, ENCPoolMethod::None,
+			                                               true);
 		}
 	}
 }
 
 void AAuraPlayerController::AbilityInputHeld(const FGameplayTag InputTag)
 {
-	auto ASC = GetASC();
-	if (!IsValid(ASC)) return;
-
+	// 如果正在锁定目标，或者不是左键持续按下，都直接传递输入给ASC，不进行自动移动。
 	if (bTargeting || !InputTag.MatchesTagExact(InputAction::LMB))
 	{
-		ASC->AbilityInputTagHeld(InputTag);
+		if (GetASC()) GetASC()->AbilityInputTagHeld(InputTag);
+		return;
 	}
-	else // 如果是左键，并且当前没有目标，则进行自动移动
-	{
-		FollowTime += GetWorld()->GetDeltaSeconds();
-		// 在PlayerTick中已经通过CursorTrace不断更新了CachedDestination，这里不需要再次获取鼠标位置。
 
-		if (APawn* ControlledPawn = GetPawn())
+	FollowTime += GetWorld()->GetDeltaSeconds();
+	if (CursorHit.bBlockingHit)
+	{
+		CachedDestination = CursorHit.ImpactPoint;
+	}
+	if (APawn* ControlledPawn = GetPawn())
+	{
+		ControlledPawn->AddMovementInput((CachedDestination - ControlledPawn->GetActorLocation()).GetSafeNormal());
+	}
+}
+
+void AAuraPlayerController::AutoRun()
+{
+	if (!bAutoRunning) return;
+
+	if (APawn* ControlledPawn = GetPawn())
+	{
+		const FVector LocationOnSpline = SplineComponent->FindLocationClosestToWorldLocation(
+			ControlledPawn->GetActorLocation(), ESplineCoordinateSpace::World);
+		const FVector Direction = SplineComponent->FindDirectionClosestToWorldLocation(
+			LocationOnSpline, ESplineCoordinateSpace::World);
+		ControlledPawn->AddMovementInput(Direction);
+
+		const float DistanceToDestination = (LocationOnSpline - CachedDestination).Length();
+		if (DistanceToDestination <= AcceptanceRadius)
 		{
-			ControlledPawn->AddMovementInput((CachedDestination - ControlledPawn->GetActorLocation()).GetSafeNormal());
+			bAutoRunning = false;
 		}
 	}
 }

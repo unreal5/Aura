@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
 #include "InputActionValue.h"
+#include "Engine/HitResult.h"
 #include "GameFramework/PlayerController.h"
 #include "AuraPlayerController.generated.h"
 
@@ -25,6 +26,7 @@ class AURA_API AAuraPlayerController : public APlayerController
 
 public:
 	AAuraPlayerController();
+
 
 	void PlayerTick(float DeltaTime) override;
 
@@ -50,7 +52,9 @@ private:
 
 	// 追踪当前光标下面的物体
 	void CursorTrace();
-
+	void TryHighlightActor(AActor* Actor);
+	void TryUnHighlightActor(AActor* Actor);
+	FHitResult CursorHit;
 	// 开始地面点击移动
 	// 左键点击地面效果
 	/** FX Class that we will spawn when clicking */
@@ -73,6 +77,8 @@ private:
 	
 	UPROPERTY(VisibleAnywhere, Category="自动移动")
 	TObjectPtr<USplineComponent> SplineComponent = nullptr;
+	
+	void AutoRun();
 	// 结束地面点击移动
 
 

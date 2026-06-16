@@ -39,8 +39,8 @@ void UAuraAbilitySystemComponent::PostUserInitAbilityActorInfo(AActor* InOwnerAc
 		OnGameplayEffectAppliedDelegateToSelf.RemoveAll(this);
 		OnAnyGameplayEffectRemovedDelegate().RemoveAll(this);
 
-		OnGameplayEffectAppliedDelegateToSelf.AddUObject(this, &UAuraAbilitySystemComponent::EffectApplied);
-		OnAnyGameplayEffectRemovedDelegate().AddUObject(this, &UAuraAbilitySystemComponent::EffectRemoved);
+		OnGameplayEffectAppliedDelegateToSelf.AddUObject(this, &UAuraAbilitySystemComponent::ClientEffectApplied);
+		OnAnyGameplayEffectRemovedDelegate().AddUObject(this, &UAuraAbilitySystemComponent::ClientEffectRemoved);
 	}
 }
 
@@ -104,7 +104,8 @@ void UAuraAbilitySystemComponent::AbilityInputTagReleased(const FGameplayTag& In
 	}
 }
 
-void UAuraAbilitySystemComponent::EffectApplied(UAbilitySystemComponent* ASC, const FGameplayEffectSpec& EffectSpec,
+
+void UAuraAbilitySystemComponent::ClientEffectApplied_Implementation(UAbilitySystemComponent* ASC, const FGameplayEffectSpec& EffectSpec,
                                                 FActiveGameplayEffectHandle ActiveEffectHandle)
 {
 	FGameplayTagContainer AssetTags;
@@ -112,7 +113,7 @@ void UAuraAbilitySystemComponent::EffectApplied(UAbilitySystemComponent* ASC, co
 	OnEffectAssetTagsAppliedDelegate.Broadcast(AssetTags);
 }
 
-void UAuraAbilitySystemComponent::EffectRemoved(const FActiveGameplayEffect& ActiveGameplayEffect)
+void UAuraAbilitySystemComponent::ClientEffectRemoved_Implementation(const FActiveGameplayEffect& ActiveGameplayEffect)
 {
 	// const FGameplayEffectSpec& Spec = ActiveGameplayEffect.Spec;
 	// const UGameplayEffect* EffectDef = Spec.Def;

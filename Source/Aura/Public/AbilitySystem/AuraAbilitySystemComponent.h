@@ -30,7 +30,12 @@ public:
 	void AbilityInputTagReleased(const FGameplayTag& InputTag);
 
 protected:
-	void EffectApplied(UAbilitySystemComponent* ASC, const FGameplayEffectSpec& EffectSpec,
+	// ClientRPC函数，会在服务器上调用，在Owning 客户端上执行。Reliable表示这个RPC必须可靠地传输，不能丢失。
+	// 使用Client的原因：OnGameplayEffectAppliedDelegateToSelf是服务器上触发的，但我们需要在客户端上也处理这个事件，
+	// 比如显示一些特效或者UI反馈，所以需要通过ClientRPC将这个事件传递到客户端。
+	UFUNCTION(Client, Reliable)
+	void ClientEffectApplied(UAbilitySystemComponent* ASC, const FGameplayEffectSpec& EffectSpec,
 	                   FActiveGameplayEffectHandle ActiveEffectHandle);
-	void EffectRemoved(const FActiveGameplayEffect& ActiveGameplayEffect);
+	UFUNCTION(Client, Reliable)
+	void ClientEffectRemoved(const FActiveGameplayEffect& ActiveGameplayEffect);
 };
