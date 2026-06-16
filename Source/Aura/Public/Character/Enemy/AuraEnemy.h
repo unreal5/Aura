@@ -18,6 +18,7 @@ public:
 
 	/* 实现ICombatInterface*/
 	int32 GetPlayerLevel_Implementation() const override;
+	
 protected:
 	void InitAbilityActorInfo() override;
 

@@ -11,7 +11,8 @@
 AAuraProjectile::AAuraProjectile()
 {
 	PrimaryActorTick.bCanEverTick = false;
-
+	bReplicates = true;
+	
 	CollisionSphere = CreateDefaultSubobject<USphereComponent>(TEXT("CollisionSphere"));
 	CollisionSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	CollisionSphere->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
@@ -29,6 +30,8 @@ AAuraProjectile::AAuraProjectile()
 	ProjectileMovementComponent->bRotationFollowsVelocity = true;
 	ProjectileMovementComponent->bShouldBounce = false;
 	ProjectileMovementComponent->ProjectileGravityScale = bHasGravity ? 1.f : 0.f;
+	
+	ProjectileMovementComponent->SetIsReplicated(true);
 }
 
 void AAuraProjectile::BeginPlay()

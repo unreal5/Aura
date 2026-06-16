@@ -58,6 +58,9 @@ int32 AAuraCharacter::GetPlayerLevel_Implementation() const
 	}
 	return Super::GetPlayerLevel_Implementation();
 }
+
+
+
 // 客户端调用
 void AAuraCharacter::OnRep_PlayerState()
 {

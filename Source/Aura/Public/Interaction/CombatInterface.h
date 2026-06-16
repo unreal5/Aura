@@ -22,6 +22,9 @@ class AURA_API ICombatInterface
 
 	// Add interface functions to this class. This is the class that will be inherited to implement this interface.
 public:
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category="Aura|接口")
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category="Aura|战斗")
 	int32 GetPlayerLevel() const;
+	
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category="Aura|战斗")
+	FVector GetCombatSocketLocation() const;
 };
