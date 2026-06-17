@@ -22,4 +22,7 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Projectile")
 	TSubclassOf<AAuraProjectile> ProjectileClass;
+	
+	UFUNCTION(BlueprintCallable, Category = "Projectile")
+	void SpawnProjectile(const FTransform& TargetTransform);
 };

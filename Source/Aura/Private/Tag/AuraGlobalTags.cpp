@@ -41,3 +41,6 @@ UE_DEFINE_GAMEPLAY_TAG(InputAction::_1, "InputAction.1");
 UE_DEFINE_GAMEPLAY_TAG(InputAction::_2, "InputAction.2");
 UE_DEFINE_GAMEPLAY_TAG(InputAction::_3, "InputAction.3");
 UE_DEFINE_GAMEPLAY_TAG(InputAction::_4, "InputAction.4");
+
+// Event
+UE_DEFINE_GAMEPLAY_TAG(Event::Montage::FireBolt, "Event.Montage.FireBolt");

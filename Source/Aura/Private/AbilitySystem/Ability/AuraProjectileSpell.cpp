@@ -16,8 +16,14 @@ void UAuraProjectileSpell::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
+
+}
+
+void UAuraProjectileSpell::SpawnProjectile(const FTransform& TargetTransform)
+{
 	check(ProjectileClass);
 
+	auto ActivationInfo = GetCurrentActivationInfo();
 	if (!HasAuthority(&ActivationInfo)) return;
 
 	const FVector WeaponSocketLocation = ICombatInterface::Execute_GetCombatSocketLocation(
@@ -34,6 +40,4 @@ void UAuraProjectileSpell::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 	{
 		ProjectileInst->FinishSpawning(SpawnTransform);
 	}
-	
-	K2_EndAbility();
 }

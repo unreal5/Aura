@@ -63,3 +63,11 @@ namespace InputAction
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(_3);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(_4);
 }
+
+namespace Event
+{
+	namespace Montage
+	{
+		UE_DECLARE_GAMEPLAY_TAG_EXTERN(FireBolt);
+	}
+}
