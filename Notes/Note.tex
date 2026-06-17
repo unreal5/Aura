@@ -1345,4 +1345,6 @@ for (auto& ActivatableAbilitySpec : GetActivatableAbilities())
 \part{UAbilityTask}
 \section{创建AbilityTask}
 在创建\ci{UAbilityTask}工厂方法时，需要类型为\ci{UGameplayAbility}的\ci{OwningAbility}变量。我们通常调用\ci{NewAbilityTask}创建Task实例\ci{MyObj}，然后\ci{MyObj->InitTask}，最终设置所属变量\ci{Ability}、所属组件\ci{AbilitySystemComponent}之类，从而可以获取所需的所有信息。
+
+对于自定义\ci{UTargetDataUnderMouse}，需要将数据发送到服务器，以便服务端也标记目标点。可以通过GAS内置的\ci{TargetData}系统的\ci{ServerSetReplicatedTargetData}之类传递数据。
 \end{document}
