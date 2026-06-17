@@ -1341,4 +1341,8 @@ for (auto& ActivatableAbilitySpec : GetActivatableAbilities())
 }
 \end{code}
 \ci{FGameplayAbilitySpec}的Ability代表技能的\textbf{CDO}\sidenote{\ci{Class Default Object}}，实例根据技能的实例化策略，在调用一些最终 会调用\ci{InternalTryActivateAbility}的函数，例如\ci{TryActivateAbility}，由其根据策略生成时生成。
+
+\part{UAbilityTask}
+\section{创建AbilityTask}
+在创建\ci{UAbilityTask}工厂方法时，需要类型为\ci{UGameplayAbility}的\ci{OwningAbility}变量。我们通常调用\ci{NewAbilityTask}创建Task实例\ci{MyObj}，然后\ci{MyObj->InitTask}，最终设置所属变量\ci{Ability}、所属组件\ci{AbilitySystemComponent}之类，从而可以获取所需的所有信息。
 \end{document}
