@@ -1347,4 +1347,639 @@ for (auto& ActivatableAbilitySpec : GetActivatableAbilities())
 在创建\ci{UAbilityTask}工厂方法时，需要类型为\ci{UGameplayAbility}的\ci{OwningAbility}变量。我们通常调用\ci{NewAbilityTask}创建Task实例\ci{MyObj}，然后\ci{MyObj->InitTask}，最终设置所属变量\ci{Ability}、所属组件\ci{AbilitySystemComponent}之类，从而可以获取所需的所有信息。
 
 对于自定义\ci{UTargetDataUnderMouse}，需要将数据发送到服务器，以便服务端也标记目标点。可以通过GAS内置的\ci{TargetData}系统的\ci{ServerSetReplicatedTargetData}之类传递数据。
+
+
+\section{向服务器发送鼠标 TargetData 的实现}
+
+
+本节的核心问题是：\textbf{在 UE5 的 GAS（Gameplay Ability System）中，自定义 Ability Task 不能只在本地读取鼠标命中结果并直接广播，因为服务器端并不会自动拥有这份有效的光标命中数据。} 单机思路是：
+$
+\text{GetHitResultUnderCursor} \Rightarrow \text{Broadcast}
+$。
+但在联机 GAS 中，这样做是不够的。真正需要的是：
+$
+\text{客户端采集鼠标命中} \Rightarrow \text{打包为 TargetData} \Rightarrow \text{发给服务器} \Rightarrow \text{服务器接收并继续执行能力逻辑}
+$
+
+因此，这一节实际上是在补齐 GAS 技能任务中的一个关键能力链路：\textbf{客户端将目标信息作为 TargetData 通过 AbilitySystemComponent 复制到服务器。}
+
+\subsection{问题背景：为什么“直接广播鼠标命中”不成立}
+
+前一版实现的问题：
+\begin{itemize}
+	\item 当前自定义 Ability Task 是 ``TargetDataUnderMouse''。
+	\item 之前只是简单地获取鼠标命中信息，然后广播出去。
+	\item 这种方式在本地控制角色时看起来可用，但在网络环境下会出错。
+	\item 原因是：\textbf{如果当前这一端不是 locally controlled player，那么 cursor hit 不一定有有效数据。}
+\end{itemize}
+
+这句话背后的 GAS/网络含义非常重要：
+
+\begin{itemize}
+	\item 鼠标光标是典型的\textbf{本地输入}。
+	\item 本地输入天然存在于客户端，不天然存在于服务器。
+	\item 服务器并不会凭空知道“玩家此刻鼠标指向了哪里”。
+	\item 所以，若技能逻辑依赖鼠标位置，就必须显式把该目标信息发送给服务器。
+\end{itemize}
+
+因此，本节的根本目标不是“拿到鼠标命中”，而是：
+
+\begin{center}
+	\textbf{把本地命中的结果变成 GAS 能识别、能复制、能预测、能在服务端消费的 TargetData。}
+\end{center}
+
+\subsection{总体设计思路}
+
+处理框架可以概括为两条分支：
+\begin{enumerate}
+	\item 如果当前角色是 \texttt{locally controlled}：
+	\begin{itemize}
+		\item 读取鼠标命中；
+		\item 创建 TargetData；
+		\item 打包到 TargetDataHandle；
+		\item 调用 \texttt{ServerSetReplicatedTargetData} 发给服务器；
+		\item 同时本地广播，保证本地预测和表现立即生效。
+	\end{itemize}
+	
+	\item 如果当前角色不是 \texttt{locally controlled}：
+	\begin{itemize}
+		\item 说明当前逻辑运行在服务器或非本地代理端；
+		\item 这时不应主动去读本地鼠标；
+		\item 应该改为“监听客户端发送上来的 TargetData”。
+	\end{itemize}
+\end{enumerate}
+
+所以本节实际是在搭建一个经典的 GAS 模式：
+
+\[
+\text{Local Input} \Rightarrow \text{Predicted Client Action} \Rightarrow \text{Replicated TargetData to Server}
+\]
+
+\subsection{Activate 中的控制分支}
+
+字幕中首先修改的是 Ability Task 的 \texttt{Activate()} 逻辑。
+
+核心判断是：
+
+\begin{itemize}
+	\item 通过 Ability 拿到 \texttt{CurrentActorInfo}
+	\item 再通过它调用 \texttt{IsLocallyControlled()}
+	\item 将结果保存为 \texttt{bIsLocallyControlled}
+\end{itemize}
+
+逻辑可以概括为：
+
+\begin{code}
+const bool bIsLocallyControlled = Ability->GetCurrentActorInfo()->IsLocallyControlled();
+	
+if (bIsLocallyControlled)
+{
+	SendMouseCursorData();
+}
+else
+{
+	// TODO: We are on the server, so listen for target data.
+}
+\end{code}
+
+这里的思想非常关键：
+
+\begin{itemize}
+	\item \texttt{Activate()} 不再盲目地“读鼠标并广播”。
+	\item 它先判断当前执行上下文是否具备读取本地输入的资格。
+	\item 若是本地控制端，就走“发送数据”路径。
+	\item 若不是，就走“等待远端发来数据”路径。
+\end{itemize}
+
+这一步让 Ability Task 从“单端取值”转变为“网络角色分工明确”的实现。
+
+\subsection{为什么选择 TargetData 而不是直接传 Vector}
+
+字幕随后解释了一个概念问题：\textbf{什么是 TargetData？}
+
+它去查看了 \texttt{GameplayAbilityTargetTypes.h}，发现其中定义了多种目标数据结构，例如：
+
+\begin{itemize}
+	\item \texttt{FGameplayAbilityTargetData}
+	\item \texttt{FGameplayAbilityTargetDataHandle}
+	\item \texttt{FGameplayAbilityTargetData\_LocationInfo}
+	\item \texttt{FGameplayAbilityTargetData\_SingleTargetHit}
+\end{itemize}
+
+本节最终选用的是：
+
+\[
+\texttt{FGameplayAbilityTargetData\_SingleTargetHit}
+\]
+
+原因非常直接：
+
+\begin{itemize}
+	\item 它专门表示“\textbf{单次命中结果}”；
+	\item 内部封装的是一个 \texttt{HitResult}；
+	\item 鼠标拾取本来得到的就是 \texttt{FHitResult}；
+	\item 因此它与“鼠标指向哪里”这个问题天然匹配。
+\end{itemize}
+
+这一选择比直接传一个 \texttt{FVector} 更合理，主要体现在：
+
+\begin{itemize}
+	\item \texttt{FHitResult} 不仅有位置，还有法线、命中的 Actor、Component、阻挡信息等；
+	\item 服务器拿到它之后拥有更完整的上下文；
+	\item GAS 的很多目标处理逻辑本来就是围绕 TargetData 设计的；
+	\item 这样做能与后续的能力激活、目标确认、效果应用等流程保持一致。
+\end{itemize}
+
+所以这里的设计思想是：
+
+\begin{center}
+	\textbf{不要只传最终位置，而要传 GAS 原生能理解的目标语义对象。}
+\end{center}
+
+\subsection{SendMouseCursorData 的核心实现}
+
+这一节新增了一个私有函数：
+
+\[
+\texttt{void SendMouseCursorData();}
+\]
+
+它的工作可以拆成以下步骤。
+
+\subsubsection{步骤一：先读取鼠标命中结果}
+
+先通过玩家控制器执行光标射线检测，得到 \texttt{CursorHit}：
+
+\begin{itemize}
+	\item 获取 \texttt{PlayerController}
+	\item 声明 \texttt{FHitResult CursorHit}
+	\item 调用 \texttt{GetHitResultUnderCursor}
+\end{itemize}
+
+这是本地输入采样阶段，本质上是在客户端提取“目标”。
+
+\subsubsection{步骤二：构造单次命中类型的 TargetData}
+
+创建：
+
+\begin{lstlisting}[language=C++,basicstyle=\ttfamily\small]
+	FGameplayAbilityTargetData_SingleTargetHit* Data =
+	new FGameplayAbilityTargetData_SingleTargetHit();
+\end{lstlisting}
+
+然后把本地得到的 \texttt{CursorHit} 填进去：
+
+\begin{lstlisting}[language=C++,basicstyle=\ttfamily\small]
+	Data->HitResult = CursorHit;
+\end{lstlisting}
+
+此时，原始的本地鼠标命中数据就被转换成了 GAS 的目标数据格式。
+
+\subsubsection{步骤三：再创建 TargetDataHandle 进行封装}
+
+仅有单个 \texttt{TargetData} 还不够，因为 GAS RPC 需要的是：
+
+\[
+\texttt{FGameplayAbilityTargetDataHandle}
+\]
+
+所以还要创建一个 Handle，然后把上面的 Data 放进去：
+
+\begin{lstlisting}[language=C++,basicstyle=\ttfamily\small]
+	FGameplayAbilityTargetDataHandle DataHandle;
+	DataHandle.Add(Data);
+\end{lstlisting}
+
+这里可以把 \texttt{Handle} 理解为“目标数据容器”或“传输包装器”。
+
+其意义在于：
+
+\begin{itemize}
+	\item 统一 GAS 的目标数据接口；
+	\item 支持一个或多个目标数据条目；
+	\item 作为 RPC 的正式参数类型；
+	\item 便于后续在能力图或 C++ 中继续解包使用。
+\end{itemize}
+
+\subsection{通过 AbilitySystemComponent 把数据发给服务器}
+
+Ability Task 内部可以方便访问 \texttt{AbilitySystemComponent}，于是本节调用了关键 RPC：
+
+\[
+\texttt{ServerSetReplicatedTargetData}
+\]
+
+这一步是全节最关键的“网络桥”。
+
+\subsubsection{函数调用的整体意图}
+
+这一调用的本质含义是：
+
+\begin{center}
+	\textbf{客户端告诉服务器：当前这个能力，在这个激活上下文里，我已经选好了目标，请使用这份 TargetData。}
+\end{center}
+
+\subsubsection{需要的参数}
+
+字幕里逐一解释了该函数需要的参数。可以总结如下。
+
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.3\textwidth}
+		>{\raggedright\arraybackslash}p{0.3\textwidth}
+		>{\raggedright\arraybackslash}p{0.4\textwidth}}
+	\toprule
+	参数 & 来源 & 作用说明 \\
+	\midrule
+	\endhead
+	
+	\texttt{GameplayAbilitySpecHandle} &
+	\texttt{GetAbilitySpecHandle()} &
+	标识“是哪一个能力实例/规格”在发送这份 TargetData。 \\
+	
+	\texttt{AbilityOriginalPredictionKey} &
+	\texttt{GetActivationPredictionKey()} &
+	对应能力最初激活时的 PredictionKey，用来和本次能力激活上下文关联。 \\
+	
+	\texttt{TargetDataHandle} &
+	本地构造的 \texttt{DataHandle} &
+	真正要复制给服务器的目标数据内容。 \\
+	
+	\texttt{ApplicationTag} &
+	可传空的 \texttt{FGameplayTag()} &
+	附带的应用标签，本节未设置具体含义，但参数位必须满足。 \\
+	
+	\texttt{CurrentPredictionKey} &
+	\texttt{AbilitySystemComponent ->ScopedPredictionKey} &
+	当前预测上下文的 PredictionKey，用于将本次预测行为与服务端同步。 \\
+	\bottomrule
+\end{longtable}
+
+于是它的典型调用形式可以概括成：
+
+\begin{code}
+AbilitySystemComponent->ServerSetReplicatedTargetData(GetAbilitySpecHandle(),
+	GetActivationPredictionKey(),
+	DataHandle,
+	FGameplayTag(),
+	AbilitySystemComponent->ScopedPredictionKey);
+\end{code}
+
+\subsubsection{这一 RPC 的工程意义}
+
+这一调用完成了三层工作：
+
+\begin{enumerate}
+	\item \textbf{标识能力上下文}：告诉服务器是哪一次能力激活。
+	\item \textbf{传递目标内容}：把命中结果送上去。
+	\item \textbf{建立预测同步}：让服务器知道客户端是在预测框架中提交这份数据。
+\end{enumerate}
+
+这说明 GAS 的 TargetData 复制并不是一个“随便发个结构体”的过程，而是被严密地绑定在：
+
+\[
+\text{AbilitySpecHandle} + \text{PredictionKey} + \text{TargetDataHandle}
+\]
+
+这一整套能力网络语义之中。
+
+\subsection{为何本地发送后还要继续广播 Delegate}
+
+字幕特别强调：即便已经把 TargetData 发给服务器，\textbf{本地也仍然应该广播有效数据。}
+
+原因是：
+
+\begin{itemize}
+	\item 客户端需要即时反馈；
+	\item 预测式技能不应该等服务器确认后才显示本地结果；
+	\item 否则玩家手感会明显变差。
+\end{itemize}
+
+因此，正确做法不是“发送给服务器以后就不管了”，而是：
+
+\begin{center}
+	\textbf{服务器同步是一条链，本地表现是另一条链，两者要并行。}
+\end{center}
+
+所以客户端在本地依然会广播 Ability Task 的 delegate，让蓝图或能力图继续向下执行。
+
+\subsubsection{广播前必须做的安全检查}
+
+这里字幕又补了一个重要细节：调用
+
+\[
+\texttt{ShouldBroadcastAbilityTaskDelegates()}
+\]
+
+它的作用是确认：
+
+\begin{itemize}
+	\item 当前 Ability 是否依旧处于有效、活跃状态；
+	\item 若能力已经结束或失效，则不应再往 Ability Graph 回调。
+\end{itemize}
+
+因此安全模式应是：
+
+\begin{code}
+if (ShouldBroadcastAbilityTaskDelegates())
+{
+	ValidData.Broadcast(DataHandle);
+}
+\end{code}
+
+这体现了 GAS Ability Task 的一个规范习惯：
+
+\begin{center}
+	\textbf{任何回调广播前，先检查 Ability Task 是否仍允许广播。}
+\end{center}
+
+\subsection{Delegate 参数为什么从 Vector 改成 DataHandle}
+
+原本 delegate 可能只广播了一个 \texttt{FVector}，但字幕中明确把它改成：
+
+\[
+\texttt{const FGameplayAbilityTargetDataHandle\&}
+\]
+
+这么改的原因很充分：
+
+\begin{itemize}
+	\item 如果只传 \texttt{FVector}，就只保留了位置。
+	\item 如果传 \texttt{TargetDataHandle}，就保留了完整目标语义。
+	\item 后续逻辑若需要命中的 Actor、法线、碰撞信息，都还能取到。
+	\item 这与 GAS 的原生输入/输出接口更一致。
+\end{itemize}
+
+因此这是一次非常重要的接口升级：
+
+\[
+\texttt{FVector} \quad \Longrightarrow \quad \texttt{FGameplayAbilityTargetDataHandle}
+\]
+
+其含义不是“类型换了”，而是：
+
+\begin{center}
+	\textbf{Ability Task 的输出从“裸坐标”提升为“可网络化、可扩展、可复用的 GAS 目标数据对象”。}
+\end{center}
+
+\subsection{PredictionKey 与预测窗口的意义}
+
+字幕后半段引出了另一个关键话题：\textbf{PredictionKey}。
+
+虽然讲师说明后续还会专门展开，但这一节已经透露出几个非常重要的原则。
+
+\subsubsection{原始 PredictionKey}
+
+\texttt{GetActivationPredictionKey()} 对应的是：
+
+\begin{itemize}
+	\item 能力最初被激活时关联的 PredictionKey；
+	\item 它表明“这份 TargetData 属于哪一次能力激活预测链路”。
+\end{itemize}
+
+\subsubsection{当前 PredictionKey}
+
+\texttt{AbilitySystemComponent->ScopedPredictionKey} 对应的是：
+
+\begin{itemize}
+	\item 当前这段预测代码执行时的 PredictionKey；
+	\item 它标记“此刻这个上下文里的预测动作”。
+\end{itemize}
+
+可以粗略理解为：
+
+\begin{itemize}
+	\item \textbf{Original Key}：能力是从哪次预测激活开始的；
+	\item \textbf{Current Key}：当前这个具体预测操作属于哪个预测窗口。
+\end{itemize}
+
+\subsubsection{为什么要创建 FScopedPredictionWindow}
+
+字幕强调：\texttt{ScopedPredictionKey} 不是自动更新出来给你“随便用”的，它通常需要通过一个预测窗口来建立和管理。
+
+因此在 \texttt{SendMouseCursorData()} 顶部创建：
+
+\begin{lstlisting}[language=C++,basicstyle=\ttfamily\small]
+	FScopedPredictionWindow ScopedPrediction(
+	AbilitySystemComponent.Get()
+	);
+\end{lstlisting}
+
+这一步的含义是：
+
+\begin{itemize}
+	\item 从这里开始，到当前作用域结束；
+	\item 这段代码中的行为都处于一个“预测上下文”中；
+	\item GAS 会生成或维护一个可用于客户端和服务器同步的 PredictionKey；
+	\item 当前发送的 TargetData 将被视为“受预测保护的本地操作”。
+\end{itemize}
+
+讲师给出的理解方式可以概括为：
+
+\begin{center}
+	\textbf{我们在本地先做这件事，请服务器随后接受并对齐这件事。}
+\end{center}
+
+\subsection{FScopedPredictionWindow 的本质解释}
+
+如果把这一工具抽象化，可以把它理解为一个 RAII 风格的预测上下文开关：
+
+\begin{itemize}
+	\item 构造时，打开预测作用域；
+	\item 在作用域内，ASC 维护对应的 PredictionKey；
+	\item 作用域结束时，窗口自然关闭。
+\end{itemize}
+
+它的工程价值主要有三点：
+
+\begin{enumerate}
+	\item 让本地 Ability Task 的行为可以合法地参与预测。
+	\item 让服务器能通过 PredictionKey 对应到这次客户端操作。
+	\item 让 GAS 的回滚、确认、同步机制具备一致的上下文依据。
+\end{enumerate}
+
+所以，这一节虽然表面上是在“发鼠标数据”，但实际上已经把 GAS 联机技能里极其关键的一层接上了：
+
+\[
+\text{TargetData Replication} + \text{Prediction}
+\]
+
+\subsection{本节实现的完整流程图}
+
+\begin{center}
+	\begin{tikzpicture}[
+		node distance=8mm and 10mm,
+		every node/.style={font=\small,fill=yellow!10,draw=black},
+		startstop/.style={rounded rectangle, draw, thick, align=center, minimum width=2.8cm, minimum height=0.9cm},
+		process/.style={rectangle, draw, align=center, minimum width=3.4cm, minimum height=0.9cm},
+		decision/.style={diamond, draw, aspect=2.2, align=center, inner sep=1pt},
+		line/.style={-Latex, thick}
+		]
+		\node[startstop] (activate) {\shortstack{AbilityTask\\Activate()}};
+		\node[decision, below=of activate] (local) {\shortstack{IsLocallyControlled?}};
+		
+		\node[process, below left=12mm and 18mm of local] (send) {\shortstack{调用\\SendMouseCursorData()}};
+		\node[process, below right=12mm and 18mm of local] (listen) {\shortstack{服务器端/非本地端\\等待或监听 TargetData}};
+		
+		\node[process, below=of send] (window) {\shortstack{创建\\FScopedPredictionWindow}};
+		\node[process, below=of window] (hit) {\shortstack{读取鼠标命中\\GetHitResultUnderCursor}};
+		\node[process, below=of hit] (data) {\shortstack{构造\\SingleTargetHit Data}};
+		\node[process, below=of data] (handle) {\shortstack{封装为\\TargetDataHandle}};
+		\node[process, below=of handle] (rpc) {\shortstack{调用 ASC::\\ServerSetReplicatedTargetData}};
+		\node[decision, below=of rpc] (broadcastcheck) {\shortstack{ShouldBroadcast\\AbilityTaskDelegates?}};
+		\node[process, below=of broadcastcheck] (broadcast) {\shortstack{本地广播\\ValidData(DataHandle)}};
+		
+		\draw[line] (activate) -- (local);
+		\draw[line] (local) -- node[above left] {Yes} (send);
+		\draw[line] (local) -- node[above right] {No} (listen);
+		\draw[line] (send) -- (window);
+		\draw[line] (window) -- (hit);
+		\draw[line] (hit) -- (data);
+		\draw[line] (data) -- (handle);
+		\draw[line] (handle) -- (rpc);
+		\draw[line] (rpc) -- (broadcastcheck);
+		\draw[line] (broadcastcheck) -- node[right] {Yes} (broadcast);
+	\end{tikzpicture}
+\end{center}
+
+\subsection{本节涉及的核心类型与职责清单}
+
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.5\textwidth}
+		>{\raggedright\arraybackslash}p{0.45\textwidth}}
+	\toprule
+	类型/函数 & 职责 \\
+	\midrule
+	\endhead
+	
+	\texttt{IsLocallyControlled()} &
+	判断当前执行上下文是否是本地控制端，决定是“采样并发送”还是“等待接收”。 \\
+	
+	\texttt{FHitResult} &
+	保存鼠标射线命中的完整结果，包括位置、命中的对象、法线等。 \\
+	
+	\texttt{FGameplayAbilityTargetData\_SingleTargetHit} &
+	把单次命中结果包装成 GAS 原生的目标数据结构。 \\
+	
+	\texttt{FGameplayAbilityTargetDataHandle} &
+	TargetData 的统一容器，用于网络传输和后续处理。 \\
+	
+	\texttt{AbilitySystemComponent} &
+	GAS 的核心网络/能力组件，负责提交复制的 TargetData。 \\
+	
+	\texttt{ServerSetReplicatedTargetData()} &
+	客户端将目标数据提交给服务器的关键 RPC。 \\
+	
+	\texttt{GetAbilitySpecHandle()} &
+	指出是哪一个技能实例在发送目标数据。 \\
+	
+	\texttt{GetActivationPredictionKey()} &
+	标记能力激活时的预测上下文。 \\
+	
+	\texttt{ScopedPredictionKey} &
+	标记当前这次预测操作的上下文。 \\
+	
+	\texttt{FScopedPredictionWindow} &
+	建立预测窗口，使当前作用域内的客户端行为受 PredictionKey 管理。 \\
+	
+	\texttt{ShouldBroadcastAbilityTaskDelegates()} &
+	在广播 Ability Task 委托前检查能力是否仍然有效。 \\
+	
+	\texttt{ValidData.Broadcast(DataHandle)} &
+	把完整 TargetData 广播给本地能力逻辑或蓝图图表继续消费。 \\
+	\bottomrule
+\end{longtable}
+
+\subsection{可以如何理解这一节在整个 GAS 学习路径中的地位}
+
+这一节是非常关键的一个转折点，因为它把多个之前可能分散的知识点接在了一起：
+
+\begin{itemize}
+	\item Ability Task 自定义扩展
+	\item 本地输入采集
+	\item TargetData 结构化封装
+	\item AbilitySystemComponent 的网络 RPC
+	\item 预测窗口与 PredictionKey
+	\item 本地预测表现与服务器权威同步
+\end{itemize}
+
+它的重要性在于：从这一节开始，技能不再只是“本地能跑”，而是真正进入了 GAS 最核心的联机语义区域。
+
+可以用下面这张思维导图来理解。
+
+\begin{center}
+	\begin{tikzpicture}[scale=0.7]
+		\path[mindmap,concept color=yellow,text=black]
+		node[concept] {Send Mouse Cursor Data}
+		[
+		grow cyclic,
+		level 1 concept/.append style={level distance=5cm,sibling angle=60},
+		level 2 concept/.append style={level distance=2.8cm,sibling angle=35}
+		]
+		child[concept color=blue!50!black,text=yellow] {
+			node[concept] {问题来源}
+			child { node[concept] {服务器没有本地鼠标输入} }
+			child { node[concept] {非 locally controlled 时 CursorHit 无效} }
+		}
+		child[concept color=red!60!black,text=yellow] {
+			node[concept] {数据结构}
+			child { node[concept] {HitResult} }
+			child { node[concept] {SingleTargetHit} }
+			child { node[concept] {TargetDataHandle} }
+		}
+		child[concept color=green!50!black,text=yellow] {
+			node[concept] {网络发送}
+			child { node[concept] {ASC RPC} }
+			child { node[concept] {SpecHandle} }
+			child { node[concept] {PredictionKey} }
+		}
+		child[concept color=orange!70!black,text=yellow] {
+			node[concept] {本地表现}
+			child { node[concept] {本地广播 Delegate} }
+			child { node[concept] {ShouldBroadcast 检查} }
+		}
+		child[concept color=purple!60!black,text=yellow] {
+			node[concept] {预测}
+			child { node[concept] {ScopedPredictionWindow} }
+			child { node[concept] {客户端先行} }
+			child { node[concept] {服务器后续同步} }
+		}
+		child[concept color=teal!60!black,text=yellow] {
+			node[concept] {后续铺垫}
+			child { node[concept] {服务器接收 TargetData} }
+			child { node[concept] {后续 Prediction 章节} }
+		};
+	\end{tikzpicture}
+\end{center}
+
+\subsection{本节的关键结论}
+
+这一节可以归纳出以下几个必须掌握的结论：
+
+\begin{enumerate}
+	\item \textbf{鼠标目标数据属于本地输入，服务器不会自动拥有。}
+	\item \textbf{在 GAS 中，应将这类目标信息封装成 TargetData，而不是只传一个坐标。}
+	\item \textbf{本地控制端负责采样并通过 ASC 的 \texttt{ServerSetReplicatedTargetData()} 提交给服务器。}
+	\item \textbf{TargetData 的网络提交必须与 AbilitySpecHandle 和 PredictionKey 绑定。}
+	\item \textbf{发送给服务器并不意味着放弃本地广播，本地预测表现仍然需要立即执行。}
+	\item \textbf{Ability Task 广播前应使用 \texttt{ShouldBroadcastAbilityTaskDelegates()} 做有效性检查。}
+	\item \textbf{若涉及预测行为，应在适当作用域内创建 \texttt{FScopedPredictionWindow}。}
+\end{enumerate}
+
+\subsection{从工程实践角度的进一步拓展}
+
+如果把本节知识放到真实项目里，可以得到几个很实用的工程结论：
+
+\begin{itemize}
+	\item 任何依赖玩家本地输入的技能目标选择，都应该优先考虑“客户端采样 + TargetData 上送”的模式。
+	\item 只传位置往往不够，最好传 GAS 认可的完整目标结构。
+	\item 在设计技能任务输出时，优先使用 \texttt{FGameplayAbilityTargetDataHandle}，避免后期接口反复重构。
+	\item 预测窗口不是可有可无的装饰，而是 GAS 联机手感与同步一致性的关键设施。
+	\item 服务端接收 TargetData 的逻辑应与本地发送逻辑成对设计，否则链路会断在中间。
+\end{itemize}
+
+\subsection{一句话总括}
+
+本节的本质可以用一句话概括：
+
+\begin{center}
+	\textbf{它教会我们如何把“客户端鼠标点到了哪里”这件本地事实，转化为 GAS 可预测、可复制、可由服务器权威处理的 TargetData。}
+\end{center}
 \end{document}
