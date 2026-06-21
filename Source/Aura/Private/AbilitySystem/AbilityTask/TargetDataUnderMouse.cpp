@@ -58,6 +58,13 @@ void UTargetDataUnderMouse::SendMouseCursorData()
 	                                                      TargetDataHandle, ApplicationTag, CurrentPredictionKey);
 
 	// 这个函数承担了过多的职责。应该把获取鼠标位置和广播数据的流程分离出来。
+	/* 	GAS 中 Ability 可能随时被取消（如角色死亡、技能被打断），如果此时 Task 仍在异步等待（如等待动画事件、等待目标数据），直接广播委托可能导致：
+	- 访问已销毁的对象 → 崩溃
+	- 在已结束的 Ability 上执行逻辑 → 状态混乱
+	- 重复触发回调 → 逻辑错误
+
+	这个函数相当于一道**安全闸门**，确保所有回调都在合法的生命周期内执行。
+	*/
 	if (ShouldBroadcastAbilityTaskDelegates())
 	{
 		OnTargetDataReady.Broadcast(TargetDataHandle);
@@ -67,4 +74,5 @@ void UTargetDataUnderMouse::SendMouseCursorData()
 void UTargetDataUnderMouse::OnTargetDataReplicatedCallback(
 	const FGameplayAbilityTargetDataHandle& GameplayAbilityTargetDataHandle, FGameplayTag GameplayTag)
 {
+	AbilitySystemComponent->ConsumeClientReplicatedTargetData(GetAbilitySpecHandle(), GetActivationPredictionKey());
 }
