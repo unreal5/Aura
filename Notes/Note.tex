@@ -1985,7 +1985,7 @@ if (ShouldBroadcastAbilityTaskDelegates())
 
 \section{PredictionKey 在 GAS 中的同步机制}
 
-虚幻引擎的 Gameplay Ability System（GAS）通过 \texttt{FPredictionKey} 实现\textbf{客户端预测}（Client Prediction）与\textbf{服务器权威}（Server Authority）之间的状态同步。其核心思想是：客户端先本地执行技能（预测），同时将预测标识发送给服务端；服务端执行后用相同标识确认或纠正，客户端据此决定是保留预测结果还是回滚。
+Gameplay Ability System（GAS）通过 \texttt{FPredictionKey} 实现\textbf{客户端预测}（Client Prediction）与\textbf{服务器权威}（Server Authority）之间的状态同步。其\textbf{核心思想}是：客户端先本地执行技能（预测），同时将预测标识发送给服务端；服务端执行后用相同标识确认或纠正，客户端据此决定是保留预测结果还是回滚。
 
 \subsection{PredictionKey 的结构与生成}
 

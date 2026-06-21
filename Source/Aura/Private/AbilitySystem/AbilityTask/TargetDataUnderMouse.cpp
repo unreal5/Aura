@@ -27,14 +27,22 @@ void UTargetDataUnderMouse::Activate()
 	}
 	else // 一定位于服务端。GA只能在OwningClient和Server上执行。
 	{
+		// TODO: 测试：如果GA设置为“服务器优先”，则会触发以下断言，因为它不可能是本机控制的。
 		check(Ability->GetCurrentActorInfo()->IsNetAuthority()); // 服务端执行时必须是NetAuthority。
+
 		FPredictionKey OriginalPredictionKey = GetActivationPredictionKey();
-		FGameplayAbilitySpecHandle AbilitySpecHandle = GetAbilitySpecHandle();
+		FGameplayAbilitySpecHandle SpecHandle = GetAbilitySpecHandle();
+
+		auto&& Delegate = AbilitySystemComponent->AbilityTargetDataSetDelegate(SpecHandle, OriginalPredictionKey);
 		// 建立侦听
-		AbilitySystemComponent->AbilityTargetDataSetDelegate(AbilitySpecHandle, OriginalPredictionKey).AddUObject(
-			this, &ThisClass::OnTargetDataReplicatedCallback);
+		Delegate.AddUObject(this, &ThisClass::OnTargetDataReplicatedCallback);
 		// 检查是否已经收到了数据（如果是服务端触发的GA，可能之前就收到了数据了），如果收到了数据就让其再触发。
-		AbilitySystemComponent->CallReplicatedTargetDataDelegatesIfSet(AbilitySpecHandle, OriginalPredictionKey);
+		const bool bCalledDelegate = AbilitySystemComponent->CallReplicatedTargetDataDelegatesIfSet(SpecHandle, OriginalPredictionKey);
+		if (!bCalledDelegate)
+		{
+			// 没有收到数据，说明数据还没有到达服务端，进入等待状态。
+			SetWaitingOnRemotePlayerData();
+		}
 	}
 }
 
@@ -75,4 +83,8 @@ void UTargetDataUnderMouse::OnTargetDataReplicatedCallback(
 	const FGameplayAbilityTargetDataHandle& GameplayAbilityTargetDataHandle, FGameplayTag GameplayTag)
 {
 	AbilitySystemComponent->ConsumeClientReplicatedTargetData(GetAbilitySpecHandle(), GetActivationPredictionKey());
+	if (ShouldBroadcastAbilityTaskDelegates())
+	{
+		OnTargetDataReady.Broadcast(GameplayAbilityTargetDataHandle);
+	}
 }
