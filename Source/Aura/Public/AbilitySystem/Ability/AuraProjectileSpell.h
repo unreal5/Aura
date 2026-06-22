@@ -24,5 +24,5 @@ protected:
 	TSubclassOf<AAuraProjectile> ProjectileClass;
 	
 	UFUNCTION(BlueprintCallable, Category = "Projectile")
-	void SpawnProjectile(const FTransform& TargetTransform);
+	void SpawnProjectile(const FVector& TargetLocation);
 };

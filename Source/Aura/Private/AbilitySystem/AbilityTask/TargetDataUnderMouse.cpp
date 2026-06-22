@@ -37,7 +37,8 @@ void UTargetDataUnderMouse::Activate()
 		// 建立侦听
 		Delegate.AddUObject(this, &ThisClass::OnTargetDataReplicatedCallback);
 		// 检查是否已经收到了数据（如果是服务端触发的GA，可能之前就收到了数据了），如果收到了数据就让其再触发。
-		const bool bCalledDelegate = AbilitySystemComponent->CallReplicatedTargetDataDelegatesIfSet(SpecHandle, OriginalPredictionKey);
+		const bool bCalledDelegate = AbilitySystemComponent->CallReplicatedTargetDataDelegatesIfSet(
+			SpecHandle, OriginalPredictionKey);
 		if (!bCalledDelegate)
 		{
 			// 没有收到数据，说明数据还没有到达服务端，进入等待状态。
@@ -48,25 +49,33 @@ void UTargetDataUnderMouse::Activate()
 
 void UTargetDataUnderMouse::SendMouseCursorData()
 {
-	FScopedPredictionWindow PredictionWindow(AbilitySystemComponent.Get());
-
 	auto PC = Ability->GetCurrentActorInfo()->PlayerController.Get();
-	if (!PC) return; // 调用本函数时已经进行过是否本机控制的判断了，这里只是保险。
+
+	check(PC);
 
 	auto TargetData = new FGameplayAbilityTargetData_SingleTargetHit{};
-	PC->GetHitResultUnderCursor(ECC_Visibility, false, TargetData->HitResult);
+	const bool bHasHit = PC->GetHitResultUnderCursor(ECC_Visibility, false, TargetData->HitResult);
+	if (!bHasHit)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("TargetDataUnderMouse: 鼠标下没有命中。"));
+		EndTask();
+		return;
+	}
 	FGameplayAbilityTargetDataHandle TargetDataHandle;
 	TargetDataHandle.Add(TargetData);
-	// 客户端（服务器也适用）预测：对于预测数据，每次预测都会生成一个新的预测Key，服务端会根据这个Key来识别数据是否是预测数据，以及是否需要丢弃过时的预测数据。
-	// Original PredictionKey：GA激活时生成的预测Key，服务端会将其与接收到的数据进行比较，如果数据的预测Key与Original PredictionKey匹配，则认为数据是有效的预测数据；如果不匹配，则认为数据是过时的预测数据，应该被丢弃。
-	auto OriginalPredictionKey = GetActivationPredictionKey();
-	FGameplayTag ApplicationTag{};
-	FPredictionKey CurrentPredictionKey = AbilitySystemComponent->ScopedPredictionKey;
-	AbilitySystemComponent->ServerSetReplicatedTargetData(GetAbilitySpecHandle(), OriginalPredictionKey,
-	                                                      TargetDataHandle, ApplicationTag, CurrentPredictionKey);
-
-	// 这个函数承担了过多的职责。应该把获取鼠标位置和广播数据的流程分离出来。
-	/* 	GAS 中 Ability 可能随时被取消（如角色死亡、技能被打断），如果此时 Task 仍在异步等待（如等待动画事件、等待目标数据），直接广播委托可能导致：
+	const bool bIsServer = Ability->GetCurrentActorInfo()->IsNetAuthority();
+	if (!bIsServer)
+	{
+		FScopedPredictionWindow PredictionWindow(AbilitySystemComponent.Get());
+		// 客户端（服务器也适用）预测：对于预测数据，每次预测都会生成一个新的预测Key，服务端会根据这个Key来识别数据是否是预测数据，以及是否需要丢弃过时的预测数据。
+		// Original PredictionKey：GA激活时生成的预测Key，服务端会将其与接收到的数据进行比较，如果数据的预测Key与OriginalPredictionKey匹配，则认为数据是有效的预测数据；如果不匹配，则认为数据是过时的预测数据，应该被丢弃。
+		auto OriginalPredictionKey = GetActivationPredictionKey();
+		FGameplayTag ApplicationTag{};
+		FPredictionKey CurrentPredictionKey = AbilitySystemComponent->ScopedPredictionKey;
+		AbilitySystemComponent->ServerSetReplicatedTargetData(GetAbilitySpecHandle(), OriginalPredictionKey,
+		                                                      TargetDataHandle, ApplicationTag, CurrentPredictionKey);
+	}
+	/* 	Ability 可能随时被取消（如角色死亡、技能被打断），如果此时 Task 仍在异步等待（如等待动画事件、等待目标数据），直接广播委托可能导致：
 	- 访问已销毁的对象 → 崩溃
 	- 在已结束的 Ability 上执行逻辑 → 状态混乱
 	- 重复触发回调 → 逻辑错误
@@ -77,6 +86,7 @@ void UTargetDataUnderMouse::SendMouseCursorData()
 	{
 		OnTargetDataReady.Broadcast(TargetDataHandle);
 	}
+	EndTask();
 }
 
 void UTargetDataUnderMouse::OnTargetDataReplicatedCallback(

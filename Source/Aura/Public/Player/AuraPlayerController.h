@@ -32,6 +32,7 @@ public:
 
 protected:
 	void BeginPlay() override;
+	
 	void SetupInputComponent() override;
 
 private:
@@ -44,6 +45,13 @@ private:
 
 	void Move(const FInputActionValue& InputActionValue);
 
+	/** Move Input Action */
+	UPROPERTY(EditAnywhere, Category="Input")
+	UInputAction* ShiftAction;
+	
+	void ShiftKeyPressed(bool bKeyPressed);
+	bool bShiftPressed = false;
+	
 	UPROPERTY(EditDefaultsOnly, Category="Input")
 	TObjectPtr<UAuraInputConfig> AuraInputConfig;
 

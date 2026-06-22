@@ -19,7 +19,7 @@ void UAuraProjectileSpell::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 
 }
 
-void UAuraProjectileSpell::SpawnProjectile(const FTransform& TargetTransform)
+void UAuraProjectileSpell::SpawnProjectile(const FVector& TargetLocation)
 {
 	check(ProjectileClass);
 
@@ -28,9 +28,13 @@ void UAuraProjectileSpell::SpawnProjectile(const FTransform& TargetTransform)
 
 	const FVector WeaponSocketLocation = ICombatInterface::Execute_GetCombatSocketLocation(
 		GetAvatarActorFromActorInfo());
+	
 	FTransform SpawnTransform;
 	SpawnTransform.SetLocation(WeaponSocketLocation);
-
+	auto Rotation = (TargetLocation - WeaponSocketLocation).ToOrientationRotator();
+	//Rotation.Pitch = 0.f;
+	SpawnTransform.SetRotation(Rotation.Quaternion());
+	
 	AActor* Owner = GetOwningActorFromActorInfo();
 	APawn* InstigatorPawn = Cast<APawn>(Owner);
 	ESpawnActorCollisionHandlingMethod SpawnMethod = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;

@@ -1352,11 +1352,12 @@ for (auto& ActivatableAbilitySpec : GetActivatableAbilities())
 \section{向服务器发送鼠标 TargetData 的实现}
 
 
-本节的核心问题是：\textbf{在 UE5 的 GAS（Gameplay Ability System）中，自定义 Ability Task 不能只在本地读取鼠标命中结果并直接广播，因为服务器端并不会自动拥有这份有效的光标命中数据。} 单机思路是：
-$
+本节的核心问题是：\textbf{在  GAS中，自定义 Ability Task 不能只在本地读取鼠标命中结果并直接广播，因为服务器端并不会自动拥有这份有效的光标命中数据}。 
+
+\textbf{单机}思路是：$
 \text{GetHitResultUnderCursor} \Rightarrow \text{Broadcast}
 $。
-但在联机 GAS 中，这样做是不够的。真正需要的是：
+但在\textbf{联机} GAS 中，这样做是不够的。真正需要的是：
 $
 \text{客户端采集鼠标命中} \Rightarrow \text{打包为 TargetData} \Rightarrow \text{发给服务器} \Rightarrow \text{服务器接收并继续执行能力逻辑}
 $
@@ -1397,7 +1398,7 @@ $
 		\item 读取鼠标命中；
 		\item 创建 TargetData；
 		\item 打包到 TargetDataHandle；
-		\item 调用 \texttt{ServerSetReplicatedTargetData} 发给服务器；
+		\item 调用 \ci{ServerSetReplicatedTargetData} 发给服务器；
 		\item 同时本地广播，保证本地预测和表现立即生效。
 	\end{itemize}
 	
@@ -1455,9 +1456,7 @@ else
 
 \subsection{为什么选择 TargetData 而不是直接传 Vector}
 
-字幕随后解释了一个概念问题：\textbf{什么是 TargetData？}
-
-它去查看了 \texttt{GameplayAbilityTargetTypes.h}，发现其中定义了多种目标数据结构，例如：
+\textbf{ TargetData}定义了多种目标数据结构，例如：
 
 \begin{itemize}
 	\item \texttt{FGameplayAbilityTargetData}
@@ -1498,11 +1497,8 @@ else
 
 \subsection{SendMouseCursorData 的核心实现}
 
-这一节新增了一个私有函数：
 
-\[
-\texttt{void SendMouseCursorData();}
-\]
+\ci{void SendMouseCursorData();}
 
 它的工作可以拆成以下步骤。
 
@@ -1563,26 +1559,17 @@ else
 
 \subsection{通过 AbilitySystemComponent 把数据发给服务器}
 
-Ability Task 内部可以方便访问 \texttt{AbilitySystemComponent}，于是本节调用了关键 RPC：
-
-\[
-\texttt{ServerSetReplicatedTargetData}
-\]
-
-这一步是全节最关键的“网络桥”。
+Ability Task 可以方便访问 \texttt{AbilitySystemComponent}，全节最关键的“网络桥” 是技能组件的RPC函数：\ci{ServerSetReplicatedTargetData}
 
 \subsubsection{函数调用的整体意图}
 
 这一调用的本质含义是：
 
-\begin{center}
 	\textbf{客户端告诉服务器：当前这个能力，在这个激活上下文里，我已经选好了目标，请使用这份 TargetData。}
-\end{center}
 
 \subsubsection{需要的参数}
 
-字幕里逐一解释了该函数需要的参数。可以总结如下。
-
+该函数需要的参数。可以总结如下。
 \begin{longtable}{>{\raggedright\arraybackslash}p{0.3\textwidth}
 		>{\raggedright\arraybackslash}p{0.3\textwidth}
 		>{\raggedright\arraybackslash}p{0.4\textwidth}}
@@ -1643,8 +1630,7 @@ AbilitySystemComponent->ServerSetReplicatedTargetData(GetAbilitySpecHandle(),
 
 \subsection{为何本地发送后还要继续广播 Delegate}
 
-字幕特别强调：即便已经把 TargetData 发给服务器，\textbf{本地也仍然应该广播有效数据。}
-
+即便已经把 TargetData 发给服务器，\textbf{本地也仍然应该广播有效数据。}
 原因是：
 
 \begin{itemize}
@@ -1663,14 +1649,9 @@ AbilitySystemComponent->ServerSetReplicatedTargetData(GetAbilitySpecHandle(),
 
 \subsubsection{广播前必须做的安全检查}
 
-这里字幕又补了一个重要细节：调用
-
-\[
-\texttt{ShouldBroadcastAbilityTaskDelegates()}
-\]
-
+\textbf{重要细节}：调用
+\ci{ShouldBroadcastAbilityTaskDelegates()}。
 它的作用是确认：
-
 \begin{itemize}
 	\item 当前 Ability 是否依旧处于有效、活跃状态；
 	\item 若能力已经结束或失效，则不应再往 Ability Graph 回调。
@@ -1722,9 +1703,8 @@ if (ShouldBroadcastAbilityTaskDelegates())
 
 \subsection{PredictionKey 与预测窗口的意义}
 
-字幕后半段引出了另一个关键话题：\textbf{PredictionKey}。
-
-虽然讲师说明后续还会专门展开，但这一节已经透露出几个非常重要的原则。
+另一个关键话题：\textbf{PredictionKey}。
+后续还会专门展开，但这一节已经透露出几个非常重要的原则。
 
 \subsubsection{原始 PredictionKey}
 
@@ -1737,7 +1717,7 @@ if (ShouldBroadcastAbilityTaskDelegates())
 
 \subsubsection{当前 PredictionKey}
 
-\texttt{AbilitySystemComponent->ScopedPredictionKey} 对应的是：
+\ci{AbilitySystemComponent->ScopedPredictionKey} 对应的是：
 
 \begin{itemize}
 	\item 当前这段预测代码执行时的 PredictionKey；
@@ -1757,11 +1737,9 @@ if (ShouldBroadcastAbilityTaskDelegates())
 
 因此在 \texttt{SendMouseCursorData()} 顶部创建：
 
-\begin{lstlisting}[language=C++,basicstyle=\ttfamily\small]
-	FScopedPredictionWindow ScopedPrediction(
-	AbilitySystemComponent.Get()
-	);
-\end{lstlisting}
+\begin{code}
+FScopedPredictionWindow ScopedPrediction(AbilitySystemComponent.Get());
+\end{code}
 
 这一步的含义是：
 
@@ -1772,11 +1750,7 @@ if (ShouldBroadcastAbilityTaskDelegates())
 	\item 当前发送的 TargetData 将被视为“受预测保护的本地操作”。
 \end{itemize}
 
-讲师给出的理解方式可以概括为：
-
-\begin{center}
-	\textbf{我们在本地先做这件事，请服务器随后接受并对齐这件事。}
-\end{center}
+可以概括为：	\textbf{我们在本地先做这件事，请服务器随后接受并对齐这件事。}
 
 \subsection{FScopedPredictionWindow 的本质解释}
 
@@ -1985,7 +1959,7 @@ if (ShouldBroadcastAbilityTaskDelegates())
 
 \section{PredictionKey 在 GAS 中的同步机制}
 
-Gameplay Ability System（GAS）通过 \texttt{FPredictionKey} 实现\textbf{客户端预测}（Client Prediction）与\textbf{服务器权威}（Server Authority）之间的状态同步。其\textbf{核心思想}是：客户端先本地执行技能（预测），同时将预测标识发送给服务端；服务端执行后用相同标识确认或纠正，客户端据此决定是保留预测结果还是回滚。
+GAS通过 \texttt{FPredictionKey} 实现\textbf{客户端预测}（Client Prediction）与\textbf{服务器权威}（Server Authority）之间的状态同步。其\textbf{核心思想}是：客户端先本地执行技能（预测），同时将预测标识发送给服务端；服务端执行后用相同标识确认或纠正，客户端据此决定是保留预测结果还是回滚。
 
 \subsection{PredictionKey 的结构与生成}
 
@@ -2193,4 +2167,281 @@ GAS 的回滚机制依赖于**\textbf{每个预测操作都关联到正确的 Pr
 \subsection{总结}
 
 \texttt{FScopedPredictionWindow} 就是预测 Key 的**"\textbf{临时切换器}"**——用 RAII 方式保证一段代码在正确的预测上下文中执行，用完自动恢复，是 GAS 预测机制能安全、正确工作的基础设施之一。
+
+\section{Gameplay Ability Prediction 概述}
+
+\subsection{高层目标}
+在GameplayAbility层面，预测对能力实现是透明的。能力只需声明“执行X→Y→Z”，系统会自动预测其中可预测的部分。我们希望在能力本身中避免出现“如果是权威端则执行X，否则执行预测版本X”这类逻辑。
+
+当前并非所有情况都已解决，但我们已建立了一个非常坚实的客户端预测框架。
+
+\subsection{预测范围}
+
+\subsubsection{当前支持预测的内容}
+\begin{itemize}
+	\item GameplayAbility的初始激活（以及带限制条件的链式激活）
+	\item 触发事件（Triggered Events）
+	\item GameplayEffect应用：
+	\begin{itemize}
+		\item 属性修改（例外：Execution目前不支持预测，仅属性修饰器支持）
+		\item GameplayTag修改
+	\end{itemize}
+	\item Gameplay Cue事件（包括预测性GameplayEffect内部的和独立触发的）
+	\item Montage动画
+	\item 移动（由UE的UCharacterMovement内置支持）
+\end{itemize}
+
+\subsubsection{当前不支持预测的内容}
+\begin{itemize}
+	\item GameplayEffect的移除
+	\item GameplayEffect的周期性效果（持续伤害 ticking）
+\end{itemize}
+
+\subsection{要解决的问题}
+\begin{enumerate}
+	\item \textbf{“我能这么做吗？”}——预测的基本协议。
+	\item \textbf{“撤销”}——当预测失败时如何撤销副作用。
+	\item \textbf{“重做”}——如何避免重放本地预测但又被服务器复制的副作用。
+	\item \textbf{“完整性”}——如何确保我们真正预测了所有副作用。
+	\item \textbf{“依赖关系”}——如何管理依赖预测和预测事件的链式反应。
+	\item \textbf{“覆盖”}——如何预测性地覆盖原本由服务器复制/拥有的状态。
+\end{enumerate}
+
+\subsection{实现细节}
+
+\subsubsection{PredictionKey（预测键）}
+该系统的一个基本概念是预测键（\ci{FPredictionKey}）。预测键本质上是一个唯一ID，在客户端中心位置生成。客户端将其预测键发送给服务器，并将预测性操作和副作用与该键关联。服务器可以接受或拒绝该预测键，并会将服务器端创建的副作用也与此预测键关联。
+
+\textbf{重要：} FPredictionKey总是从客户端复制到服务器，但当从服务器复制到客户端时，它们\textbf{仅}复制到最初将该预测键发送给服务器的客户端。这通过FPredictionKey::NetSerialize实现。当客户端发送的预测键通过复制属性复制回来时，其他所有客户端将收到无效（0）的预测键。
+
+\subsubsection{Ability激活}
+Ability激活是一等预测性操作——它会生成一个初始预测键。每当客户端预测性地激活一个能力时，它会明确地向服务器请求，服务器会明确地响应。一旦能力被预测性激活（但请求尚未发送），客户端就拥有一个有效的“预测窗口”，在此期间可以发生未明确“询问”的预测性副作用。
+
+这个预测窗口可以理解为ActivateAbility的初始调用栈。一旦ActivateAbility结束，预测窗口（以及预测键）就不再有效。这一点很重要，因为许多操作（如计时器或蓝图中的延迟节点）会使预测窗口失效；我们不会跨多个帧进行预测。
+
+AbilitySystemComponent提供了一组用于客户端和服务器之间能力激活通信的函数：
+\begin{code}
+TryActivateAbility `$\Rightarrow$` ServerTryActivateAbility `$\Rightarrow$` ClientActivateAbility(Failed/Succeed)
+\end{code}
+
+\begin{enumerate}
+	\item 客户端调用TryActivateAbility，生成新的FPredictionKey并调用ServerTryActivateAbility。
+	\item 客户端继续执行（不等服务器回应），调用ActivateAbility，并将生成的PredictionKey与Ability的ActivationInfo关联。
+	\item 在ActivateAbility完成之前发生的任何副作用都与生成的FPredictionKey关联。
+	\item 服务器在ServerTryActivateAbility中决定能力是否真的发生，调用ClientActivateAbility(Failed/Succeed)，并将UAbilitySystemComponent::ReplicatedPredictionKey设置为客户端在请求中发送的生成键。
+	\item 如果客户端收到ClientAbilityFailed，它会立即终止能力并回滚与该预测键关联的副作用。
+	\begin{itemize}
+		\item “回滚”逻辑通过\ci{FPredictionKeyDelegates}和\ci{FPredictionKey::NewRejectedDelegate/NewCaughtUpDelegate/NewRejectOrCaughtUpDelegate}注册。
+		\item ClientAbilityFailed实际上是唯一“拒绝”预测键的情况，因此我们当前所有的预测都依赖于能力是否激活成功。
+	\end{itemize}
+	\item 如果ServerTryActivateAbility成功，客户端必须等待属性复制跟上（Succeed RPC会立即发送，属性复制会自行发生）。一旦ReplicatedPredictionKey追上先前步骤使用的键，客户端就可以撤销其预测性副作用。
+\end{enumerate}
+
+\subsubsection{GameplayEffect预测}
+GameplayEffect被视为能力激活的副作用，不会被单独接受或拒绝。
+
+\begin{enumerate}
+	\item GameplayEffect仅在存在有效预测键时才会在客户端应用（如果没有预测键，则跳过客户端的应用）。
+	\item 如果GameplayEffect被预测，则属性、GameplayCue和GameplayTag都会被预测。
+	\item 当FActiveGameplayEffect创建时，它会存储预测键（FActiveGameplayEffect::PredictionKey）。
+	\begin{itemize}
+		\item 即时效果在“属性预测”中说明。
+	\end{itemize}
+	\item 在服务器上，相同的预测键也会设置在将被复制下去的服务器端FActiveGameplayEffect上。
+	\item 作为客户端，如果收到带有有效预测键的复制FActiveGameplayEffect，它会检查是否具有相同键的ActiveGameplayEffect，如果匹配，则不应用“应用时”类型的逻辑（例如GameplayCue）。这解决了“重做”问题。但我们的ActiveGameplayEffects容器中会暂时有两个“相同”的GameplayEffect。
+	\item 同时，FReplicatedPredictionKeyItem::OnRep会进行追赶，预测性效果会被移除。当在这种情况下移除时，我们再次检查PredictionKey，决定是否不应执行“移除时”逻辑/GameplayCue。
+\end{enumerate}
+
+至此，我们已有效地将GameplayEffect作为副作用进行了预测，并处理了“撤销”和“重做”问题。
+
+\subsubsection{属性预测}
+由于属性作为标准UProperty复制，预测对它们的修改可能会很棘手（“覆盖”问题）。即时修改更加困难，因为它们在本质上是无状态的。
+
+基本的策略是将属性预测视为增量预测而非绝对值预测。我们不预测“我有90法力”，而是预测“相对于服务器值我有-10法力”，直到服务器确认我们的预测键。基本上，将预测性即时修改视为对属性的/无限时长修改/。这解决了“撤销”和“重做”问题。
+
+对于“覆盖”问题，我们可以通过在OnRep中处理属性，将复制的（服务器）值视为属性的“基础值”而非“最终值”，并在复制发生后重新聚合我们的“最终值”来解决。
+
+\begin{enumerate}
+	\item 我们将预测性即时GameplayEffect视为无限时长GameplayEffect。
+	\item 我们必须\textbf{始终}接收属性的RepNotify调用（而不仅仅是在上次本地值发生变化时），因为我们会在变化发生前提前预测。使用REPNOTIFY\_Always实现。
+	\item 在属性RepNotify中，我们调用AbilitySystemComponent::ActiveGameplayEffects来更新“最终值”，给定新的“基础值”。GAMEPLAYATTRIBUTE\_REPNOTIFY可以实现这一点。
+	\item 其他一切将像上面一样工作（GameplayEffect预测）：当预测键被追上时，预测性GameplayEffect被移除，我们将恢复到服务器给定的值。
+\end{enumerate}
+
+\subsubsection{Gameplay Cue事件}
+除了已说明的GameplayEffect之外，GameplayCue也可以独立激活。这些函数（UAbilitySystemComponent::ExecuteGameplayCue等）会考虑网络角色和预测键。
+
+\begin{enumerate}
+	\item 在UAbilitySystemComponent::ExecuteGameplayCue中，如果是权威端则执行多播事件（带复制键）。如果是非权威端但有有效的预测键，则预测该GameplayCue。
+	\item 在接收端（NetMulticast\_InvokeGameplayCueExecuted等），如果有复制键，则不执行事件（假定你已经预测了它）。
+\end{enumerate}
+
+记住FPredictionKey只复制给原始所有者。这是FReplicationKey的内在属性。
+
+\subsubsection{触发数据预测}
+触发数据目前用于激活能力。基本上，这都经过与ActivateAbility相同的代码路径。能力不是从输入按键激活，而是从其他游戏代码驱动的事件激活。客户端能够预测性地执行这些事件，从而预测性地激活能力。
+
+然而有一些细微差别，因为服务器也会运行触发事件的代码。服务器不会只是等待客户端的消息。服务器会保留一份已从预测性能力激活的触发能力列表。当从触发能力收到TryActivate时，服务器会查看/自己/是否已经运行了这个能力，并用该信息进行响应。
+
+问题在于我们目前没有正确回滚这些操作。触发事件和复制方面还有工作要做。
+
+\subsection{高级主题}
+
+\subsubsection{依赖关系}
+我们可能会遇到这样的情况：“能力X激活并立即触发一个事件，该事件激活能力Y，Y又触发另一个能力Z”。依赖链是X→Y→Z。其中每个能力都可能被服务器拒绝。如果Y被拒绝，那么Z也从未发生，但服务器从未尝试运行Z，因此服务器没有明确决定“Z不能运行”。
+
+为了处理这个问题，我们有一个基础预测键（Base PredictionKey）的概念，它是FPredictionKey的成员。在调用TryActivateAbility时，我们传入当前的PredictionKey（如果适用）。该预测键被用作任何新生成的预测键的基础。我们通过这种方式构建一个键链，如果Y被拒绝，可以使Z失效。
+
+但这稍微有些微妙。在X→Y→Z的情况下，服务器在尝试运行链本身之前只会收到X的PredictionKey。例如，它会用客户端发送的原始预测键尝试激活Y和Z，而客户端每次调用TryActivateAbility时都会生成一个新的PredictionKey。客户端\textbf{必须}为每次能力激活生成一个新的PredictionKey，因为每次激活在逻辑上不是原子的。事件链中产生的每个副作用都必须有一个唯一的PredictionKey。我们不能让X中产生的GameplayEffect与Z中产生的具有相同的PredictionKey。
+
+为了解决这个问题，X的预测键被认为是Y和Z的基础键。从Y到Z的依赖完全保持在客户端，这通过FPredictionKeyDelegates::AddDependancy完成。我们添加委托，在Y被拒绝/确认时拒绝/追上Z。
+
+这个依赖系统允许我们在一个预测窗口/范围内拥有多个在逻辑上不是原子的预测性操作。
+
+但有一个问题：因为依赖关系保持在客户端，服务器实际上不知道它之前是否拒绝了一个依赖操作。你可以通过在你的游戏能力中使用激活标签来围绕这个问题进行设计。例如，在预测依赖项GA\_Combo1 → GA\_Combo2时，你可以使GA\_Combo2仅在具有由GA\_Combo1赋予的GameplayTag时才能激活。这样，GA\_Combo1的拒绝也会导致服务器拒绝GA\_Combo2的激活。
+
+\subsubsection{额外的预测窗口（能力内部）}
+如前所述，预测键仅在单个逻辑范围内可用。一旦ActivateAbility返回，我们基本上就用完了那个键。如果能力在等待外部事件或计时器，很可能当我们准备好继续执行时，我们已经收到了服务器的确认/拒绝。因此，在初始激活之后产生的任何额外副作用都不能再绑定到原始键的生命周期。
+
+这其实还好，只是能力有时想要响应玩家输入。例如，“按住蓄力”能力希望在按钮释放时立即预测一些事情。可以通过FScopedPredictionWindow在能力内部创建一个新的预测窗口。
+
+FScopedPredictionWindow提供了一种方式，向服务器发送一个新的预测键，并让服务器在相同的逻辑范围内接收并使用该键。
+
+UAbilityTask\_WaitInputRelease::OnReleaseCallback是一个很好的例子。事件流程如下：
+\begin{enumerate}
+	\item 客户端进入UAbilityTask\_WaitInputRelease::OnReleaseCallback并启动一个新的FScopedPredictionWindow。这为此范围创建了一个新的预测键（FScopedPredictionWindow::ScopedPredictionKey）。
+	\item 客户端调用AbilitySystemComponent->ServerInputRelease，传递ScopedPrediction.ScopedPredictionKey作为参数。
+	\item 服务器运行ServerInputRelease\_Implementation，接收传入的PredictionKey，并通过FScopedPredictionWindow将其设置为UAbilitySystemComponent::ScopedPredictionKey。
+	\item 服务器在/\textbf{相同范围内}/运行UAbilityTask\_WaitInputRelease::OnReleaseCallback。
+	\item 当服务器在::OnReleaseCallback中遇到FScopedPredictionWindow时，它从UAbilitySystemComponent::ScopedPredictionKey获取预测键。该键现在用于此逻辑范围内的所有副作用。
+	\item 一旦服务器结束此范围内的预测窗口，所使用的预测键就完成并设置为ReplicatedPredictionKey。
+	\item 在此范围内创建的所有副作用现在在客户端和服务器之间共享一个键。
+\end{enumerate}
+
+这个工作的关键是::OnReleaseCallback调用::ServerInputRelease，后者在服务器上调用::OnReleaseCallback。没有其他任何东西可以插入并使用给定的预测键。
+
+虽然在这个例子中没有“Try/Failed/Succeed”调用，但所有副作用在程序上都是分组/原子的。这为在服务器和客户端上运行的任何任意函数调用解决了“撤销”和“重做”问题。
+
+\subsection{不支持/问题/待办事项}
+
+\subsubsection{触发事件不明确复制}
+例如，如果触发事件仅在服务器上运行，客户端永远不会知道它。这也阻止了我们做跨玩家/AI等的事件。最终应该添加对此的支持，并应遵循GameplayEffect和GameplayCue遵循的相同模式（用预测键预测触发事件，如果事件有预测键则忽略RPC事件）。
+
+\subsubsection{链式激活回滚的重大限制}
+这个系统的一个重大问题是：任何链式激活（包括触发事件）的回滚目前开箱即用是不可能的。原因是每个ServerTryActivateAbility都会按顺序得到响应。以依赖GA链为例：GA\_Mispredict → GA\_Predict1。在这个例子中，当GA\_Mispredict被激活并在本地预测时，它会立即激活GA\_Predict1。客户端发送GA\_Mispredict的ServerTryActivateAbility，服务器拒绝它（发回ClientActivateAbilityFailed）。目前，我们没有任何委托在客户端拒绝依赖能力（服务器甚至不知道有依赖项）。在服务器上，它也会收到GA\_Predict1的ServerTryActivateAbility。假设该请求成功，那么客户端和服务器现在都在执行GA\_Predict1，尽管GA\_Mispredict从未发生。你可以通过使用标签系统确保GA\_Mispredict成功来围绕这个问题进行设计。
+
+\subsubsection{预测“元”属性（如伤害/治疗）与“真实”属性（如生命值）}
+我们无法预测性地应用元属性。元属性仅对即时效果起作用，在GameplayEffect的后端（UAttributeSet上的Pre/Post Modify Attribute）。这些事件在应用基于时长的GameplayEffect时不会被调用。例如，一个修改伤害持续5秒的GameplayEffect没有意义。
+
+为了支持这一点，我们可能会增加对基于时长的元属性的有限支持，并将即时GameplayEffect的转换从前端（UAbilitySystemComponent::ApplyGameplayEffectSpecToSelf）移到后端（UAttributeSet::PostModifyAttribute）。
+
+\subsubsection{预测持续进行的乘法GameplayEffect}
+在预测基于百分比的GameplayEffect时也存在限制。由于服务器复制的是属性的“最终值”，而不是修改它的整个聚合器链，客户端可能无法准确预测新的GameplayEffect。
+
+例如：
+\begin{itemize}
+	\item 客户端有一个永久+10\%移动速度增益，基础移动速度为500 → 该客户端的最终移动速度为550。
+	\item 客户端有一个能力，提供额外的10\%移动速度增益。预期是将基于百分比的乘数\textbf{相加}，最终得到对500的20\%加成 → 600移动速度。
+	\item 然而在客户端，我们只是对550应用10\%增益 → 605。
+\end{itemize}
+
+这需要通过复制属性的聚合器链来解决。我们已经复制了其中的一些数据，但不是完整的修饰器列表。我们最终需要研究支持这一点。
+
+\subsubsection{“弱预测”}
+我们可能仍然会遇到不适合这个系统的情况。在某些情况下，预测键交换是不可行的。例如，一个能力使得任何与该玩家碰撞/接触的玩家都会收到一个减慢他们速度和材质的GameplayEffect。由于我们不能每次发生这种情况都发送Server RPC（而且服务器不一定能在其模拟点处理该消息），因此无法在客户端和服务器之间关联GameplayEffect副作用。
+
+这里的一种方法可能是考虑一种较弱形式的预测。即不使用新的预测键，而是服务器假设客户端会预测整个能力的所有副作用。这至少能解决“重做”问题，但不能解决“完整性”问题。如果客户端预测可以尽可能最小化——例如只预测初始粒子效果，而不是预测状态和属性变化——那么问题的严重性就会降低。
+
+我可以设想一种弱预测模式，当没有新的预测键能准确关联副作用时，（某些能力？所有能力？）会回退到这种模式。在弱预测模式下，也许只有某些操作可以被预测——例如GameplayCue执行事件，而不是OnAdded/OnRemove事件。
+
+\section{FPredictionKey 详解}
+
+FPredictionKey是在GameplayAbility系统中支持客户端预测的通用方式。FPredictionKey本质上是一个ID，用于标识在客户端上执行的预测性操作和副作用。UAbilitySystemComponent支持客户端和服务器之间预测键及其副作用的同步。
+
+基本上，任何事物都可以与PredictionKey关联，例如激活一个Ability。客户端可以生成一个新的PredictionKey，并在其ServerTryActivateAbility调用中发送给服务器。服务器可以确认或拒绝这个调用（ClientActivateAbilitySucceed/Failed）。
+
+当客户端预测其能力时，它正在创建副作用（GameplayEffect、TriggeredEvent、Animation等）。当客户端预测这些副作用时，它将每个副作用与能力激活开始时生成的预测键关联。
+
+\begin{itemize}
+	\item 如果能力激活被拒绝，客户端可以立即恢复这些副作用。
+	\item 如果能力激活被接受，客户端必须等待复制的副作用被发送到服务器。
+	\begin{itemize}
+		\item ClientActivatbleAbilitySucceed RPC会立即发送。属性复制可能会在几帧后发生。
+		\item 一旦服务器创建的副作用的复制完成，客户端可以撤销其本地预测的副作用。
+	\end{itemize}
+\end{itemize}
+
+FPredictionKey本身提供的主要功能是：
+\begin{itemize}
+	\item 唯一ID和一个支持预测键依赖链的系统（“Current”和“Base”整数）
+	\item 一个特殊的::NetSerialize实现，\textbf{仅将预测键序列化给预测客户端}
+	\begin{itemize}
+		\item 这很重要，因为它允许我们在复制状态中序列化预测键，同时知道只有将预测键提供给服务器的客户端才会实际看到它们！
+	\end{itemize}
+\end{itemize}
+
+	
+	\section{GAS中的预测机制详解}
+	GAS（Gameplay Ability System）中的预测机制是为了实现流畅的多人游戏体验而设计的。其核心思想是\textbf{乐观执行}：客户端先无需等待服务器许可就执行操作，如果之后服务器确认操作无效，再“回滚”到正确状态。这一机制主要围绕\textbf{预测键（Prediction Key）}展开。
+	
+	\subsection{核心组件：预测键（Prediction Key）}
+	\texttt{FPredictionKey}是贯穿整个预测流程的唯一ID，它像一个“标签”，将客户端上所有预测性操作（如技能激活、属性修改）与其产生的副作用关联起来。
+	
+	\begin{itemize}
+		\item \textbf{生成与关联}：每当客户端开始一个可预测的操作（如释放技能），就会生成一个新的预测键。在这个操作过程中产生的所有副作用（如消耗法力、应用增益）都会被打上这个键的标签，方便后续统一处理。
+		\item \textbf{服务器校验}：客户端会通过RPC将这个预测键发送给服务器。服务器执行相同的逻辑后，会用这个键来标记自己产生的权威结果。
+		\item \textbf{结果同步}：服务器会通过 \ci{ClientActivateAbilityFailed} 或 \ci{ClientActivateAbilitySucceed} 等RPC，将判决结果和对应的预测键发回客户端。
+	\end{itemize}
+	
+	\subsection{主要预测流程}
+	
+	\subsubsection{GameplayAbility 激活预测}
+	这是最典型的预测场景，前提是技能的 \ci{NetExecutionPolicy} 被设置为\emph{本地预测}\sn{Local Predicted}。流程如下：
+	
+	\begin{enumerate}
+		\item \textbf{客户端先行}：玩家按下技能键，客户端立即生成一个 \ci{FPredictionKey}，创建 \ci{FScopedPredictionWindow} 预测窗口，并直接调用 \ci{ActivateAbility()} 执行技能逻辑。同时，它会将生成的预测键通过 \ci{ServerTryActivateAbility} RPC发送给服务器。
+		\item \textbf{服务器裁决}：服务器收到RPC后，进行合法性检查（如冷却、资源、目标等）。
+		\begin{itemize}
+			\item \textbf{若失败}：服务器通过 \ci{ClientActivateAbilityFailed} RPC通知客户端。客户端收到后，根据预测键找到对应的预测操作，调用关联的“拒绝委托”（\ci{RejectedDelegates}）进行\textbf{回滚}，立即终止技能并撤销所有预测的副作用。
+			\item \textbf{若成功}：服务器通过 \ci{ClientActivateAbilitySucceed} RPC通知客户端，同时服务器上产生的权威 \ci{GameplayEffect} 等效果会通过属性复制同步下来。
+		\end{itemize}
+		\item \textbf{客户端修正}：客户端的属性 \ci{OnRep} 触发后，\textbf{不会}直接应用服务器的值导致“跳变”。它会触发“追赶委托”（\ci{CaughtUpDelegates}），\textbf{移除}客户端之前预测的临时效果。最终，客户端的状态会平滑地与服务器同步。
+	\end{enumerate}
+	
+	\subsubsection{GameplayEffect 预测与属性修正}
+	GE的预测解决了“重做”（Redo）问题，确保服务器同步下来的效果不会重复执行。
+	
+	\begin{itemize}
+		\item \textbf{预测应用}：在预测窗口内应用GE时，客户端会创建一个带有预测键的 \ci{FActiveGameplayEffect} 实例。\textbf{关键点}在于，对于瞬时（Instant）效果，客户端会将其当作无限时长（Infinite）的GE来处理，方便后续回滚。
+		\item \textbf{服务器同步}：服务器执行并同步其创建的GE，同样带有预测键。
+		\item \textbf{处理与移除}：当客户端收到来自服务器的同步GE时，会根据预测键找到自己对应的预测版本，然后\textbf{跳过}“应用时”（On Applied）的逻辑（如播放GameplayCue），从而避免重做。之后，当预测键被“追上”（Caught Up），预测的GE会通过 \ci{RemoveActiveGameplayEffect\_NoReturn} 被移除，而服务器同步下来的“正版”GE会保留并接管效果。
+	\end{itemize}
+	
+	由于属性是作为标准UProperty复制的，预测属性修改会面临“覆盖”问题。为了解决这个问题：
+	\begin{enumerate}
+		\item 属性必须使用 \ci{REPNOTIFY\_Always}，确保服务器值每次更新都会触发 \ci{OnRep}。
+		\item 在 \ci{OnRep} 中，客户端将服务器同步的值视为“基础值”，然后基于此基础值，重新计算所有当前生效的GE带来的属性修改，得出最终的“当前值”。
+	\end{enumerate}
+	
+	\subsection{当前限制}
+	\begin{itemize}
+		\item \textbf{不可预测的内容}：GE的移除、周期性效果（如持续伤害）和冷却时间目前不能直接预测。
+		\item \textbf{复杂依赖}：对于“技能A触发技能B”这种依赖链，当A被服务器拒绝时，其依赖的B的自动回滚机制尚不完善，通常需要借助GameplayTag等方式进行补救。
+	\end{itemize}
+	
+	\subsection{总结：核心步骤}
+	\begin{enumerate}
+		\item \textbf{创建预测键}：在预测作用域（\ci{FScopedPredictionWindow}）内生成唯一的 \ci{FPredictionKey}。
+		\item \textbf{执行与关联}：客户端立即执行操作，并将所有副作用（GE、属性修改、Cue等）与预测键关联。
+		\item \textbf{服务器通信}：客户端向服务器发送操作请求及其预测键。
+		\item \textbf{服务器裁决}：服务器执行并验证，然后通过RPC告知客户端接受（Succeed）或拒绝（Failed）。
+		\item \textbf{客户端响应}：
+		\begin{itemize}
+			\item \textbf{失败}：触发 \ci{RejectedDelegates}，执行回滚，撤销所有关联操作。
+			\item \textbf{成功}：等待服务器状态复制。当预测键被“追上”时，触发 \ci{CaughtUpDelegates}，清除客户端的临时预测效果，让位于权威状态。
+		\end{itemize}
+	\end{enumerate}
+	
+	如果你是初次接触，推荐从阅读引擎源码 \ci{GameplayPrediction.h} 中的注释开始，那是最好的学习材料。此外，对于优化网络体验的“弱预测”模式，在非关键效果（如视觉特效）上也值得探索。
+	
 \end{document}

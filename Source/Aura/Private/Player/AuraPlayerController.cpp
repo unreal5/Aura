@@ -76,6 +76,10 @@ void AAuraPlayerController::SetupInputComponent()
 	}
 	// Bind Move Input Action
 	EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ThisClass::Move);
+	// Bind Shift Input Action
+	EnhancedInputComponent->BindAction(ShiftAction, ETriggerEvent::Started, this, &ThisClass::ShiftKeyPressed, true);
+	EnhancedInputComponent->BindAction(ShiftAction, ETriggerEvent::Completed, this, &ThisClass::ShiftKeyPressed, false);
+
 	EnhancedInputComponent->BindAction(DebugAction, ETriggerEvent::Started, this,
 	                                   &ThisClass::ToggleAttributeDebugPanel);
 
@@ -95,6 +99,11 @@ void AAuraPlayerController::Move(const FInputActionValue& InputActionValue)
 	FVector ForwardDirection = FVector{MovementVector.Y, MovementVector.X, 0};
 	ForwardDirection = YawRotation.RotateVector(ForwardDirection);
 	ControlledPawn->AddMovementInput(ForwardDirection);
+}
+
+void AAuraPlayerController::ShiftKeyPressed(bool bKeyPressed)
+{
+	bShiftPressed = bKeyPressed;
 }
 
 void AAuraPlayerController::TryHighlightActor(AActor* Actor)
@@ -168,11 +177,9 @@ void AAuraPlayerController::AbilityInputReleased(const FGameplayTag InputTag)
 	auto ASC = GetASC();
 	if (!IsValid(ASC)) return;
 
-	if (bTargeting || !InputTag.MatchesTagExact(InputAction::LMB))
-	{
-		ASC->AbilityInputTagReleased(InputTag);
-	}
-	else // 没有指定目标，并且是左键释放，判断是否短按。
+	// 无论如何都向ASC报告输入释放事件，这样技能系统才能正确处理输入状态。
+	ASC->AbilityInputTagReleased(InputTag);
+	if (!bShiftPressed && !bTargeting && InputTag.MatchesTagExact(InputAction::LMB))
 	{
 		FollowTime += GetWorld()->GetDeltaSeconds();
 		APawn* ControlledPawn = GetPawn();
@@ -212,20 +219,22 @@ void AAuraPlayerController::AbilityInputReleased(const FGameplayTag InputTag)
 void AAuraPlayerController::AbilityInputHeld(const FGameplayTag InputTag)
 {
 	// 如果正在锁定目标，或者不是左键持续按下，都直接传递输入给ASC，不进行自动移动。
-	if (bTargeting || !InputTag.MatchesTagExact(InputAction::LMB))
+	if (bShiftPressed || bTargeting || !InputTag.MatchesTagExact(InputAction::LMB))
 	{
 		if (GetASC()) GetASC()->AbilityInputTagHeld(InputTag);
-		return;
 	}
-
-	FollowTime += GetWorld()->GetDeltaSeconds();
-	if (CursorHit.bBlockingHit)
+	else
 	{
-		CachedDestination = CursorHit.ImpactPoint;
-	}
-	if (APawn* ControlledPawn = GetPawn())
-	{
-		ControlledPawn->AddMovementInput((CachedDestination - ControlledPawn->GetActorLocation()).GetSafeNormal());
+		FollowTime += GetWorld()->GetDeltaSeconds();
+		if (CursorHit.bBlockingHit)
+		{
+			CachedDestination = CursorHit.ImpactPoint;
+		}
+		if (APawn* ControlledPawn = GetPawn())
+		{
+			FVector WorldDirection = (CachedDestination - ControlledPawn->GetActorLocation()).GetSafeNormal();
+			ControlledPawn->AddMovementInput(WorldDirection);
+		}
 	}
 }
 
