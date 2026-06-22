@@ -32,7 +32,7 @@ void UAuraProjectileSpell::SpawnProjectile(const FVector& TargetLocation)
 	FTransform SpawnTransform;
 	SpawnTransform.SetLocation(WeaponSocketLocation);
 	auto Rotation = (TargetLocation - WeaponSocketLocation).ToOrientationRotator();
-	//Rotation.Pitch = 0.f;
+	Rotation.Pitch = 0.f;
 	SpawnTransform.SetRotation(Rotation.Quaternion());
 	
 	AActor* Owner = GetOwningActorFromActorInfo();
