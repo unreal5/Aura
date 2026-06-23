@@ -4,6 +4,7 @@
 #include "Actor/AuraProjectile.h"
 
 #include "NiagaraFunctionLibrary.h"
+#include "Aura/Aura.h"
 #include "Components/AudioComponent.h"
 #include "Components/SphereComponent.h"
 #include "GameFramework/ProjectileMovementComponent.h"
@@ -17,14 +18,15 @@ AAuraProjectile::AAuraProjectile()
 	bReplicates = true;
 
 	CollisionSphere = CreateDefaultSubobject<USphereComponent>(TEXT("CollisionSphere"));
+	SetRootComponent(CollisionSphere);
 	CollisionSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	CollisionSphere->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 	CollisionSphere->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Overlap);
 	CollisionSphere->
 		SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldDynamic, ECollisionResponse::ECR_Overlap);
 	CollisionSphere->SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldStatic, ECollisionResponse::ECR_Overlap);
+	CollisionSphere->SetCollisionObjectType(ECC_Projectile);
 
-	SetRootComponent(CollisionSphere);
 
 	ProjectileMovementComponent = CreateDefaultSubobject<UProjectileMovementComponent>(
 		TEXT("ProjectileMovementComponent"));
@@ -62,7 +64,7 @@ void AAuraProjectile::Destroyed()
 		{
 			UGameplayStatics::PlaySoundAtLocation(this, ImpactSound, GetActorLocation(), FRotator::ZeroRotator);
 		}
-		
+
 		if (ImpactEffect)
 		{
 			UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, ImpactEffect, GetActorLocation());
@@ -81,17 +83,18 @@ void AAuraProjectile::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, 
                                       UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
                                       const FHitResult& SweepResult)
 {
+	const FVector Location = GetActorLocation();
+
 	if (ImpactSound)
 	{
-		UGameplayStatics::PlaySoundAtLocation(this, ImpactSound, GetActorLocation(), FRotator::ZeroRotator);
+		UGameplayStatics::PlaySoundAtLocation(this, ImpactSound, Location, FRotator::ZeroRotator);
 	}
-	
+
 	if (ImpactEffect)
 	{
-		UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, ImpactEffect, SweepResult.ImpactPoint,
-		                                               SweepResult.ImpactNormal.Rotation());
+		UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, ImpactEffect, Location, FRotator::ZeroRotator);
 	}
-	
+
 	if (LoopingSoundComponent)
 	{
 		LoopingSoundComponent->Stop();
