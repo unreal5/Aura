@@ -3,9 +3,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "GameplayEffectTypes.h"
 #include "GameFramework/Actor.h"
 #include "AuraProjectile.generated.h"
 
+class UAudioComponent;
 class UNiagaraSystem;
 class UProjectileMovementComponent;
 class USphereComponent;
@@ -20,6 +22,7 @@ public:
 	void BeginPlay() override;
 	void Destroyed() override;
 
+
 	UPROPERTY(EditAnywhere)
 	float InitialSpeed = 550.f;
 
@@ -29,6 +32,8 @@ public:
 	UPROPERTY(EditAnywhere)
 	bool bHasGravity = false;
 
+	UPROPERTY(BlueprintReadWrite, meta=(ExposeOnSpawn="true"))
+	FGameplayEffectSpecHandle DamageEffectSpecHandle;
 private:
 	// 抛射物是否已经击中目标，防止重复触发
 	bool bHit = false;
@@ -55,6 +60,8 @@ private:
 	void OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp,
 	                     int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 	
-	UPROPERTY(Transient)
+	UPROPERTY(VisibleAnywhere, Transient)
 	TObjectPtr<UAudioComponent> LoopingSoundComponent;
+	
+	void PlayVFX() const;
 };

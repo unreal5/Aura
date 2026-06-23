@@ -45,6 +45,8 @@ void AAuraEnemy::InitAbilityActorInfo()
 {
 	// Super::InitAbilityActorInfo();
 	AbilitySystemComponent->InitAbilityActorInfo(this, this);
+	
+	InitializeDefaultAttributes();
 }
 
 void AAuraEnemy::HighlightActor_Implementation()

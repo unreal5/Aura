@@ -42,6 +42,12 @@ void UAuraProjectileSpell::SpawnProjectile(const FVector& TargetLocation)
 	if (auto ProjectileInst = GetWorld()->SpawnActorDeferred<AAuraProjectile>(
 		ProjectileClass, SpawnTransform, Owner, InstigatorPawn, SpawnMethod))
 	{
+		// 创建DamageEffectSpecHandle
+		if (DamageEffectClass)
+		{
+			auto SpecHandle = MakeOutgoingGameplayEffectSpec(DamageEffectClass, GetAbilityLevel());
+			ProjectileInst->DamageEffectSpecHandle = SpecHandle;
+		}
 		ProjectileInst->FinishSpawning(SpawnTransform);
 	}
 }

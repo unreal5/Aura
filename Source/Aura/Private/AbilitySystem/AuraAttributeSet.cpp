@@ -4,6 +4,7 @@
 #include "AbilitySystem/AuraAttributeSet.h"
 
 #include "GameplayEffectExtension.h"
+#include "GameFramework/Character.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "Net/UnrealNetwork.h"
@@ -74,6 +75,8 @@ void UAuraAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallba
 	if (Data.EvaluatedData.Attribute == GetHealthAttribute())
 	{
 		SetHealth(FMath::Clamp(GetHealth(), 0.f, GetMaxHealth()));
+		
+		UE_LOG(LogTemp, Warning, TEXT("当前角色：%s[Health = %f, MaxHealth = %f]"), *EffectProperties.TargetAvatarActor->GetName(), GetHealth(), GetMaxHealth());
 	}
 	else if (Data.EvaluatedData.Attribute == GetManaAttribute())
 	{

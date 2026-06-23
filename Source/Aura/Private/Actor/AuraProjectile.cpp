@@ -3,12 +3,16 @@
 
 #include "Actor/AuraProjectile.h"
 
+#include "AbilitySystemBlueprintLibrary.h"
+#include "AbilitySystemComponent.h"
+#include "GameplayEffect.h"
 #include "NiagaraFunctionLibrary.h"
 #include "Aura/Aura.h"
 #include "Components/AudioComponent.h"
 #include "Components/SphereComponent.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "Net/UnrealNetwork.h"
 
 
 // Sets default values
@@ -43,7 +47,6 @@ AAuraProjectile::AAuraProjectile()
 void AAuraProjectile::BeginPlay()
 {
 	Super::BeginPlay();
-	// if (HasAuthority()) // 这里不需要判断是否是服务端，因为客户端也需要播放各种效果。 
 
 	CollisionSphere->OnComponentBeginOverlap.AddDynamic(this, &AAuraProjectile::OnSphereOverlap);
 	if (LoopingSound)
@@ -60,20 +63,7 @@ void AAuraProjectile::Destroyed()
 	// 如果客户端先发生，那么bHit会被设置为true，表示各种效果已经播放过了，不再播放。
 	if (!bHit && !HasAuthority())
 	{
-		if (ImpactSound)
-		{
-			UGameplayStatics::PlaySoundAtLocation(this, ImpactSound, GetActorLocation(), FRotator::ZeroRotator);
-		}
-
-		if (ImpactEffect)
-		{
-			UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, ImpactEffect, GetActorLocation());
-		}
-
-		if (LoopingSoundComponent)
-		{
-			LoopingSoundComponent->Stop();
-		}
+		PlayVFX();
 	}
 	Super::Destroyed();
 }
@@ -82,6 +72,24 @@ void AAuraProjectile::Destroyed()
 void AAuraProjectile::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
                                       UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
                                       const FHitResult& SweepResult)
+{
+	PlayVFX();
+
+	if (HasAuthority())
+	{
+		if (DamageEffectSpecHandle.IsValid())
+		{
+			if (auto ASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(OtherActor))
+			{
+				ASC->ApplyGameplayEffectSpecToSelf(*DamageEffectSpecHandle.Data.Get());
+			}
+		}
+		Destroy();
+	}
+	else bHit = true;
+}
+
+void AAuraProjectile::PlayVFX() const
 {
 	const FVector Location = GetActorLocation();
 
@@ -98,15 +106,5 @@ void AAuraProjectile::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, 
 	if (LoopingSoundComponent)
 	{
 		LoopingSoundComponent->Stop();
-	}
-
-
-	if (HasAuthority())
-	{
-		Destroy();
-	}
-	else
-	{
-		bHit = true;
 	}
 }
