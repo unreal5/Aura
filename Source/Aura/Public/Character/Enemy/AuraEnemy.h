@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "AuraCommonTypes.h"
+#include "AbilitySystem/Data/CharacterClassInfo.h"
 #include "Character/AuraCharacterBase.h"
 #include "Interaction/HighlightInterface.h"
 #include "AuraEnemy.generated.h"
@@ -27,7 +28,7 @@ public:
 	
 protected:
 	void InitAbilityActorInfo() override;
-
+	void InitializeDefaultAttributes() const override;
 private:
 	void HighlightActor_Implementation() override;
 	void UnHighlightActor_Implementation() override;
@@ -35,6 +36,9 @@ private:
 	//对于敌人，数据只存在于服务器上，客户端不需要知道，所以不复制。
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="角色默认", meta=(AllowPrivateAccess=true))
 	int32 Level = 1;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="角色默认", meta=(AllowPrivateAccess=true))
+	ECharacterClass CharacterClass = ECharacterClass::Warrior;
 	
 	//血条组件
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="组件", meta=(AllowPrivateAccess=true))
