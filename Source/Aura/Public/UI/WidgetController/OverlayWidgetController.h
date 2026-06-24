@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "AuraWidgetController.h"
 #include "GameplayTagContainer.h"
+#include "AuraCommonTypes.h"
 #include "Engine/DataTable.h"
 #include "Templates/SubclassOf.h"
 #include "OverlayWidgetController.generated.h"
@@ -31,8 +32,7 @@ struct FUIWidgetRow : public FTableRowBase
 	TObjectPtr<UTexture2D> Image;
 };
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnAttributeValueChangedWithTagSignature, FGameplayTag, AttributeTag,
-                                             float, NewValue);
+
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMessageWidgetRowSignature, const FUIWidgetRow&, WidgetRow);
 

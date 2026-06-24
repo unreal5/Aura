@@ -8,6 +8,9 @@
 #include "AbilitySystem/AuraAttributeSet.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/WidgetComponent.h"
+#include "Tag/AuraGlobalTags.h"
+#include "UI/Widget/AuraUserWidget.h"
 
 
 // Sets default values
@@ -23,6 +26,10 @@ AAuraEnemy::AAuraEnemy()
 	AbilitySystemComponent->SetReplicationMode(EGameplayEffectReplicationMode::Minimal);
 
 	AttributeSet = CreateDefaultSubobject<UAuraAttributeSet>(TEXT("AttributeSet"));
+	
+	// 血条组件
+	HealthBarWidgetComponent = CreateDefaultSubobject<UWidgetComponent>(TEXT("HealthBarWidgetComponent"));
+	HealthBarWidgetComponent->SetupAttachment(GetRootComponent());
 }
 
 // Called when the game starts or when spawned
@@ -32,8 +39,27 @@ void AAuraEnemy::BeginPlay()
 
 	GetMesh()->SetCustomDepthStencilValue(CUSTOM_DEPTH_RED);
 	Weapon->SetCustomDepthStencilValue(CUSTOM_DEPTH_RED);
-
+	
 	InitAbilityActorInfo();
+	// 设置UI控制器
+	if (auto AuraUserWidget = Cast<UAuraUserWidget>(HealthBarWidgetComponent->GetUserWidgetObject()))
+	{
+		AuraUserWidget->SetWidgetController(this);
+	}
+	
+	auto BindLambda = [this](const FOnAttributeChangeData& Data, const FGameplayTag& GameplayTag)
+	{
+		OnAttributeValueChangedWithTag.Broadcast(GameplayTag, Data.NewValue);
+	};
+	AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UAuraAttributeSet::GetHealthAttribute()).AddLambda(BindLambda, Attributes::Vital::Health.GetTag());
+	AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UAuraAttributeSet::GetMaxHealthAttribute()).AddLambda(BindLambda, Attributes::Secondary::MaxHealth.GetTag());
+	
+	// 播放初始值
+	if (auto AuraAS = Cast<UAuraAttributeSet>(AttributeSet))
+	{
+		OnAttributeValueChangedWithTag.Broadcast(Attributes::Vital::Health.GetTag(), AuraAS->GetHealth());
+		OnAttributeValueChangedWithTag.Broadcast(Attributes::Secondary::MaxHealth.GetTag(), AuraAS->GetMaxHealth());
+	}
 }
 
 int32 AAuraEnemy::GetPlayerLevel_Implementation() const
