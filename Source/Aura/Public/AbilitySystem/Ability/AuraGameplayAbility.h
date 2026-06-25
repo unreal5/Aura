@@ -18,4 +18,7 @@ public:
 	FGameplayTag StartupInputTag;
 	
 	void InputPressed(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo) override;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Aura | Damage")
+	FScalableFloat Damage;
 };
