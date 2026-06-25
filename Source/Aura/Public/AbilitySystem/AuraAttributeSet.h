@@ -133,7 +133,11 @@ public:
 	FGameplayAttributeData Mana;
 	ATTRIBUTE_ACCESSORS_BASIC(ThisClass, Mana)
 
-	// 
+	// Meta-Attributes：元属性，不可复制，可以作为PlaceHolder
+	UPROPERTY(BlueprintReadOnly, Category = "Meta Attributes")
+	FGameplayAttributeData IncomingDamage;
+	ATTRIBUTE_ACCESSORS_BASIC(ThisClass, IncomingDamage)
+	
 	// 重载
 	void PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue) override;
 	void PreAttributeBaseChange(const FGameplayAttribute& Attribute, float& NewValue) const override;

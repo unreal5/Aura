@@ -64,6 +64,12 @@ namespace InputAction
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(_4);
 }
 
+namespace Incoming
+{
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Damage);
+}
+
+
 namespace Event
 {
 	namespace Montage

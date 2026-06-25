@@ -82,6 +82,23 @@ void UAuraAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallba
 	{
 		SetMana(FMath::Clamp(GetMana(), 0.f, GetMaxMana()));
 	}
+	
+	if (Data.EvaluatedData.Attribute == GetIncomingDamageAttribute())
+	{
+		const float LocalIncomingDamage = GetIncomingDamage();
+		SetIncomingDamage(0.f);
+		if (LocalIncomingDamage > 0.f)
+		{
+			const float NewHealth = FMath::Clamp(GetHealth() - LocalIncomingDamage, 0.f, GetMaxHealth());
+			SetHealth(NewHealth);
+			
+			const bool bFatal = FMath::IsNearlyZero(NewHealth);
+			if (bFatal)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("当前角色：%s[Health = %f, MaxHealth = %f]，已死亡"), *EffectProperties.TargetAvatarActor->GetName(), GetHealth(), GetMaxHealth());	
+			}
+		}
+	}
 }
 
 // Primary Attributes RepNotify

@@ -3,11 +3,13 @@
 
 #include "AbilitySystem/Ability/AuraProjectileSpell.h"
 
+#include "AbilitySystemBlueprintLibrary.h"
 #include "Actor/AuraProjectile.h"
 #include "Engine/World.h"
 #include "GameFramework/Pawn.h"
 #include "Interaction/CombatInterface.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "Tag/AuraGlobalTags.h"
 
 void UAuraProjectileSpell::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
                                            const FGameplayAbilityActorInfo* ActorInfo,
@@ -15,8 +17,6 @@ void UAuraProjectileSpell::ActivateAbility(const FGameplayAbilitySpecHandle Hand
                                            const FGameplayEventData* TriggerEventData)
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
-
-
 }
 
 void UAuraProjectileSpell::SpawnProjectile(const FVector& TargetLocation)
@@ -28,13 +28,13 @@ void UAuraProjectileSpell::SpawnProjectile(const FVector& TargetLocation)
 
 	const FVector WeaponSocketLocation = ICombatInterface::Execute_GetCombatSocketLocation(
 		GetAvatarActorFromActorInfo());
-	
+
 	FTransform SpawnTransform;
 	SpawnTransform.SetLocation(WeaponSocketLocation);
 	auto Rotation = (TargetLocation - WeaponSocketLocation).ToOrientationRotator();
 	Rotation.Pitch = 0.f;
 	SpawnTransform.SetRotation(Rotation.Quaternion());
-	
+
 	AActor* Owner = GetOwningActorFromActorInfo();
 	APawn* InstigatorPawn = Cast<APawn>(Owner);
 	ESpawnActorCollisionHandlingMethod SpawnMethod = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
@@ -46,6 +46,7 @@ void UAuraProjectileSpell::SpawnProjectile(const FVector& TargetLocation)
 		if (DamageEffectClass)
 		{
 			auto SpecHandle = MakeOutgoingGameplayEffectSpec(DamageEffectClass, GetAbilityLevel());
+			UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(SpecHandle, Incoming::Damage, 50.f);
 			ProjectileInst->DamageEffectSpecHandle = SpecHandle;
 		}
 		ProjectileInst->FinishSpawning(SpawnTransform);
