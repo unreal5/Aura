@@ -77,3 +77,8 @@ namespace Event
 		UE_DECLARE_GAMEPLAY_TAG_EXTERN(FireBolt);
 	}
 }
+
+namespace Effects
+{
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(HitReaction);
+}

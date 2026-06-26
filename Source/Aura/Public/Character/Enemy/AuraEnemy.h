@@ -26,6 +26,10 @@ public:
 	/* 实现ICombatInterface*/
 	int32 GetPlayerLevel_Implementation() const override;
 	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="战斗")
+	bool bHitReacting = false;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="移动")
+	float BaseWalkSpeed = 250.f;
 protected:
 	void InitAbilityActorInfo() override;
 	void InitializeDefaultAttributes() const override;
@@ -43,4 +47,6 @@ private:
 	//血条组件
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="组件", meta=(AllowPrivateAccess=true))
 	TObjectPtr<UWidgetComponent> HealthBarWidgetComponent;
+	
+
 };

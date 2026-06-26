@@ -45,3 +45,6 @@ UE_DEFINE_GAMEPLAY_TAG_COMMENT(Incoming::Damage, "Incoming.Damage", "标识Incom
 
 // Event
 UE_DEFINE_GAMEPLAY_TAG(Event::Montage::FireBolt, "Event.Montage.FireBolt");
+
+// Effects
+UE_DEFINE_GAMEPLAY_TAG_COMMENT(Effects::HitReaction, "Effects.HitReaction", "标识HitReaction效果标签");

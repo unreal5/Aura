@@ -6,6 +6,8 @@
 #include "UObject/Interface.h"
 #include "CombatInterface.generated.h"
 
+class  UAnimMontage;
+
 // This class does not need to be modified.
 UINTERFACE(BlueprintType)
 class UCombatInterface : public UInterface
@@ -30,4 +32,7 @@ public:
 	
 	UFUNCTION(BlueprintImplementableEvent,BlueprintCallable, Category="Aura|战斗")
 	void UpdateFacingTarget(const FVector& TargetLocation);
+	
+	UFUNCTION(BlueprintNativeEvent,BlueprintCallable, Category="Aura|战斗")
+	UAnimMontage* GetHitReactMontage() const;
 };
