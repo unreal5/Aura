@@ -4,6 +4,7 @@
 #include "AbilitySystem/AuraAbilitySystemLibrary.h"
 
 #include "AbilitySystemComponent.h"
+#include "AbilitySystem/Ability/AuraGameplayAbility.h"
 #include "Game/AuraGameModeBase.h"
 #include "Kismet/GameplayStatics.h"
 #include "Player/AuraPlayerState.h"
@@ -74,4 +75,24 @@ void UAuraAbilitySystemLibrary::InitializeDefaultAttributes(const UObject* World
 	// Vital
 	auto VitalAttributeSpecHandle = InASC->MakeOutgoingSpec(CharacterClassInfo->VitalAttributes, InLevel, ContextHandle);
 	InASC->ApplyGameplayEffectSpecToSelf(*VitalAttributeSpecHandle.Data);
+}
+
+void UAuraAbilitySystemLibrary::GiveStartupAbilities(const UObject* WorldContextObject, UAbilitySystemComponent* InASC)
+{
+	auto AuraGameMode = Cast<AAuraGameModeBase>(UGameplayStatics::GetGameMode(WorldContextObject));
+	if (!AuraGameMode) return;
+	
+	UCharacterClassInfo* CharacterClassInfo = AuraGameMode->CharacterClassInfo;
+	check(CharacterClassInfo);
+	
+	const int32 PlayerLevel = ICombatInterface::Execute_GetPlayerLevel(InASC->GetAvatarActor());
+	
+	for (auto AbilityClass : CharacterClassInfo->CommonAbilities)
+	{
+		if (IsValid(AbilityClass))
+		{
+			FGameplayAbilitySpec AbilitySpec(AbilityClass, PlayerLevel, INDEX_NONE);
+			InASC->GiveAbility(AbilitySpec);
+		}
+	}
 }

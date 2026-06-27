@@ -8,6 +8,7 @@
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "Net/UnrealNetwork.h"
+#include "Tag/AuraGlobalTags.h"
 
 UAuraAttributeSet::UAuraAttributeSet() {}
 
@@ -96,6 +97,13 @@ void UAuraAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallba
 			if (bFatal)
 			{
 				UE_LOG(LogTemp, Warning, TEXT("当前角色：%s[Health = %f, MaxHealth = %f]，已死亡"), *EffectProperties.TargetAvatarActor->GetName(), GetHealth(), GetMaxHealth());	
+			}
+			else
+			{
+				// 播放受击动画
+				FGameplayTagContainer HitReactTags;
+				HitReactTags.AddTag(Effects::HitReaction);
+				EffectProperties.TargetASC->TryActivateAbilitiesByTag(HitReactTags);
 			}
 		}
 	}

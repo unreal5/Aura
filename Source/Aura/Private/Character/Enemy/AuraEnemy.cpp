@@ -46,6 +46,7 @@ void AAuraEnemy::BeginPlay()
 
 	InitAbilityActorInfo();
 
+	UAuraAbilitySystemLibrary::GiveStartupAbilities(this, AbilitySystemComponent);
 
 	// 侦听Gameplay Tag
 	auto TagAddedDelegate = [this](const FGameplayTag Tag, int32 NewCount)
