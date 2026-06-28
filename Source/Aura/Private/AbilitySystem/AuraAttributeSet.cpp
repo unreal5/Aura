@@ -7,10 +7,13 @@
 #include "GameFramework/Character.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
+#include "Interaction/CombatInterface.h"
 #include "Net/UnrealNetwork.h"
 #include "Tag/AuraGlobalTags.h"
 
-UAuraAttributeSet::UAuraAttributeSet() {}
+UAuraAttributeSet::UAuraAttributeSet()
+{
+}
 
 void UAuraAttributeSet::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {
@@ -76,14 +79,15 @@ void UAuraAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallba
 	if (Data.EvaluatedData.Attribute == GetHealthAttribute())
 	{
 		SetHealth(FMath::Clamp(GetHealth(), 0.f, GetMaxHealth()));
-		
-		UE_LOG(LogTemp, Warning, TEXT("当前角色：%s[Health = %f, MaxHealth = %f]"), *EffectProperties.TargetAvatarActor->GetName(), GetHealth(), GetMaxHealth());
+
+		UE_LOG(LogTemp, Warning, TEXT("当前角色：%s[Health = %f, MaxHealth = %f]"),
+		       *EffectProperties.TargetAvatarActor->GetName(), GetHealth(), GetMaxHealth());
 	}
 	else if (Data.EvaluatedData.Attribute == GetManaAttribute())
 	{
 		SetMana(FMath::Clamp(GetMana(), 0.f, GetMaxMana()));
 	}
-	
+
 	if (Data.EvaluatedData.Attribute == GetIncomingDamageAttribute())
 	{
 		const float LocalIncomingDamage = GetIncomingDamage();
@@ -92,11 +96,16 @@ void UAuraAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallba
 		{
 			const float NewHealth = FMath::Clamp(GetHealth() - LocalIncomingDamage, 0.f, GetMaxHealth());
 			SetHealth(NewHealth);
-			
+
 			const bool bFatal = FMath::IsNearlyZero(NewHealth);
 			if (bFatal)
 			{
-				UE_LOG(LogTemp, Warning, TEXT("当前角色：%s[Health = %f, MaxHealth = %f]，已死亡"), *EffectProperties.TargetAvatarActor->GetName(), GetHealth(), GetMaxHealth());	
+				// 角色死亡
+				auto Avatar = EffectProperties.TargetAvatarActor;
+				if (Avatar && Avatar->Implements<UCombatInterface>())
+				{
+					ICombatInterface::Execute_Die(Avatar);
+				}
 			}
 			else
 			{

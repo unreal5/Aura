@@ -92,6 +92,15 @@ int32 AAuraEnemy::GetPlayerLevel_Implementation() const
 	return Level;
 }
 
+void AAuraEnemy::Die_Implementation()
+{
+	// 关闭UI
+	HealthBarWidgetComponent->GetUserWidgetObject()->SetVisibility(ESlateVisibility::Hidden);
+	
+	SetLifeSpan(Lifespan);
+	Super::Die_Implementation();
+}
+
 void AAuraEnemy::InitAbilityActorInfo()
 {
 	// Super::InitAbilityActorInfo();

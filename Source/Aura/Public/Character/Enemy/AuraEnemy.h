@@ -23,8 +23,12 @@ public:
 	UPROPERTY(BlueprintAssignable, Category="Aura | Delegate")
 	FOnAttributeValueChangedWithTagSignature OnAttributeValueChangedWithTag;
 	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="战斗")
+	float Lifespan = 50.f;
+	
 	/* 实现ICombatInterface*/
 	int32 GetPlayerLevel_Implementation() const override;
+	void Die_Implementation() override;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="战斗")
 	bool bHitReacting = false;
