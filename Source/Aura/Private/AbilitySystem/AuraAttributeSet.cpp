@@ -8,12 +8,12 @@
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "Interaction/CombatInterface.h"
+#include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
+#include "Player/AuraPlayerController.h"
 #include "Tag/AuraGlobalTags.h"
 
-UAuraAttributeSet::UAuraAttributeSet()
-{
-}
+UAuraAttributeSet::UAuraAttributeSet() {}
 
 void UAuraAttributeSet::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {
@@ -114,6 +114,8 @@ void UAuraAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallba
 				HitReactTags.AddTag(Effects::HitReaction);
 				EffectProperties.TargetASC->TryActivateAbilitiesByTag(HitReactTags);
 			}
+
+			ShowFloatingText(EffectProperties, LocalIncomingDamage);
 		}
 	}
 }
@@ -214,19 +216,20 @@ void UAuraAttributeSet::GatherEffectProperties(const FGameplayEffectModCallbackD
 	if (IsValid(OutProps.SourceASC) && OutProps.SourceASC->AbilityActorInfo.IsValid())
 	{
 		OutProps.SourceAvatarActor = OutProps.SourceASC->GetAvatarActor();
-		OutProps.SourcePlayerController = OutProps.SourceASC->AbilityActorInfo->PlayerController.
-		                                           Get();
-		if (!IsValid(OutProps.SourcePlayerController) && IsValid(OutProps.SourceAvatarActor))
+		OutProps.SourceController = OutProps.SourceASC->AbilityActorInfo->PlayerController.
+		                                     Get();
+		if (!IsValid(OutProps.SourceController) && IsValid(OutProps.SourceAvatarActor))
 		{
 			if (auto SourcePawn = Cast<APawn>(OutProps.SourceAvatarActor))
 			{
-				OutProps.SourcePlayerController = SourcePawn->GetController<APlayerController>();
+				OutProps.SourceController = SourcePawn->GetController<AController>();
 			}
 		}
 
-		OutProps.SourceCharacter = IsValid(OutProps.SourcePlayerController)
-			                           ? OutProps.SourcePlayerController->GetCharacter()
-			                           : nullptr;
+		if (IsValid(OutProps.SourceController))
+		{
+			OutProps.SourceCharacter = OutProps.SourceController->GetCharacter();
+		}
 	}
 
 	// 获取Target相关信息. Data.Target是引用类型，一定存在。
@@ -235,18 +238,29 @@ void UAuraAttributeSet::GatherEffectProperties(const FGameplayEffectModCallbackD
 	                                                               AvatarActor.IsValid())
 	{
 		OutProps.TargetAvatarActor = OutProps.TargetASC->GetAvatarActor();
-		OutProps.TargetPlayerController = OutProps.TargetASC->AbilityActorInfo->PlayerController.
-		                                           Get();
-		if (!IsValid(OutProps.TargetPlayerController) && IsValid(OutProps.TargetAvatarActor))
+		OutProps.TargetController = OutProps.TargetASC->AbilityActorInfo->PlayerController.Get();
+		if (!IsValid(OutProps.TargetController) && IsValid(OutProps.TargetAvatarActor))
 		{
 			if (auto TargetPawn = Cast<APawn>(OutProps.TargetAvatarActor))
 			{
-				OutProps.TargetPlayerController = TargetPawn->GetController<APlayerController>();
+				OutProps.TargetController = TargetPawn->GetController<AController>();
 			}
 		}
 
-		OutProps.TargetCharacter = IsValid(OutProps.TargetPlayerController)
-			                           ? OutProps.TargetPlayerController->GetCharacter()
-			                           : nullptr;
+		if (IsValid(OutProps.TargetController))
+		{
+			OutProps.TargetCharacter = OutProps.TargetController->GetCharacter();
+		}
+	}
+}
+
+void UAuraAttributeSet::ShowFloatingText(const FEffectProperties& EffectProperties, float Damage) const
+{
+	if (EffectProperties.SourceCharacter != EffectProperties.TargetCharacter)
+	{
+		if (auto AuraPC = Cast<AAuraPlayerController>(EffectProperties.SourceController))
+		{
+			AuraPC->ShowDamageNumber(Damage, EffectProperties.TargetCharacter);
+		}
 	}
 }

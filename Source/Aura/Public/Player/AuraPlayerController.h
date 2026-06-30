@@ -26,10 +26,15 @@ class AURA_API AAuraPlayerController : public APlayerController
 
 public:
 	AAuraPlayerController();
-
-
 	void PlayerTick(float DeltaTime) override;
+	
+	// Client
 
+	
+	UFUNCTION(Client, Reliable)
+	void ShowDamageNumber(float Damage, ACharacter* TargetCharacter);
+
+	
 protected:
 	void BeginPlay() override;
 	
@@ -104,4 +109,7 @@ private:
 	void AbilityInputPressed(const FGameplayTag InputTag);
 	void AbilityInputReleased(const FGameplayTag InputTag);
 	void AbilityInputHeld(const FGameplayTag InputTag);
+	
+	UPROPERTY(EditDefaultsOnly, Category="UI")
+	TSubclassOf<class UDamageTextComponent> DamageTextComponentClass;
 };

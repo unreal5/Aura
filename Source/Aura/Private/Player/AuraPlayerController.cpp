@@ -20,6 +20,7 @@
 #include "Interaction/HighlightInterface.h"
 #include "Tag/AuraGlobalTags.h"
 #include "UI/HUD/AuraHUD.h"
+#include "UI/Widget/DamageTextComponent.h"
 
 AAuraPlayerController::AAuraPlayerController()
 {
@@ -38,6 +39,25 @@ void AAuraPlayerController::PlayerTick(float DeltaTime)
 
 	AutoRun();
 }
+
+void AAuraPlayerController::ShowDamageNumber_Implementation(float Damage, ACharacter* TargetCharacter)
+{
+	if (IsValid(TargetCharacter) && DamageTextComponentClass)
+	{
+		if (auto DamageTextComponent = NewObject<UDamageTextComponent>(TargetCharacter, DamageTextComponentClass))
+		{
+			DamageTextComponent->RegisterComponent();
+			DamageTextComponent->SetDamageText(Damage);
+			// 调整位置
+			DamageTextComponent->AttachToComponent(TargetCharacter->GetRootComponent(),
+			                                       FAttachmentTransformRules::KeepRelativeTransform);
+			// 位置已经调整到角色上方
+			DamageTextComponent->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
+			
+		}
+	}
+}
+
 
 void AAuraPlayerController::BeginPlay()
 {

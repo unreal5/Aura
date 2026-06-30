@@ -2444,4 +2444,142 @@ FPredictionKey本身提供的主要功能是：
 	
 	如果你是初次接触，推荐从阅读引擎源码 \ci{GameplayPrediction.h} 中的注释开始，那是最好的学习材料。此外，对于优化网络体验的“弱预测”模式，在非关键效果（如视觉特效）上也值得探索。
 	
+\section{第47行里 \texttt{Outer} 为什么要用 \texttt{TargetCharacter}}
+\begin{code}
+NewObject<UDamageTextComponent>(TargetCharacter, DamageTextComponentClass)
+\end{code}
+第一个参数 \texttt{Outer} 不是“挂到谁身上显示”，而是“这个 UObject 逻辑上属于谁”。对 \ci{UActorComponent/USceneComponentUWidgetComponent} 这类组件来说，\textbf{通常应该把 Outer 设为它所属的 Actor}。所以这里更合理的是 \ci{TargetCharacter}，因为伤害飘字组件本质上是“目标角色的一个临时组件”。
+可以把这几个概念分开看：
+\begin{center}
+\begin{longtable}{|l|l|} 
+	\hline \textbf{概念} & \textbf{作用} \\ \hline \texttt{Outer} & UObject 归属关系；影响生命周期、GC、路径、注册时上下文 \\
+	\hline \texttt{Owner} & 游戏语义上的“拥有者”；Actor 的 \texttt{SetOwner()} 常用于网络/可见性/归属 \\ \hline
+	\texttt{AttachParent} & 场景层级；只决定跟谁一起移动/变换 \\ \hline 
+\end{longtable}
+\end{center}
+这里最容易混淆的是：\textbf{Attach 不会改变 Outer，也不会改变组件的 Owner}。也就是说：
+\[ \texttt{Outer = this} \]
+时，这个组件仍然属于 \texttt{AAuraPlayerController}，哪怕你后面执行了
+\[ \texttt{AttachToComponent(TargetCharacter->GetRootComponent(), ...)} \]
+它也只是“附着到了目标角色的根组件上”，\textbf{并没有变成目标角色的组件}。于是会出现一种不自然的状态：
+\[ \texttt{GetOwner() = PlayerController,\quad AttachParent = TargetCharacter->GetRootComponent()} \]
+这对组件系统来说是别扭的：它显示在角色身上，但逻辑归属却在控制器上。很多组件相关行为（注册、世界上下文、销毁时机、Owner 相关逻辑）都更期待“归属 Actor”和“附着 Actor”一致。
+而当你写成：
+\[ \texttt{Outer = TargetCharacter} \]
+时，关系就顺了：
+\[ \texttt{GetOwner() = TargetCharacter} \]
+这表示它真的是目标角色的一个组件；注册、附着、跟随角色、角色销毁时一起清理，这些都符合引擎的组件模型。
+另外，你观察到的“设成 \texttt{TargetCharacter} 后服务端能显示，客户端不能显示”，\textbf{这不主要是 Outer 的问题，而是 RPC 发送范围的问题}。你现在的
+\[ \texttt{ShowDamageNumber()} \]
+是 \texttt{Client} RPC，它只会在\textbf{某个 PlayerController 对应的那台机器}上执行，不会自动让所有客户端都看到。所以：
+\begin{itemize} 
+	\item \texttt{Outer} 解决的是“这个组件归谁管”； 
+	\item “客户端看不看得到”更多是“这段代码在哪些机器上执行”的网络同步问题。 
+\end{itemize}
+一句话总结：
+\[ \boxed{\texttt{Outer} = \text{归属关系},\quad \texttt{Attach} = \text{场景关系},\quad \texttt{Owner} = \text{游戏/网络语义}} \]
+在你的场景里，\texttt{UDamageTextComponent} 既然是显示在 \texttt{TargetCharacter} 身上的临时组件，\textbf{Outer 就应该设为 \texttt{TargetCharacter}，而不是 \texttt{this}（PlayerController）}。
+
+
+\section{为什么 \texttt{Outer=this} 会影响显示}
+会影响。你的直觉对 \texttt{UObject} 来说基本成立，但\textbf{对组件（尤其是 \ci{UActorComponent}/\ci{USceneComponent}/\ci{UWidgetComponent}）来说，\ci{Outer} 不是纯粹的“命名空间”信息}，它会被引擎拿来推导这个组件到底\textbf{属于谁}。
+你这句代码里：
+ \begin{code}
+ NewObject<UDamageTextComponent>(Outer, DamageTextComponentClass)
+ \end{code} 
+当 \ci{Outer} 是一个 \ci{Actor} 时，引擎基本会把它理解成：
+ \ci{这个组件的 Owning Actor = Outer} 
+于是后面这一句：
+\[ \texttt{DamageTextComponent->RegisterComponent();} \]
+就不只是“注册一下”这么简单了，它会连带决定很多事情，比如：
+ \ci{GetOwner()}, \ci{GetWorld()}, \ci{OwnedComponents}, \ci{RenderState}, \ci{Bounds}……。
+也就是说，\textbf{显示不是由 \ci{Outer} 直接控制的，但显示依赖的那套组件注册与渲染链条，会用到 \ci{Outer}}。
+如果你写：
+\[ \texttt{Outer = this} \]
+这里的 \ci{this} 是 \ci{AAuraPlayerController}，那引擎会认为：
+\[ \texttt{DamageTextComponent 属于 PlayerController} \]
+但你的组件随后又被附着到：
+ \ci{TargetCharacter->GetRootComponent()} 
+于是就变成了：
+\[ \texttt{Owner = PlayerController,\quad AttachParent = TargetCharacterRoot} \]
+这是一种“\textbf{归属在 A，空间上挂在 B}”的状态。理论上不一定永远非法，但它\textbf{不是这类可视组件的自然用法}。很多内部逻辑默认“这个场景组件属于正在显示它的那个 Actor”，所以一旦 Owner 和 AttachParent 脱节，就可能在注册、渲染状态建立、可见性判断、边界计算等环节表现异常。
+如果你写：
+\[ \texttt{Outer = TargetCharacter} \]
+那么组件的归属和附着目标就统一了：
+\[ \texttt{Owner = TargetCharacter,\quad AttachParent = TargetCharacterRoot} \]
+这时它才真正是“\textbf{目标角色的一个运行时组件}”，于是：
+\begin{itemize} 
+	\item 注册时按目标角色的上下文进入世界； 
+	\item 作为目标角色的组件参与渲染相关流程； 
+	\item 位置、边界、生命周期都和目标角色一致。 
+\end{itemize}
+所以它就按你的预期工作了。
+最关键的一句话是：
+\[\boxed{\texttt{Outer} \text{ 对普通 UObject 常偏向“归属/GC/路径”意义；但对 Component，它还会间接决定 Owner 与注册上下文。}} \]
+因此你感觉“\ci{Outer} 不该影响显示”，这句话对普通 \ci{UObject} 更接近正确；但\textbf{对组件并不成立}。
+组件能不能正常显示，往往不只取决于“有没有 Attach 上去”，还取决于：
+ \textbf{它到底被引擎当成是谁的组件} 
+而这件事，\ci{Outer} 正在参与决定。
+你这个例子里，可以把区别记成：
+\[ \texttt{AttachToComponent} \Rightarrow \text{挂在哪里} \]
+\[ \texttt{Outer} \Rightarrow \text{这个组件本质上归谁} \]
+对 \ci{UDamageTextComponent} 这种显示在角色头顶的组件，正确答案就是：
+\[ \boxed{\texttt{归 TargetCharacter，挂 TargetCharacter}} \]
+而不是：
+\[ \texttt{归 PlayerController，挂 TargetCharacter} \]
+这就是为什么把 \ci{Outer} 设成 \ci{TargetCharacter} 后，事情就“突然都对了”。	
+
+
+\section{为什么 \texttt{Outer = PlayerController} 会导致 \texttt{DamageText} 不显示}
+是的，如果\ci{Outer == PlayerController}，\ci{Widget}组件就会不显示。\textbf{问题在于}：\ci{UDamageTextComponent} 不是普通 \texttt{UObject}，它是\emph{可渲染}的 \ci{UWidgetComponent}\sn{属于 \texttt{UPrimitiveComponent} 体系}。
+
+对这类组件来说，\texttt{Outer} 不只是“归属信息”，它会决定这个组件的 \textbf{Owner Actor 是谁}；而 \textbf{渲染时会参考 Owner 的可见性状态}。
+
+下段代码，真正的区别是：
+ \ci{NewObject<UDamageTextComponent>(this, DamageTextComponentClass)}
+会得到：
+\ci{DamageTextComponent->GetOwner() == PlayerController}
+
+而
+ \ci{NewObject<UDamageTextComponent>(TargetCharacter, DamageTextComponentClass)}
+会得到：
+\ci{DamageTextComponent->GetOwner() == TargetCharacter}
+
+关键点在这里：
+\begin{enumerate}
+	 \item \ci{AttachToComponent(TargetCharacter->GetRootComponent(), ...)} 只决定\textbf{挂在哪} 
+	 \item 它\textbf{不会}把组件的 \texttt{Owner} 改成 \texttt{TargetCharacter}
+	 \item \ci{UWidgetComponent} 这种可渲染组件，显示时会看 \textbf{Owner Actor 的状态} 
+\end{enumerate}
+而 \texttt{PlayerController} / \texttt{Controller} 恰恰是个\textbf{特殊 Actor}：它不是拿来承载场景可视组件的，默认就是“控制逻辑对象”，不是“世界里的可见实体”。
+最典型的一点是：\textbf{\texttt{AController} 默认就是 hidden 的}。所以当 \texttt{DamageTextComponent} 的 Owner 是 \texttt{PlayerController} 时，它虽然空间上挂到了 \texttt{TargetCharacter} 身上，但渲染上仍然被当成“属于一个 hidden 的 Actor 的组件”，结果就是\textbf{不画出来}。
+所以问题可以非常明确地说成：
+\[ \boxed{\texttt{Outer} \rightarrow \texttt{决定 Owner} \rightarrow \texttt{Owner 的 hidden/可见性状态影响 } \texttt{UWidgetComponent 的渲染}} \]
+也就是：
+\[ \texttt{Outer = this} \]
+\[ \texttt{Owner = PlayerController} \]
+\[ \texttt{PlayerController 是 hidden / 非场景可视 Actor} \]
+\[ \Rightarrow \texttt{DamageText 不显示} \]
+而：
+\[ \texttt{Outer = TargetCharacter} \]
+\[ \texttt{Owner = TargetCharacter} \]
+\[ \texttt{TargetCharacter 是正常场景 Actor} \]
+\[ \Rightarrow \texttt{DamageText 正常显示} \]
+你可以直接打日志验证这一点：
+\begin{code}
+UE_LOG(LogTemp, Warning, TEXT("Owner: %s, Hidden: %d, AttachRoot: %s"),
+*GetNameSafe(DamageTextComponent->GetOwner()),
+DamageTextComponent->GetOwner() ? DamageTextComponent->GetOwner()->IsHidden() : -1,
+*GetNameSafe(DamageTextComponent->GetAttachmentRootActor()));
+\end{code}
+如果 \texttt{Outer = this}，你大概率会看到类似：
+\[ \texttt{Owner: AuraPlayerController\_C\_0, Hidden: 1, AttachRoot: AuraEnemy\_C\_2} \]
+这就把问题钉死了：
+\begin{itemize} 
+	\item \textbf{AttachRoot 是敌人} 
+	\item \textbf{但 Owner 是隐藏的 PlayerController} 
+	\item \textbf{渲染看的是 Owner，不是只看 AttachRoot} 
+\end{itemize}
+所以你原来的理解“\texttt{Outer} 不该影响显示”对\textbf{普通 \texttt{UObject}}是对的；
+但对 \textbf{\texttt{UWidgetComponent} 这种要进渲染管线的组件}，就不对了。
 \end{document}

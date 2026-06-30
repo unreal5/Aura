@@ -20,7 +20,7 @@ struct FEffectProperties
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	AActor* SourceAvatarActor = nullptr;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	APlayerController* SourcePlayerController = nullptr;
+	AController* SourceController = nullptr;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	ACharacter* SourceCharacter = nullptr;
 	// Target info
@@ -29,7 +29,7 @@ struct FEffectProperties
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	AActor* TargetAvatarActor = nullptr;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	APlayerController* TargetPlayerController = nullptr;
+	AController* TargetController = nullptr;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	ACharacter* TargetCharacter = nullptr;
 	// Effect context
@@ -185,4 +185,6 @@ private:
 
 
 	void GatherEffectProperties(const FGameplayEffectModCallbackData& Data, FEffectProperties& OutProps) const;
+	
+	void ShowFloatingText(const FEffectProperties& EffectProperties, float Damage) const;
 };
